@@ -6,7 +6,18 @@
 
 A harness for stress-testing local LLMs on **real agentic coding work** — not trivia, not math puzzles.
 
-Point it at any OpenAI-compatible endpoint, run the suite, and find out if your model can actually use tools, stay in scope, and not hallucinate fixes.
+Point it at a locally-running model (Ollama, llama.cpp, LM Studio, vLLM, or any server with an OpenAI-compatible API), run the suite, and find out if your model can actually use tools, stay in scope, and not hallucinate fixes.
+
+**Sample run (4 scenarios, lite prompt, local runtime):**
+
+```
+SB-01  fix-throttle         surgical-edit       partial  1/2  ✗ throttle logic incomplete
+SB-02  audit-server         audit               pass     2/2
+SB-03  surgical-edit        scope-discipline    pass     2/2
+SB-04  read-only-analysis   read-only-analysis  pass     2/2
+
+Score: 7/8 (87.5%)  →  results/1776383086009-local-lite.json
+```
 
 ---
 
@@ -78,7 +89,7 @@ Edit `scaffold.config.json`:
 }
 ```
 
-The `endpoint` can be bare — the runtime appends `/v1/chat/completions`. Works with Ollama, llama.cpp server, LM Studio, vLLM, or anything OpenAI-compatible.
+Set `endpoint` to your server's base URL — the harness appends `/v1/chat/completions` automatically. Common defaults: Ollama runs on `11434`, llama.cpp server on `8080`, LM Studio on `1234`.
 
 ---
 
@@ -179,6 +190,4 @@ Implement the `Runtime` interface from `lib/runtimes/types.ts`, register it in t
 
 ## Roadmap
 
-- **Phase B** — TUI polish
-- **Phase C** — 16 scenarios across 5 categories ✓
-- **Phase D** — BenchPack + Docker verifier
+- TUI polish
