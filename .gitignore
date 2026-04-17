@@ -4,6 +4,7 @@ node_modules
 # Build output
 results/*
 !results/.gitkeep
+results/.probe-cache.json
 
 # Environment / secrets
 env/
@@ -18,3 +19,7 @@ specs/
 # Editor
 .DS_Store
 .vscode/
+
+#misc
+.codex
+.claude
