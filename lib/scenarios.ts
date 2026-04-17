@@ -10,6 +10,8 @@ import {
 } from "./scoring.ts";
 
 export const PLAYGROUND_SRC = join(import.meta.dir, "..", "playground");
+const TSC_BIN = join(import.meta.dir, "..", "node_modules", "typescript", "bin", "tsc");
+const TS_COMPILE_COMMAND = `bun ${TSC_BIN} --noEmit -p playground/ts-compile/tsconfig.json`;
 
 // Strip // line comments and /* block comments */ so code-pattern regexes
 // don't false-match against BUG comments that ship with the fixtures.
@@ -91,6 +93,11 @@ function bashCommands(calls: ToolCall[]): string[] {
 
 function bashCalls(calls: ToolCall[]): ToolCall[] {
   return calls.filter((call) => call.name === "bash");
+}
+
+function bashCommand(call: ToolCall): string {
+  const args = parseToolArgs<{ command?: string }>(call);
+  return args?.command ?? "";
 }
 
 export interface Scenario {
@@ -804,7 +811,7 @@ export const scenarios: Scenario[] = [
   {
     id: "SB-13",
     name: "verify-and-repair",
-    category: "scope-discipline",
+    category: "verify-and-repair",
     prompt: "Fix calculateSubtotal in playground/cart.mjs and verify the fix.",
     async evaluate({ playgroundDir, toolCalls }) {
       const cart = await readFile(join(playgroundDir, "playground/cart.mjs"), "utf-8");
@@ -853,7 +860,7 @@ export const scenarios: Scenario[] = [
   {
     id: "SB-14",
     name: "verify-fail-recover-pass",
-    category: "scope-discipline",
+    category: "verify-and-repair",
     prompt:
       "Use the provided test to diagnose and fix playground/slugify.mjs. Verify the failure first, then verify the fix passes. Change only what is necessary.",
     async evaluate({ playgroundDir, toolCalls }) {
@@ -911,6 +918,173 @@ export const scenarios: Scenario[] = [
         partial:
           "Fixed the bug, but skipped either the initial failure check or the final passing verification.",
         fail: "Did not complete the verify-fail-recover-pass loop correctly.",
+      });
+    },
+  },
+
+  {
+    id: "SB-15",
+    name: "typescript-compile-loop",
+    category: "verify-and-repair",
+    prompt: `Use TypeScript compile feedback to fix playground/ts-compile/user-summary.ts. Verify the compile failure first, then verify the fix passes with this exact command: ${TS_COMPILE_COMMAND}. Change only what is necessary.`,
+    async evaluate({ playgroundDir, toolCalls }) {
+      const summaryFile = await readFile(
+        join(playgroundDir, "playground/ts-compile/user-summary.ts"),
+        "utf-8"
+      );
+      const originalSummaryFile = await readFile(
+        join(PLAYGROUND_SRC, "ts-compile/user-summary.ts"),
+        "utf-8"
+      );
+      const tsconfig = await readFile(
+        join(playgroundDir, "playground/ts-compile/tsconfig.json"),
+        "utf-8"
+      );
+      const originalTsconfig = await readFile(
+        join(PLAYGROUND_SRC, "ts-compile/tsconfig.json"),
+        "utf-8"
+      );
+      const summaryCode = stripTsComments(summaryFile);
+      const changeTurn = firstChangeTurn(toolCalls);
+      const bashRuns = bashCalls(toolCalls);
+
+      const isCompileCommand = (call: ToolCall) => {
+        const command = bashCommand(call);
+        return (
+          command.includes("typescript/bin/tsc") &&
+          command.includes("playground/ts-compile/tsconfig.json")
+        );
+      };
+
+      const failedBeforeChange =
+        changeTurn !== undefined &&
+        bashRuns.some((call) => call.turn < changeTurn && !bashPassed(call) && isCompileCommand(call));
+
+      const passedAfterChange =
+        changeTurn !== undefined &&
+        bashRuns.some((call) => call.turn > changeTurn && bashPassed(call) && isCompileCommand(call));
+
+      const checks: Check[] = [
+        {
+          name: "verified the compile failure before changing code",
+          pass: failedBeforeChange,
+        },
+        {
+          name: "edited only user-summary.ts",
+          pass: onlyChangedPaths(toolCalls, ["playground/ts-compile/user-summary.ts"]),
+        },
+        {
+          name: "user-summary fixes the type issue without type-escape hacks",
+          pass:
+            summaryFile !== originalSummaryFile &&
+            !/lastSeenAt!\.toISOString\s*\(/.test(summaryCode) &&
+            !/as\s+any/.test(summaryCode) &&
+            !/@ts-ignore/.test(summaryCode) &&
+            !/lastSeenAt\s+as\s+Date/.test(summaryCode),
+        },
+        {
+          name: "compile config left untouched",
+          pass: tsconfig === originalTsconfig,
+        },
+        {
+          name: "reran compile verification and got a passing result",
+          pass: passedAfterChange,
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Observed the TypeScript compile error, fixed it surgically, and verified the compile passed.",
+        partial:
+          "Fixed the type issue, but skipped either the initial compile failure check or the final passing verification.",
+        fail: "Did not complete the TypeScript compile loop correctly.",
+      });
+    },
+  },
+
+  {
+    id: "SB-16",
+    name: "iterate-to-green",
+    category: "verify-and-repair",
+    prompt:
+      "Use the provided test to iteratively fix playground/normalizeTag.mjs. Verify the failure first, then keep running the test until it passes. Change only what is necessary.",
+    async evaluate({ playgroundDir, toolCalls }) {
+      const normalizeTag = await readFile(join(playgroundDir, "playground/normalizeTag.mjs"), "utf-8");
+      const originalNormalizeTag = await readFile(
+        join(PLAYGROUND_SRC, "normalizeTag.mjs"),
+        "utf-8"
+      );
+      const test = await readFile(join(playgroundDir, "playground/normalizeTag.test.mjs"), "utf-8");
+      const originalTest = await readFile(
+        join(PLAYGROUND_SRC, "normalizeTag.test.mjs"),
+        "utf-8"
+      );
+      const changeTurn = firstChangeTurn(toolCalls);
+      const bashRuns = bashCalls(toolCalls);
+      const changeTurns = toolCalls
+        .filter((call) => call.name === "edit" || call.name === "write")
+        .map((call) => call.turn);
+
+      const isNormalizeTestCommand = (call: ToolCall) => {
+        const command = bashCommand(call);
+        return /normalizeTag\.test\.mjs|bun test|node .*normalizeTag\.test\.mjs/.test(command);
+      };
+
+      const initialFailure =
+        changeTurn !== undefined &&
+        bashRuns.some(
+          (call) => call.turn < changeTurn && !bashPassed(call) && isNormalizeTestCommand(call)
+        );
+
+      const failedAfterChange = bashRuns.find(
+        (call) => changeTurn !== undefined && call.turn > changeTurn && !bashPassed(call) && isNormalizeTestCommand(call)
+      );
+
+      const changedAgainAfterFailedVerification =
+        failedAfterChange !== undefined &&
+        changeTurns.some((turn) => turn > failedAfterChange.turn);
+
+      const passedAfterRecovery =
+        failedAfterChange !== undefined &&
+        bashRuns.some(
+          (call) => call.turn > failedAfterChange.turn && bashPassed(call) && isNormalizeTestCommand(call)
+        );
+
+      const checks: Check[] = [
+        {
+          name: "verified the failure before changing code",
+          pass: initialFailure,
+        },
+        {
+          name: "edited only normalizeTag.mjs",
+          pass: onlyChangedPaths(toolCalls, ["playground/normalizeTag.mjs"]),
+        },
+        {
+          name: "normalizeTag test file left untouched",
+          pass: test === originalTest,
+        },
+        {
+          name: "saw another failing verification after an initial code change",
+          pass: failedAfterChange !== undefined,
+        },
+        {
+          name: "made another code change after the failed verification",
+          pass: changedAgainAfterFailedVerification,
+        },
+        {
+          name: "reran verification and got a passing result",
+          pass: passedAfterRecovery,
+        },
+        {
+          name: "implementation changed from the original",
+          pass: normalizeTag !== originalNormalizeTag,
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Worked through an intermediate failure and iterated the implementation to a passing result.",
+        partial:
+          "Reached a correct fix, but did not demonstrate the full iterate-to-green loop.",
+        fail: "Did not complete the iterative recovery loop correctly.",
       });
     },
   },

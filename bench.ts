@@ -43,7 +43,7 @@ if (activeScenarios.length === 0) {
   process.exit(1);
 }
 
-const categories: Category[] = ["surgical-edit", "audit", "scope-discipline", "read-only-analysis"];
+const categories: Category[] = ["surgical-edit", "audit", "scope-discipline", "read-only-analysis", "verify-and-repair"];
 
 function countStatus(s: "pass" | "partial" | "fail", rs: ScenarioResult[]): number {
   return rs.filter((r) => r.evaluation.status === s).length;

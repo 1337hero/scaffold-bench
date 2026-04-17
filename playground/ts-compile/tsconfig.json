@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  },
+  "include": ["user-summary.ts"]
+}
