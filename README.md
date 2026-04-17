@@ -33,7 +33,7 @@ Score: 7/8 (87.5%)  →  results/1776383086009-local-lite.json
 
 Each scenario gives the model a real task and a real codebase. It has access to seven tools — `read`, `ls`, `grep`, `glob`, `edit`, `write`, `bash` — and a timeout. The harness watches what it does and scores the result with deterministic, code-driven checks. No LLM judge.
 
-**Five scenario categories:**
+**Six scenario categories:**
 
 | Category | What it probes |
 |---|---|
@@ -42,8 +42,9 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | `scope-discipline` | Make the requested change. Nothing else. Not even "while I'm in here..." |
 | `read-only-analysis` | Answer a question about the code. Don't reach for the edit tool. |
 | `verify-and-repair` | Close the loop: reproduce the failure, fix it, verify the result, and recover if needed. |
+| `implementation` | Read a spec, build the feature. Multi-file spec-to-code against an existing fixture stack. |
 
-**Current scenarios (16 total):**
+**Current scenarios (21 total):**
 
 | ID | Name | Category | Task |
 |---|---|---|---|
@@ -63,6 +64,13 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | SB-14 | verify-fail-recover-pass | verify-and-repair | Run the failing slugify test first, fix the bug, then rerun to green. |
 | SB-15 | typescript-compile-loop | verify-and-repair | Fix a strict-null TypeScript error and verify with `tsc --noEmit`. |
 | SB-16 | iterate-to-green | verify-and-repair | Work through an intermediate failing test run and iterate until green. |
+| SB-17 | hono-admin-password-reset | implementation | Implement admin password reset flow (new table, two routes, session invalidation). |
+| SB-18 | hono-cursor-pagination | implementation | Add opaque cursor pagination to `GET /items` with validation + limit cap. |
+| SB-19 | hono-audit-log | implementation | Add `audit_events` table, `logAudit` helper, and admin role-update route. |
+| SB-20 | hono-soft-delete-restore | implementation | Use the existing `deleted_at` column to build `POST /items/:id/restore`. |
+| SB-21 | hono-fix-n-plus-1 | implementation | Replace per-row owner query in `GET /items` with a single JOIN. |
+
+The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`. The model reads the spec, writes the feature, and is evaluated on structural checks (files, exports, patterns, and non-modification of unrelated handlers).
 
 ---
 

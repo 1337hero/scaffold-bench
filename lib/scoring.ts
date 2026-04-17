@@ -3,7 +3,8 @@ export type Category =
   | "audit"
   | "scope-discipline"
   | "read-only-analysis"
-  | "verify-and-repair";
+  | "verify-and-repair"
+  | "implementation";
 
 export type ScenarioStatus = "pass" | "partial" | "fail";
 
