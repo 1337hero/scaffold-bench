@@ -27,12 +27,26 @@ export interface ScenarioEvaluation {
   summary: string;
 }
 
+export interface ModelMetrics {
+  model?: string;
+  requestCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  totalRequestTimeMs: number;
+  promptEvalTokens?: number;
+  promptEvalTimeMs?: number;
+  completionEvalTokens?: number;
+  completionEvalTimeMs?: number;
+}
+
 export interface RuntimeOutput {
   stdout: string;
   stderr?: string;
   toolCalls: ToolCall[];
   wallTimeMs: number;
   error?: "TIMEOUT" | "CRASH" | string;
+  modelMetrics?: ModelMetrics;
 }
 
 export interface ScenarioResult {
@@ -133,4 +147,63 @@ export function checksToEvaluation(
     return { status: "partial", points: 1, checks, summary: labels.partial };
   }
   return { status: "fail", points: 0, checks, summary: labels.fail };
+}
+
+export function mergeModelMetrics(metrics: Array<ModelMetrics | undefined>): ModelMetrics | undefined {
+  const defined = metrics.filter((metric): metric is ModelMetrics => metric !== undefined);
+  if (defined.length === 0) return undefined;
+
+  const models = [...new Set(defined.map((metric) => metric.model).filter(Boolean))];
+  let promptEvalTokens = 0;
+  let promptEvalTimeMs = 0;
+  let completionEvalTokens = 0;
+  let completionEvalTimeMs = 0;
+  let hasPromptTiming = false;
+  let hasCompletionTiming = false;
+
+  for (const metric of defined) {
+    if (metric.promptEvalTokens !== undefined && metric.promptEvalTimeMs !== undefined) {
+      promptEvalTokens += metric.promptEvalTokens;
+      promptEvalTimeMs += metric.promptEvalTimeMs;
+      hasPromptTiming = true;
+    }
+    if (metric.completionEvalTokens !== undefined && metric.completionEvalTimeMs !== undefined) {
+      completionEvalTokens += metric.completionEvalTokens;
+      completionEvalTimeMs += metric.completionEvalTimeMs;
+      hasCompletionTiming = true;
+    }
+  }
+
+  return {
+    model: models.length === 1 ? models[0] : undefined,
+    requestCount: defined.reduce((sum, metric) => sum + metric.requestCount, 0),
+    promptTokens: defined.reduce((sum, metric) => sum + metric.promptTokens, 0),
+    completionTokens: defined.reduce((sum, metric) => sum + metric.completionTokens, 0),
+    totalTokens: defined.reduce((sum, metric) => sum + metric.totalTokens, 0),
+    totalRequestTimeMs: defined.reduce((sum, metric) => sum + metric.totalRequestTimeMs, 0),
+    ...(hasPromptTiming ? { promptEvalTokens, promptEvalTimeMs } : {}),
+    ...(hasCompletionTiming ? { completionEvalTokens, completionEvalTimeMs } : {}),
+  };
+}
+
+export function promptTokensPerSecond(metrics: ModelMetrics): number | undefined {
+  if (
+    metrics.promptEvalTokens === undefined ||
+    metrics.promptEvalTimeMs === undefined ||
+    metrics.promptEvalTimeMs <= 0
+  ) {
+    return undefined;
+  }
+  return metrics.promptEvalTokens / (metrics.promptEvalTimeMs / 1000);
+}
+
+export function completionTokensPerSecond(metrics: ModelMetrics): number | undefined {
+  if (
+    metrics.completionEvalTokens === undefined ||
+    metrics.completionEvalTimeMs === undefined ||
+    metrics.completionEvalTimeMs <= 0
+  ) {
+    return undefined;
+  }
+  return metrics.completionEvalTokens / (metrics.completionEvalTimeMs / 1000);
 }

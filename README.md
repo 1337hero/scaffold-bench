@@ -70,6 +70,14 @@ Each scenario defines its own `Check[]` — regex matches, AST-ish function extr
 
 Results write to `results/{timestamp}-{runtime}-{mode}.json`.
 
+**Model metrics** are aggregated from real benchmark traffic — no warm-up probe. If the server exposes token usage, the final dashboard and results JSON include:
+
+- `totalPromptTokens` / `totalCompletionTokens` — summed across all requests
+- `totalRequests` — number of completions made
+- `promptTokensPerSecond` / `completionTokensPerSecond` — only present if the server returns timing metadata (e.g. llama.cpp's `x-inference-time` or equivalent)
+
+These appear in the run-level `modelMetrics` key and per-scenario in each result entry. Servers that only expose token counts (no timing) will populate the token fields but omit the speed lines.
+
 ---
 
 ## Setup
@@ -134,6 +142,8 @@ SCAFFOLD_API_KEY=optional-bearer-token
 When stdout is a TTY, you get a live split-pane view: scenario list on the left, active scenario details + tool activity on the right. Misses surface in real-time. Final scores and a path to the JSON results appear when the run completes.
 
 Non-TTY (CI, pipes) falls back to plain line-by-line output.
+
+When timing data is available, the final summary also shows aggregate prompt tokens, completion tokens, and prompt / generation throughput for the full run.
 
 ---
 

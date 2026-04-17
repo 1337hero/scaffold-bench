@@ -1,5 +1,10 @@
 import type { RuntimeEvent } from "./runtimes/types.ts";
-import type { Category, ScenarioResult, ScenarioStatus, ToolCall } from "./scoring.ts";
+import {
+  completionTokensPerSecond,
+  mergeModelMetrics,
+  promptTokensPerSecond,
+} from "./scoring.ts";
+import type { Category, ModelMetrics, ScenarioResult, ScenarioStatus, ToolCall } from "./scoring.ts";
 
 const CATEGORIES: Category[] = [
   "surgical-edit",
@@ -21,6 +26,7 @@ type DashboardRenderState = {
   maxPoints?: number;
   totalTime?: number;
   totalTools?: number;
+  modelMetrics?: ModelMetrics;
 };
 
 export type ScenarioViewSeed = {
@@ -124,6 +130,7 @@ export class BenchDashboard {
     maxPoints: number;
     totalTime: number;
     totalTools: number;
+    modelMetrics?: ModelMetrics;
   }): void {
     this.render({
       runtimeName: this.runtimeName,
@@ -137,6 +144,7 @@ export class BenchDashboard {
       maxPoints: summary.maxPoints,
       totalTime: summary.totalTime,
       totalTools: summary.totalTools,
+      modelMetrics: summary.modelMetrics,
     });
   }
 
@@ -272,6 +280,10 @@ function renderActiveDetails(
 
 function renderFinalDetails(state: DashboardRenderState, width: number, height: number): string[] {
   const results = state.scenarios.flatMap((scenario) => (scenario.result ? [scenario.result] : []));
+  const modelMetrics =
+    state.modelMetrics ?? mergeModelMetrics(results.map((result) => result.output.modelMetrics));
+  const promptTps = modelMetrics ? promptTokensPerSecond(modelMetrics) : undefined;
+  const completionTps = modelMetrics ? completionTokensPerSecond(modelMetrics) : undefined;
   const lines = [
     "Final Results",
     "",
@@ -284,9 +296,26 @@ function renderFinalDetails(state: DashboardRenderState, width: number, height: 
       `tools=${state.totalTools ?? totalToolCalls(state.scenarios)}  time=${formatDuration(state.totalTime ?? 0)}`,
       width
     ),
-    "",
-    "Categories",
   ];
+
+  if (modelMetrics) {
+    lines.push(
+      fit(
+        `prompt=${modelMetrics.promptTokens} tok${promptTps !== undefined ? ` @ ${promptTps.toFixed(1)} t/s` : ""}`,
+        width
+      ),
+      fit(
+        `gen=${modelMetrics.completionTokens} tok${completionTps !== undefined ? ` @ ${completionTps.toFixed(1)} t/s` : ""}`,
+        width
+      ),
+      fit(
+        `${modelMetrics.model ? `model=${modelMetrics.model}  ` : ""}calls=${modelMetrics.requestCount}`,
+        width
+      )
+    );
+  }
+
+  lines.push("", "Categories");
 
   for (const category of CATEGORIES) {
     const rows = results.filter((result) => result.category === category);

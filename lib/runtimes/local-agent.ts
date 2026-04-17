@@ -2,7 +2,7 @@ import { spawn } from "bun";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import type { RuntimeOutput, ToolCall } from "../scoring.ts";
+import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
 import type { Runtime, RuntimeContext } from "./types.ts";
 
 const PROJECT_ROOT = join(import.meta.dir, "..", "..");
@@ -48,6 +48,24 @@ type ChatResponse = {
   error?: {
     message?: string;
   };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  timings?: {
+    prompt_n?: number;
+    prompt_ms?: number;
+    prompt_per_second?: number;
+    predicted_n?: number;
+    predicted_ms?: number;
+    predicted_per_second?: number;
+  };
+  prompt_eval_count?: number;
+  prompt_eval_duration?: number;
+  eval_count?: number;
+  eval_duration?: number;
+  total_duration?: number;
 };
 
 type RuntimeTool = {
@@ -362,6 +380,17 @@ Rules:
 
 const toolRegistry = new Map(tools.map((tool) => [tool.name, tool]));
 
+type ModelCallMetrics = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  totalRequestTimeMs: number;
+  promptEvalTokens?: number;
+  promptEvalTimeMs?: number;
+  completionEvalTokens?: number;
+  completionEvalTimeMs?: number;
+};
+
 // Built-in local runtime for OpenAI-compatible chat-completions endpoints.
 export const localRuntime: Runtime = {
   name: "local",
@@ -372,6 +401,7 @@ export const localRuntime: Runtime = {
     const conversation: ChatMessage[] = [];
     const transcript: string[] = [];
     const toolCalls: ToolCall[] = [];
+    const modelMetrics = createModelMetrics(DEFAULT_MODEL);
 
     if (systemPrompt && ctx.mode !== "none") {
       conversation.push({ role: "system", content: systemPrompt });
@@ -380,13 +410,20 @@ export const localRuntime: Runtime = {
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       if (performance.now() >= deadline) {
-        return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT");
+        return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT", modelMetrics);
       }
 
       const reply = await callModel(conversation, deadline);
+      applyModelCallMetrics(modelMetrics, reply.metrics);
       const message = reply.message;
       if (!message) {
-        return finishRuntime(transcript, toolCalls, startedAt, "CRASH: missing assistant message");
+        return finishRuntime(
+          transcript,
+          toolCalls,
+          startedAt,
+          "CRASH: missing assistant message",
+          modelMetrics
+        );
       }
 
       conversation.push(message);
@@ -397,7 +434,7 @@ export const localRuntime: Runtime = {
       }
 
       if (reply.finishReason !== "tool_calls" || !message.tool_calls?.length) {
-        return finishRuntime(transcript, toolCalls, startedAt);
+        return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics);
       }
 
       for (const call of message.tool_calls) {
@@ -422,15 +459,16 @@ export const localRuntime: Runtime = {
     }
 
     transcript.push(`guard: hit ${MAX_TOOL_ITERATIONS} tool iterations, stopping`);
-    return finishRuntime(transcript, toolCalls, startedAt);
+    return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics);
   },
 };
 
 async function callModel(
   conversation: ChatMessage[],
   deadline: number
-): Promise<{ finishReason: FinishReason; message?: ChatMessage }> {
+): Promise<{ finishReason: FinishReason; message?: ChatMessage; metrics: ModelCallMetrics }> {
   const remainingMs = Math.max(1, Math.ceil(deadline - performance.now()));
+  const requestStartedAt = performance.now();
   const payload = JSON.stringify({
     model: DEFAULT_MODEL,
     messages: conversation,
@@ -476,6 +514,7 @@ async function callModel(
     }
 
     const parsed = parseChatResponse(stdout);
+    const requestFinishedAt = performance.now();
     if (parsed.error?.message) {
       throw new Error(parsed.error.message);
     }
@@ -488,6 +527,7 @@ async function callModel(
     return {
       finishReason: choice.finish_reason ?? "stop",
       message: choice.message,
+      metrics: extractModelCallMetrics(parsed, requestFinishedAt - requestStartedAt),
     };
   } catch (error) {
     if (error instanceof Error && /timed out/i.test(error.message)) {
@@ -514,12 +554,14 @@ function finishRuntime(
   stdoutLines: string[],
   toolCalls: ToolCall[],
   startedAt: number,
-  error?: string
+  error?: string,
+  modelMetrics?: ModelMetrics
 ): RuntimeOutput {
   return {
     stdout: stdoutLines.join("\n"),
     toolCalls,
     wallTimeMs: Math.round(performance.now() - startedAt),
+    ...(modelMetrics ? { modelMetrics } : {}),
     ...(error ? { error } : {}),
   };
 }
@@ -596,9 +638,18 @@ function parseChatResponse(raw: string): ChatResponse {
 
   const choicesValue = parsed.choices;
   const errorValue = parsed.error;
+  const usageValue = parsed.usage;
+  const timingsValue = parsed.timings;
   return {
     choices: choicesValue === undefined ? undefined : parseChoices(choicesValue),
     error: errorValue === undefined ? undefined : parseErrorPayload(errorValue),
+    usage: usageValue === undefined ? undefined : parseUsage(usageValue),
+    timings: timingsValue === undefined ? undefined : parseTimings(timingsValue),
+    prompt_eval_count: getOptionalNumber(parsed, "prompt_eval_count"),
+    prompt_eval_duration: getOptionalNumber(parsed, "prompt_eval_duration"),
+    eval_count: getOptionalNumber(parsed, "eval_count"),
+    eval_duration: getOptionalNumber(parsed, "eval_duration"),
+    total_duration: getOptionalNumber(parsed, "total_duration"),
   };
 }
 
@@ -622,6 +673,31 @@ function parseErrorPayload(value: unknown): { message?: string } {
     throw new Error("model response error must be an object");
   }
   return { message: getOptionalString(value, "message") };
+}
+
+function parseUsage(value: unknown): NonNullable<ChatResponse["usage"]> {
+  if (!isRecord(value)) {
+    throw new Error("model response usage must be an object");
+  }
+  return {
+    prompt_tokens: getOptionalNumber(value, "prompt_tokens"),
+    completion_tokens: getOptionalNumber(value, "completion_tokens"),
+    total_tokens: getOptionalNumber(value, "total_tokens"),
+  };
+}
+
+function parseTimings(value: unknown): NonNullable<ChatResponse["timings"]> {
+  if (!isRecord(value)) {
+    throw new Error("model response timings must be an object");
+  }
+  return {
+    prompt_n: getOptionalNumber(value, "prompt_n"),
+    prompt_ms: getOptionalNumber(value, "prompt_ms"),
+    prompt_per_second: getOptionalNumber(value, "prompt_per_second"),
+    predicted_n: getOptionalNumber(value, "predicted_n"),
+    predicted_ms: getOptionalNumber(value, "predicted_ms"),
+    predicted_per_second: getOptionalNumber(value, "predicted_per_second"),
+  };
 }
 
 function parseChatMessage(value: unknown): ChatMessage {
@@ -734,4 +810,72 @@ function getOptionalNumber(source: JsonObject, key: string): number | undefined 
     throw new Error(`${key} must be a finite number`);
   }
   return value;
+}
+
+function createModelMetrics(model: string): ModelMetrics {
+  return {
+    model,
+    requestCount: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    totalRequestTimeMs: 0,
+  };
+}
+
+function applyModelCallMetrics(target: ModelMetrics, metrics: ModelCallMetrics): void {
+  target.requestCount += 1;
+  target.promptTokens += metrics.promptTokens;
+  target.completionTokens += metrics.completionTokens;
+  target.totalTokens += metrics.totalTokens;
+  target.totalRequestTimeMs += metrics.totalRequestTimeMs;
+
+  if (metrics.promptEvalTokens !== undefined && metrics.promptEvalTimeMs !== undefined) {
+    target.promptEvalTokens = (target.promptEvalTokens ?? 0) + metrics.promptEvalTokens;
+    target.promptEvalTimeMs = (target.promptEvalTimeMs ?? 0) + metrics.promptEvalTimeMs;
+  }
+
+  if (
+    metrics.completionEvalTokens !== undefined &&
+    metrics.completionEvalTimeMs !== undefined
+  ) {
+    target.completionEvalTokens =
+      (target.completionEvalTokens ?? 0) + metrics.completionEvalTokens;
+    target.completionEvalTimeMs =
+      (target.completionEvalTimeMs ?? 0) + metrics.completionEvalTimeMs;
+  }
+}
+
+function extractModelCallMetrics(
+  response: ChatResponse,
+  requestTimeMs: number
+): ModelCallMetrics {
+  const promptEvalTokens = response.timings?.prompt_n ?? response.prompt_eval_count;
+  const completionEvalTokens = response.timings?.predicted_n ?? response.eval_count;
+  const promptTokens = response.usage?.prompt_tokens ?? promptEvalTokens ?? 0;
+  const completionTokens = response.usage?.completion_tokens ?? completionEvalTokens ?? 0;
+  const totalTokens =
+    response.usage?.total_tokens ?? promptTokens + completionTokens;
+  const promptEvalTimeMs =
+    response.timings?.prompt_ms ?? durationNsToMs(response.prompt_eval_duration);
+  const completionEvalTimeMs =
+    response.timings?.predicted_ms ?? durationNsToMs(response.eval_duration);
+
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    totalRequestTimeMs: requestTimeMs,
+    ...(promptEvalTimeMs !== undefined && promptEvalTokens !== undefined
+      ? { promptEvalTokens, promptEvalTimeMs }
+      : {}),
+    ...(completionEvalTimeMs !== undefined
+      && completionEvalTokens !== undefined
+      ? { completionEvalTokens, completionEvalTimeMs }
+      : {}),
+  };
+}
+
+function durationNsToMs(value: number | undefined): number | undefined {
+  return value === undefined ? undefined : value / 1_000_000;
 }

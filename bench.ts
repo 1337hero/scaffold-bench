@@ -7,6 +7,11 @@ import { runScenario } from "./lib/orchestrator.ts";
 import { localRuntime } from "./lib/runtimes/local-agent.ts";
 import type { Runtime } from "./lib/runtimes/types.ts";
 import { scenarios } from "./lib/scenarios.ts";
+import {
+  completionTokensPerSecond,
+  mergeModelMetrics,
+  promptTokensPerSecond,
+} from "./lib/scoring.ts";
 import type { Category, ScenarioResult, ScenarioStatus } from "./lib/scoring.ts";
 
 const RUNTIMES: Record<string, Runtime> = {
@@ -68,6 +73,10 @@ function printPlainSummary(
   totalTools: number,
   outPath: string
 ): void {
+  const modelMetrics = mergeModelMetrics(results.map((result) => result.output.modelMetrics));
+  const promptTps = modelMetrics ? promptTokensPerSecond(modelMetrics) : undefined;
+  const completionTps = modelMetrics ? completionTokensPerSecond(modelMetrics) : undefined;
+
   console.log();
   console.log("━".repeat(72));
   console.log("  SUMMARY");
@@ -80,6 +89,14 @@ function printPlainSummary(
   );
   console.log(`  Tools:   ${totalTools} calls`);
   console.log(`  Time:    ${Math.round(totalTime / 1000)}s total`);
+  if (modelMetrics) {
+    if (modelMetrics.model) {
+      console.log(`  Model:   ${modelMetrics.model}`);
+    }
+    console.log(`  Prompt:  ${modelMetrics.promptTokens} tok${promptTps !== undefined ? `  @ ${promptTps.toFixed(1)} t/s` : ""}`);
+    console.log(`  Gen:     ${modelMetrics.completionTokens} tok${completionTps !== undefined ? `  @ ${completionTps.toFixed(1)} t/s` : ""}`);
+    console.log(`  Calls:   ${modelMetrics.requestCount} chat requests`);
+  }
   console.log();
   console.log("  By category:");
   for (const cat of categories) {
@@ -165,6 +182,7 @@ async function main(): Promise<void> {
     const maxPoints = results.length * 2;
     const totalTime = results.reduce((sum, r) => sum + r.output.wallTimeMs, 0);
     const totalTools = results.reduce((sum, r) => sum + r.output.toolCalls.length, 0);
+    const modelMetrics = mergeModelMetrics(results.map((result) => result.output.modelMetrics));
 
     const timestamp = Date.now();
     const resultsDir = join(import.meta.dir, "results");
@@ -179,6 +197,7 @@ async function main(): Promise<void> {
           mode,
           totalPoints,
           maxPoints,
+          modelMetrics,
           results: results.map((r) => ({
             scenarioId: r.scenarioId,
             category: r.category,
@@ -187,6 +206,7 @@ async function main(): Promise<void> {
             toolCallCount: r.output.toolCalls.length,
             wallTimeMs: r.output.wallTimeMs,
             error: r.output.error,
+            modelMetrics: r.output.modelMetrics,
             checks: r.evaluation.checks,
           })),
         },
@@ -202,6 +222,7 @@ async function main(): Promise<void> {
         maxPoints,
         totalTime,
         totalTools,
+        modelMetrics,
       });
       ui.finish();
       finished = true;
