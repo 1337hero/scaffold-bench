@@ -1,0 +1,20 @@
+# Dependencies
+node_modules
+
+# Build output
+results/*
+!results/.gitkeep
+
+# Environment / secrets
+env/
+.env*
+!.env.example
+!.env.sample
+
+# Working docs (not source-of-truth)
+docs/
+specs/
+
+# Editor
+.DS_Store
+.vscode/
