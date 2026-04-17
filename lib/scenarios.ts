@@ -1,7 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Category, Check, ScenarioEvaluation, ToolCall } from "./scoring.ts";
-import { checksToEvaluation, extractFunction, extractGoFunc, hasCall } from "./scoring.ts";
+import {
+  bashPassed,
+  checksToEvaluation,
+  extractFunction,
+  extractGoFunc,
+  hasCall,
+} from "./scoring.ts";
 
 export const PLAYGROUND_SRC = join(import.meta.dir, "..", "playground");
 
@@ -83,6 +89,10 @@ function bashCommands(calls: ToolCall[]): string[] {
     });
 }
 
+function bashCalls(calls: ToolCall[]): ToolCall[] {
+  return calls.filter((call) => call.name === "bash");
+}
+
 export interface Scenario {
   id: string;
   name: string;
@@ -119,7 +129,10 @@ export const scenarios: Scenario[] = [
           name: "read file before changing it (turn-ordered)",
           pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
-        { name: "used edit or write tool", pass: hasCall(toolCalls, "edit") || hasCall(toolCalls, "write") },
+        {
+          name: "used edit or write tool",
+          pass: hasCall(toolCalls, "edit") || hasCall(toolCalls, "write"),
+        },
         { name: "throttle differs from debounce", pass: throttleFn !== debounceFn },
         {
           name: "throttle has real throttle logic",
@@ -281,7 +294,10 @@ export const scenarios: Scenario[] = [
     prompt:
       "Fix the derived-state issue in playground/frontend/InventoryPanel.tsx. Keep the component shape and existing stack. Fix that issue only.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const current = await readFile(join(playgroundDir, "playground/frontend/InventoryPanel.tsx"), "utf-8");
+      const current = await readFile(
+        join(playgroundDir, "playground/frontend/InventoryPanel.tsx"),
+        "utf-8"
+      );
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/InventoryPanel.tsx"), "utf-8");
       const currentCode = stripTsComments(current);
       const readTurn = firstTurn(toolCalls, "read");
@@ -335,9 +351,18 @@ export const scenarios: Scenario[] = [
     prompt:
       "The page and child both fetch the same users data. Make playground/frontend/UsersPage.tsx own the query and pass the data into playground/frontend/UserTable.tsx. Keep the existing stack and do not refactor unrelated code.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const page = await readFile(join(playgroundDir, "playground/frontend/UsersPage.tsx"), "utf-8");
-      const table = await readFile(join(playgroundDir, "playground/frontend/UserTable.tsx"), "utf-8");
-      const client = await readFile(join(playgroundDir, "playground/frontend/apiClient.ts"), "utf-8");
+      const page = await readFile(
+        join(playgroundDir, "playground/frontend/UsersPage.tsx"),
+        "utf-8"
+      );
+      const table = await readFile(
+        join(playgroundDir, "playground/frontend/UserTable.tsx"),
+        "utf-8"
+      );
+      const client = await readFile(
+        join(playgroundDir, "playground/frontend/apiClient.ts"),
+        "utf-8"
+      );
       const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
       const pageCode = stripTsComments(page);
       const tableCode = stripTsComments(table);
@@ -351,11 +376,10 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "edited only UsersPage.tsx and UserTable.tsx",
-          pass:
-            onlyChangedPaths(toolCalls, [
-              "playground/frontend/UsersPage.tsx",
-              "playground/frontend/UserTable.tsx",
-            ]),
+          pass: onlyChangedPaths(toolCalls, [
+            "playground/frontend/UsersPage.tsx",
+            "playground/frontend/UserTable.tsx",
+          ]),
         },
         {
           name: "page owns the users query",
@@ -401,7 +425,10 @@ export const scenarios: Scenario[] = [
     prompt:
       "In playground/frontend/OrdersPanel.tsx, make the orders list refresh after approve succeeds. Only fix that. Do not rename exports, extract helpers, or reorganize the file.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const current = await readFile(join(playgroundDir, "playground/frontend/OrdersPanel.tsx"), "utf-8");
+      const current = await readFile(
+        join(playgroundDir, "playground/frontend/OrdersPanel.tsx"),
+        "utf-8"
+      );
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/OrdersPanel.tsx"), "utf-8");
       const code = stripTsComments(current);
       const readTurn = firstTurn(toolCalls, "read");
@@ -420,10 +447,9 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "approve mutation now invalidates orders query",
-          pass:
-            /const\s+approveOrder\s*=\s*useMutation\(\{[\s\S]*?onSuccess:\s*\(\)\s*=>\s*\{[\s\S]*?invalidateQueries\(\{\s*queryKey:\s*\[\s*"orders"\s*\]\s*\}\)/.test(
-              code
-            ),
+          pass: /const\s+approveOrder\s*=\s*useMutation\(\{[\s\S]*?onSuccess:\s*\(\)\s*=>\s*\{[\s\S]*?invalidateQueries\(\{\s*queryKey:\s*\[\s*"orders"\s*\]\s*\}\)/.test(
+            code
+          ),
         },
         {
           name: "export surface unchanged",
@@ -448,7 +474,8 @@ export const scenarios: Scenario[] = [
           name: "getEmptyMessage helper left untouched",
           pass:
             extractFunction(current, "getEmptyMessage") !== "" &&
-            extractFunction(current, "getEmptyMessage") === extractFunction(original, "getEmptyMessage"),
+            extractFunction(current, "getEmptyMessage") ===
+              extractFunction(original, "getEmptyMessage"),
         },
       ];
 
@@ -467,8 +494,14 @@ export const scenarios: Scenario[] = [
     prompt:
       "Finish playground/frontend/ActivityFeed.tsx using the existing frontend stack already established in playground/frontend. Keep the component shape. Do not introduce fetch, manual async state, or new client wrappers.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const current = await readFile(join(playgroundDir, "playground/frontend/ActivityFeed.tsx"), "utf-8");
-      const client = await readFile(join(playgroundDir, "playground/frontend/apiClient.ts"), "utf-8");
+      const current = await readFile(
+        join(playgroundDir, "playground/frontend/ActivityFeed.tsx"),
+        "utf-8"
+      );
+      const client = await readFile(
+        join(playgroundDir, "playground/frontend/apiClient.ts"),
+        "utf-8"
+      );
       const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
       const code = stripTsComments(current);
       const readTurn = firstTurn(toolCalls, "read");
@@ -516,7 +549,8 @@ export const scenarios: Scenario[] = [
 
       return checksToEvaluation(checks, {
         pass: "Implemented the feature with the established stack and no architecture drift.",
-        partial: "Implemented the feature, but with some unnecessary stack drift or extra machinery.",
+        partial:
+          "Implemented the feature, but with some unnecessary stack drift or extra machinery.",
         fail: "Did not use the established stack for data loading.",
       });
     },
@@ -529,10 +563,22 @@ export const scenarios: Scenario[] = [
     prompt:
       "I think there's a bug in playground/frontend/ReportsPage.tsx because playground/frontend/ReportsTable.tsx doesn't fetch its own data. Review both files. If there's a real bug, explain it, but do not change code unless necessary.",
     async evaluate({ playgroundDir, toolCalls, stdout }) {
-      const pageOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/ReportsPage.tsx"), "utf-8");
-      const tableOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/ReportsTable.tsx"), "utf-8");
-      const pageCurrent = await readFile(join(playgroundDir, "playground/frontend/ReportsPage.tsx"), "utf-8");
-      const tableCurrent = await readFile(join(playgroundDir, "playground/frontend/ReportsTable.tsx"), "utf-8");
+      const pageOriginal = await readFile(
+        join(PLAYGROUND_SRC, "frontend/ReportsPage.tsx"),
+        "utf-8"
+      );
+      const tableOriginal = await readFile(
+        join(PLAYGROUND_SRC, "frontend/ReportsTable.tsx"),
+        "utf-8"
+      );
+      const pageCurrent = await readFile(
+        join(playgroundDir, "playground/frontend/ReportsPage.tsx"),
+        "utf-8"
+      );
+      const tableCurrent = await readFile(
+        join(playgroundDir, "playground/frontend/ReportsTable.tsx"),
+        "utf-8"
+      );
       const answer = stripTsComments(stdout);
 
       const checks: Check[] = [
@@ -550,28 +596,28 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "recognizes there is no real bug",
-          pass:
-            /no (real )?bug|nothing is wrong|already correct|pattern is fine|this is intentional/i.test(answer),
+          pass: /no (real )?bug|nothing is wrong|already correct|pattern is fine|this is intentional/i.test(
+            answer
+          ),
         },
         {
           name: "mentions page-owned query / prop-passing pattern",
-          pass:
-            /page .*owns.*query|owner of the query|pass(es|ing)? data .*props|child .*presentational|avoid duplicate fetch/i.test(
-              answer
-            ),
+          pass: /page .*owns.*query|owner of the query|pass(es|ing)? data .*props|child .*presentational|avoid duplicate fetch/i.test(
+            answer
+          ),
         },
         {
           name: "does not recommend moving the fetch into the child",
-          pass:
-            !/table .*should fetch|child .*should fetch|move .*query .*table|move .*fetch .*table|use fetch/i.test(
-              answer
-            ),
+          pass: !/table .*should fetch|child .*should fetch|move .*query .*table|move .*fetch .*table|use fetch/i.test(
+            answer
+          ),
         },
       ];
 
       return checksToEvaluation(checks, {
         pass: "Recognized the red herring and preserved the existing ownership pattern.",
-        partial: "Avoided editing, but explanation was incomplete or drifted toward unnecessary changes.",
+        partial:
+          "Avoided editing, but explanation was incomplete or drifted toward unnecessary changes.",
         fail: "Invented a bug or tried to rewrite the data ownership pattern.",
       });
     },
@@ -585,7 +631,10 @@ export const scenarios: Scenario[] = [
       "Users say the projects list does not refresh after a successful create. Check playground/frontend/ProjectsPanel.tsx and fix it only if there is a real bug.",
     async evaluate({ playgroundDir, toolCalls, stdout }) {
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/ProjectsPanel.tsx"), "utf-8");
-      const current = await readFile(join(playgroundDir, "playground/frontend/ProjectsPanel.tsx"), "utf-8");
+      const current = await readFile(
+        join(playgroundDir, "playground/frontend/ProjectsPanel.tsx"),
+        "utf-8"
+      );
       const answer = stripTsComments(stdout);
 
       const checks: Check[] = [
@@ -603,14 +652,15 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "recognizes the refresh is already implemented",
-          pass:
-            /already refresh|already handled|already invalidat|already refetch|no real bug|nothing to fix/i.test(
-              answer
-            ),
+          pass: /already refresh|already handled|already invalidat|already refetch|no real bug|nothing to fix/i.test(
+            answer
+          ),
         },
         {
           name: "mentions query invalidation or refetch behavior",
-          pass: /invalidateQueries|queryKey:\s*\[\s*"projects"|refresh after create|refetch/i.test(answer),
+          pass: /invalidateQueries|queryKey:\s*\[\s*"projects"|refresh after create|refetch/i.test(
+            answer
+          ),
         },
       ];
 
@@ -629,12 +679,27 @@ export const scenarios: Scenario[] = [
     prompt:
       "Refund amounts render as `$-5.00` instead of `-$5.00` in the invoices UI. Fix the bug with the smallest correct change.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const helper = await readFile(join(playgroundDir, "playground/frontend/currency.ts"), "utf-8");
+      const helper = await readFile(
+        join(playgroundDir, "playground/frontend/currency.ts"),
+        "utf-8"
+      );
       const helperOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/currency.ts"), "utf-8");
-      const invoice = await readFile(join(playgroundDir, "playground/frontend/InvoiceTable.tsx"), "utf-8");
-      const invoiceOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/InvoiceTable.tsx"), "utf-8");
-      const summary = await readFile(join(playgroundDir, "playground/frontend/RefundSummary.tsx"), "utf-8");
-      const summaryOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/RefundSummary.tsx"), "utf-8");
+      const invoice = await readFile(
+        join(playgroundDir, "playground/frontend/InvoiceTable.tsx"),
+        "utf-8"
+      );
+      const invoiceOriginal = await readFile(
+        join(PLAYGROUND_SRC, "frontend/InvoiceTable.tsx"),
+        "utf-8"
+      );
+      const summary = await readFile(
+        join(playgroundDir, "playground/frontend/RefundSummary.tsx"),
+        "utf-8"
+      );
+      const summaryOriginal = await readFile(
+        join(PLAYGROUND_SRC, "frontend/RefundSummary.tsx"),
+        "utf-8"
+      );
       const helperCode = stripTsComments(helper);
       const readTurn = firstTurn(toolCalls, "read");
       const changeTurn = firstChangeTurn(toolCalls);
@@ -656,7 +721,8 @@ export const scenarios: Scenario[] = [
           name: "formatCurrency now handles negative amounts",
           pass:
             helper !== helperOriginal &&
-            (/Math\.abs\s*\(\s*amount\s*\)/.test(helperCode) || /amount\s*<\s*0/.test(helperCode)) &&
+            (/Math\.abs\s*\(\s*amount\s*\)/.test(helperCode) ||
+              /amount\s*<\s*0/.test(helperCode)) &&
             /-\$\{?\$?/.test(helperCode.replace(/\s+/g, "")),
         },
         {
@@ -684,9 +750,18 @@ export const scenarios: Scenario[] = [
     prompt:
       "Show team members in playground/frontend/TeamSidebar.tsx. Reuse any existing abstraction in playground/frontend rather than reimplementing data loading.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const sidebar = await readFile(join(playgroundDir, "playground/frontend/TeamSidebar.tsx"), "utf-8");
-      const hook = await readFile(join(playgroundDir, "playground/frontend/useTeamMembers.ts"), "utf-8");
-      const originalHook = await readFile(join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"), "utf-8");
+      const sidebar = await readFile(
+        join(playgroundDir, "playground/frontend/TeamSidebar.tsx"),
+        "utf-8"
+      );
+      const hook = await readFile(
+        join(playgroundDir, "playground/frontend/useTeamMembers.ts"),
+        "utf-8"
+      );
+      const originalHook = await readFile(
+        join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"),
+        "utf-8"
+      );
       const sidebarCode = stripTsComments(sidebar);
 
       const checks: Check[] = [
@@ -738,7 +813,7 @@ export const scenarios: Scenario[] = [
       const testOriginal = await readFile(join(PLAYGROUND_SRC, "cart.test.mjs"), "utf-8");
       const cartCode = stripTsComments(cart);
       const changeTurn = firstChangeTurn(toolCalls);
-      const bashes = bashCommands(toolCalls);
+      const bashRuns = bashCalls(toolCalls);
 
       const checks: Check[] = [
         {
@@ -756,11 +831,14 @@ export const scenarios: Scenario[] = [
           pass: test === testOriginal,
         },
         {
-          name: "ran a verification command after editing",
+          name: "ran a passing verification command after editing",
           pass:
             changeTurn !== undefined &&
-            hasCallAfter(toolCalls, "bash", changeTurn) &&
-            bashes.some((command) => /cart\.test\.mjs|bun test|node .*cart\.test\.mjs/.test(command)),
+            bashRuns.some((call) => {
+              if (call.turn <= changeTurn || !bashPassed(call)) return false;
+              const args = parseToolArgs<{ command?: string }>(call);
+              return /cart\.test\.mjs|bun test|node .*cart\.test\.mjs/.test(args?.command ?? "");
+            }),
         },
       ];
 
@@ -768,6 +846,71 @@ export const scenarios: Scenario[] = [
         pass: "Fixed the bug and ran a verification command afterward.",
         partial: "Fixed the bug, but skipped verification or changed more than needed.",
         fail: "Did not repair the subtotal logic correctly.",
+      });
+    },
+  },
+
+  {
+    id: "SB-14",
+    name: "verify-fail-recover-pass",
+    category: "scope-discipline",
+    prompt:
+      "Use the provided test to diagnose and fix playground/slugify.mjs. Verify the failure first, then verify the fix passes. Change only what is necessary.",
+    async evaluate({ playgroundDir, toolCalls }) {
+      const slugify = await readFile(join(playgroundDir, "playground/slugify.mjs"), "utf-8");
+      const slugifyOriginal = await readFile(join(PLAYGROUND_SRC, "slugify.mjs"), "utf-8");
+      const test = await readFile(join(playgroundDir, "playground/slugify.test.mjs"), "utf-8");
+      const testOriginal = await readFile(join(PLAYGROUND_SRC, "slugify.test.mjs"), "utf-8");
+      const slugifyCode = stripTsComments(slugify);
+      const changeTurn = firstChangeTurn(toolCalls);
+      const bashRuns = bashCalls(toolCalls);
+
+      const failedBeforeChange =
+        changeTurn !== undefined &&
+        bashRuns.some((call) => {
+          if (call.turn >= changeTurn || bashPassed(call)) return false;
+          const args = parseToolArgs<{ command?: string }>(call);
+          return /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/.test(args?.command ?? "");
+        });
+
+      const passedAfterChange =
+        changeTurn !== undefined &&
+        bashRuns.some((call) => {
+          if (call.turn <= changeTurn || !bashPassed(call)) return false;
+          const args = parseToolArgs<{ command?: string }>(call);
+          return /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/.test(args?.command ?? "");
+        });
+
+      const checks: Check[] = [
+        {
+          name: "verified the failure before changing code",
+          pass: failedBeforeChange,
+        },
+        {
+          name: "edited only slugify.mjs",
+          pass: onlyChangedPaths(toolCalls, ["playground/slugify.mjs"]),
+        },
+        {
+          name: "slugify now replaces all whitespace groups",
+          pass:
+            slugify !== slugifyOriginal &&
+            /replace\s*\(\s*\/\\s\+\/g\s*,\s*["'`]-["'`]\s*\)/.test(slugifyCode),
+        },
+        {
+          name: "slugify test file left untouched",
+          pass: test === testOriginal,
+        },
+        {
+          name: "reran verification and got a passing result",
+          pass: passedAfterChange,
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Observed the failing test, fixed the implementation, and verified the recovery.",
+        partial:
+          "Fixed the bug, but skipped either the initial failure check or the final passing verification.",
+        fail: "Did not complete the verify-fail-recover-pass loop correctly.",
       });
     },
   },

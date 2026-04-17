@@ -6,6 +6,7 @@ export interface ToolCall {
   name: string;
   args: string;
   turn: number;
+  result?: string;
 }
 
 export interface Check {
@@ -54,6 +55,37 @@ export function hasCall(
   predicate?: (c: ToolCall) => boolean
 ): boolean {
   return calls.some((c) => c.name === name && (predicate ? predicate(c) : true));
+}
+
+export function toolFailed(call: ToolCall): boolean {
+  return call.result?.startsWith("error:") ?? false;
+}
+
+export function bashExitCode(call: ToolCall): number | undefined {
+  if (call.name !== "bash" || call.result === undefined) return undefined;
+  const match = /^exit_code:\s*(\d+)/m.exec(call.result);
+  return match ? parseInt(match[1], 10) : undefined;
+}
+
+export function bashPassed(call: ToolCall): boolean {
+  return bashExitCode(call) === 0;
+}
+
+export function anyBashPassed(calls: ToolCall[]): boolean {
+  return calls.some((c) => c.name === "bash" && bashPassed(c));
+}
+
+export function firstChangeFailed(calls: ToolCall[]): boolean {
+  const first = calls.find((c) => c.name === "edit" || c.name === "write");
+  return first !== undefined && toolFailed(first);
+}
+
+export function modelRecovered(calls: ToolCall[]): boolean {
+  const firstChange = calls.findIndex((c) => c.name === "edit" || c.name === "write");
+  if (firstChange === -1 || !toolFailed(calls[firstChange])) return false;
+  return calls
+    .slice(firstChange + 1)
+    .some((c) => (c.name === "edit" || c.name === "write") && !toolFailed(c));
 }
 
 function extractBracedBlock(source: string, header: RegExp): string {

@@ -404,15 +404,16 @@ export const localRuntime: Runtime = {
       for (const call of message.tool_calls) {
         const args = call.function.arguments ?? "{}";
         transcript.push(`tool: ${call.function.name}(${args})`);
-        const toolCall = {
+        const toolCall: ToolCall = {
           name: call.function.name,
           args,
           turn: toolCalls.length,
-        } satisfies ToolCall;
+        };
         toolCalls.push(toolCall);
         ctx.onEvent?.({ type: "tool_call", call: toolCall });
 
         const result = await executeTool(call, ctx.workDir);
+        toolCall.result = result;
         conversation.push({
           role: "tool",
           tool_call_id: call.id,
