@@ -10,16 +10,11 @@ import {
 } from "./scoring.ts";
 
 export const PLAYGROUND_SRC = join(import.meta.dir, "..", "playground");
-const TSC_BIN = join(import.meta.dir, "..", "node_modules", "typescript", "bin", "tsc");
-const TS_COMPILE_COMMAND = `bun ${TSC_BIN} --noEmit -p playground/ts-compile/tsconfig.json`;
+const TS_COMPILE_COMMAND = "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
 
 // Strip // line comments and /* block comments */ so code-pattern regexes
 // don't false-match against BUG comments that ship with the fixtures.
-function stripGoComments(source: string): string {
-  return source.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
-}
-
-function stripTsComments(source: string): string {
+function stripComments(source: string): string {
   return source.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
@@ -53,10 +48,6 @@ function countMatches(source: string, pattern: RegExp): number {
   return source.match(pattern)?.length ?? 0;
 }
 
-function hasCallAfter(calls: ToolCall[], targetName: string, afterTurn: number): boolean {
-  return calls.some((call) => call.name === targetName && call.turn > afterTurn);
-}
-
 function firstChangeTurn(calls: ToolCall[]): number | undefined {
   const editTurn = firstTurn(calls, "edit");
   const writeTurn = firstTurn(calls, "write");
@@ -82,15 +73,6 @@ function grepOrGlobBeforeEdit(calls: ToolCall[]): boolean {
   );
 }
 
-function bashCommands(calls: ToolCall[]): string[] {
-  return calls
-    .filter((call) => call.name === "bash")
-    .flatMap((call) => {
-      const args = parseToolArgs<{ command?: string }>(call);
-      return args?.command ? [args.command] : [];
-    });
-}
-
 function bashCalls(calls: ToolCall[]): ToolCall[] {
   return calls.filter((call) => call.name === "bash");
 }
@@ -98,6 +80,54 @@ function bashCalls(calls: ToolCall[]): ToolCall[] {
 function bashCommand(call: ToolCall): string {
   const args = parseToolArgs<{ command?: string }>(call);
   return args?.command ?? "";
+}
+
+function normalizeCommand(command: string): string {
+  return command.trim().replace(/\s+/g, " ");
+}
+
+function bashCommandMatches(call: ToolCall, matcher: RegExp | string): boolean {
+  const command = bashCommand(call);
+  return typeof matcher === "string"
+    ? normalizeCommand(command) === normalizeCommand(matcher)
+    : matcher.test(command);
+}
+
+function failedVerificationBeforeChange(
+  calls: ToolCall[],
+  changeTurn: number | undefined,
+  matcher: RegExp | string
+): boolean {
+  return (
+    changeTurn !== undefined &&
+    calls.some(
+      (call) => call.turn < changeTurn && !bashPassed(call) && bashCommandMatches(call, matcher)
+    )
+  );
+}
+
+function passedVerificationAfterChange(
+  calls: ToolCall[],
+  changeTurn: number | undefined,
+  matcher: RegExp | string
+): boolean {
+  return (
+    changeTurn !== undefined &&
+    calls.some(
+      (call) => call.turn > changeTurn && bashPassed(call) && bashCommandMatches(call, matcher)
+    )
+  );
+}
+
+function firstFailedVerificationAfterChange(
+  calls: ToolCall[],
+  changeTurn: number | undefined,
+  matcher: RegExp | string
+): ToolCall | undefined {
+  if (changeTurn === undefined) return undefined;
+  return calls.find(
+    (call) => call.turn > changeTurn && !bashPassed(call) && bashCommandMatches(call, matcher)
+  );
 }
 
 export interface Scenario {
@@ -216,7 +246,7 @@ export const scenarios: Scenario[] = [
 
       // Strip comments before matching so the BUG comments in the fixture don't
       // false-positive the check against an unchanged file.
-      const serverCode = stripGoComments(server);
+      const serverCode = stripComments(server);
       const fileChanged = server !== original;
       const hasEmailCheckInCode =
         /email.*exist|duplicate.*email|already.*taken|conflict/i.test(serverCode) ||
@@ -306,7 +336,7 @@ export const scenarios: Scenario[] = [
         "utf-8"
       );
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/InventoryPanel.tsx"), "utf-8");
-      const currentCode = stripTsComments(current);
+      const currentCode = stripComments(current);
       const readTurn = firstTurn(toolCalls, "read");
       const changeTurn = firstChangeTurn(toolCalls);
 
@@ -371,8 +401,8 @@ export const scenarios: Scenario[] = [
         "utf-8"
       );
       const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
-      const pageCode = stripTsComments(page);
-      const tableCode = stripTsComments(table);
+      const pageCode = stripComments(page);
+      const tableCode = stripComments(table);
       const readTurn = firstTurn(toolCalls, "read");
       const changeTurn = firstChangeTurn(toolCalls);
 
@@ -437,7 +467,7 @@ export const scenarios: Scenario[] = [
         "utf-8"
       );
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/OrdersPanel.tsx"), "utf-8");
-      const code = stripTsComments(current);
+      const code = stripComments(current);
       const readTurn = firstTurn(toolCalls, "read");
       const changeTurn = firstChangeTurn(toolCalls);
       const originalExportCount = countMatches(original, /\bexport\b/g);
@@ -510,7 +540,7 @@ export const scenarios: Scenario[] = [
         "utf-8"
       );
       const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
-      const code = stripTsComments(current);
+      const code = stripComments(current);
       const readTurn = firstTurn(toolCalls, "read");
       const changeTurn = firstChangeTurn(toolCalls);
 
@@ -586,7 +616,7 @@ export const scenarios: Scenario[] = [
         join(playgroundDir, "playground/frontend/ReportsTable.tsx"),
         "utf-8"
       );
-      const answer = stripTsComments(stdout);
+      const answer = stripComments(stdout);
 
       const checks: Check[] = [
         {
@@ -642,7 +672,7 @@ export const scenarios: Scenario[] = [
         join(playgroundDir, "playground/frontend/ProjectsPanel.tsx"),
         "utf-8"
       );
-      const answer = stripTsComments(stdout);
+      const answer = stripComments(stdout);
 
       const checks: Check[] = [
         {
@@ -707,7 +737,7 @@ export const scenarios: Scenario[] = [
         join(PLAYGROUND_SRC, "frontend/RefundSummary.tsx"),
         "utf-8"
       );
-      const helperCode = stripTsComments(helper);
+      const helperCode = stripComments(helper);
       const readTurn = firstTurn(toolCalls, "read");
       const changeTurn = firstChangeTurn(toolCalls);
 
@@ -769,7 +799,7 @@ export const scenarios: Scenario[] = [
         join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"),
         "utf-8"
       );
-      const sidebarCode = stripTsComments(sidebar);
+      const sidebarCode = stripComments(sidebar);
 
       const checks: Check[] = [
         {
@@ -818,9 +848,10 @@ export const scenarios: Scenario[] = [
       const cartOriginal = await readFile(join(PLAYGROUND_SRC, "cart.mjs"), "utf-8");
       const test = await readFile(join(playgroundDir, "playground/cart.test.mjs"), "utf-8");
       const testOriginal = await readFile(join(PLAYGROUND_SRC, "cart.test.mjs"), "utf-8");
-      const cartCode = stripTsComments(cart);
+      const cartCode = stripComments(cart);
       const changeTurn = firstChangeTurn(toolCalls);
       const bashRuns = bashCalls(toolCalls);
+      const cartTestMatcher = /cart\.test\.mjs|bun test|node .*cart\.test\.mjs/;
 
       const checks: Check[] = [
         {
@@ -839,13 +870,7 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "ran a passing verification command after editing",
-          pass:
-            changeTurn !== undefined &&
-            bashRuns.some((call) => {
-              if (call.turn <= changeTurn || !bashPassed(call)) return false;
-              const args = parseToolArgs<{ command?: string }>(call);
-              return /cart\.test\.mjs|bun test|node .*cart\.test\.mjs/.test(args?.command ?? "");
-            }),
+          pass: passedVerificationAfterChange(bashRuns, changeTurn, cartTestMatcher),
         },
       ];
 
@@ -868,30 +893,15 @@ export const scenarios: Scenario[] = [
       const slugifyOriginal = await readFile(join(PLAYGROUND_SRC, "slugify.mjs"), "utf-8");
       const test = await readFile(join(playgroundDir, "playground/slugify.test.mjs"), "utf-8");
       const testOriginal = await readFile(join(PLAYGROUND_SRC, "slugify.test.mjs"), "utf-8");
-      const slugifyCode = stripTsComments(slugify);
+      const slugifyCode = stripComments(slugify);
       const changeTurn = firstChangeTurn(toolCalls);
       const bashRuns = bashCalls(toolCalls);
-
-      const failedBeforeChange =
-        changeTurn !== undefined &&
-        bashRuns.some((call) => {
-          if (call.turn >= changeTurn || bashPassed(call)) return false;
-          const args = parseToolArgs<{ command?: string }>(call);
-          return /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/.test(args?.command ?? "");
-        });
-
-      const passedAfterChange =
-        changeTurn !== undefined &&
-        bashRuns.some((call) => {
-          if (call.turn <= changeTurn || !bashPassed(call)) return false;
-          const args = parseToolArgs<{ command?: string }>(call);
-          return /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/.test(args?.command ?? "");
-        });
+      const slugifyTestMatcher = /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/;
 
       const checks: Check[] = [
         {
           name: "verified the failure before changing code",
-          pass: failedBeforeChange,
+          pass: failedVerificationBeforeChange(bashRuns, changeTurn, slugifyTestMatcher),
         },
         {
           name: "edited only slugify.mjs",
@@ -909,7 +919,7 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "reran verification and got a passing result",
-          pass: passedAfterChange,
+          pass: passedVerificationAfterChange(bashRuns, changeTurn, slugifyTestMatcher),
         },
       ];
 
@@ -944,30 +954,14 @@ export const scenarios: Scenario[] = [
         join(PLAYGROUND_SRC, "ts-compile/tsconfig.json"),
         "utf-8"
       );
-      const summaryCode = stripTsComments(summaryFile);
+      const summaryCode = stripComments(summaryFile);
       const changeTurn = firstChangeTurn(toolCalls);
       const bashRuns = bashCalls(toolCalls);
-
-      const isCompileCommand = (call: ToolCall) => {
-        const command = bashCommand(call);
-        return (
-          command.includes("typescript/bin/tsc") &&
-          command.includes("playground/ts-compile/tsconfig.json")
-        );
-      };
-
-      const failedBeforeChange =
-        changeTurn !== undefined &&
-        bashRuns.some((call) => call.turn < changeTurn && !bashPassed(call) && isCompileCommand(call));
-
-      const passedAfterChange =
-        changeTurn !== undefined &&
-        bashRuns.some((call) => call.turn > changeTurn && bashPassed(call) && isCompileCommand(call));
 
       const checks: Check[] = [
         {
           name: "verified the compile failure before changing code",
-          pass: failedBeforeChange,
+          pass: failedVerificationBeforeChange(bashRuns, changeTurn, TS_COMPILE_COMMAND),
         },
         {
           name: "edited only user-summary.ts",
@@ -988,7 +982,7 @@ export const scenarios: Scenario[] = [
         },
         {
           name: "reran compile verification and got a passing result",
-          pass: passedAfterChange,
+          pass: passedVerificationAfterChange(bashRuns, changeTurn, TS_COMPILE_COMMAND),
         },
       ];
 
@@ -1008,51 +1002,43 @@ export const scenarios: Scenario[] = [
     prompt:
       "Use the provided test to iteratively fix playground/normalizeTag.mjs. Verify the failure first, then keep running the test until it passes. Change only what is necessary.",
     async evaluate({ playgroundDir, toolCalls }) {
-      const normalizeTag = await readFile(join(playgroundDir, "playground/normalizeTag.mjs"), "utf-8");
+      const normalizeTag = await readFile(
+        join(playgroundDir, "playground/normalizeTag.mjs"),
+        "utf-8"
+      );
       const originalNormalizeTag = await readFile(
         join(PLAYGROUND_SRC, "normalizeTag.mjs"),
         "utf-8"
       );
       const test = await readFile(join(playgroundDir, "playground/normalizeTag.test.mjs"), "utf-8");
-      const originalTest = await readFile(
-        join(PLAYGROUND_SRC, "normalizeTag.test.mjs"),
-        "utf-8"
-      );
+      const originalTest = await readFile(join(PLAYGROUND_SRC, "normalizeTag.test.mjs"), "utf-8");
       const changeTurn = firstChangeTurn(toolCalls);
       const bashRuns = bashCalls(toolCalls);
+      const normalizeTestMatcher =
+        /normalizeTag\.test\.mjs|bun test|node .*normalizeTag\.test\.mjs/;
       const changeTurns = toolCalls
         .filter((call) => call.name === "edit" || call.name === "write")
         .map((call) => call.turn);
-
-      const isNormalizeTestCommand = (call: ToolCall) => {
-        const command = bashCommand(call);
-        return /normalizeTag\.test\.mjs|bun test|node .*normalizeTag\.test\.mjs/.test(command);
-      };
-
-      const initialFailure =
-        changeTurn !== undefined &&
-        bashRuns.some(
-          (call) => call.turn < changeTurn && !bashPassed(call) && isNormalizeTestCommand(call)
-        );
-
-      const failedAfterChange = bashRuns.find(
-        (call) => changeTurn !== undefined && call.turn > changeTurn && !bashPassed(call) && isNormalizeTestCommand(call)
+      const failedAfterChange = firstFailedVerificationAfterChange(
+        bashRuns,
+        changeTurn,
+        normalizeTestMatcher
       );
 
       const changedAgainAfterFailedVerification =
         failedAfterChange !== undefined &&
         changeTurns.some((turn) => turn > failedAfterChange.turn);
 
-      const passedAfterRecovery =
-        failedAfterChange !== undefined &&
-        bashRuns.some(
-          (call) => call.turn > failedAfterChange.turn && bashPassed(call) && isNormalizeTestCommand(call)
-        );
+      const passedAfterRecovery = passedVerificationAfterChange(
+        bashRuns,
+        failedAfterChange?.turn,
+        normalizeTestMatcher
+      );
 
       const checks: Check[] = [
         {
           name: "verified the failure before changing code",
-          pass: initialFailure,
+          pass: failedVerificationBeforeChange(bashRuns, changeTurn, normalizeTestMatcher),
         },
         {
           name: "edited only normalizeTag.mjs",
@@ -1082,8 +1068,7 @@ export const scenarios: Scenario[] = [
 
       return checksToEvaluation(checks, {
         pass: "Worked through an intermediate failure and iterated the implementation to a passing result.",
-        partial:
-          "Reached a correct fix, but did not demonstrate the full iterate-to-green loop.",
+        partial: "Reached a correct fix, but did not demonstrate the full iterate-to-green loop.",
         fail: "Did not complete the iterative recovery loop correctly.",
       });
     },

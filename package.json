@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "bun": ">=1.2.0"
+  },
   "scripts": {
     "bench": "bun bench.ts",
     "local": "bun bench.ts --runtime local",

@@ -1,4 +1,9 @@
-export type Category = "surgical-edit" | "audit" | "scope-discipline" | "read-only-analysis" | "verify-and-repair";
+export type Category =
+  | "surgical-edit"
+  | "audit"
+  | "scope-discipline"
+  | "read-only-analysis"
+  | "verify-and-repair";
 
 export type ScenarioStatus = "pass" | "partial" | "fail";
 

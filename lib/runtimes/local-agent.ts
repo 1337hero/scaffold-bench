@@ -1,7 +1,7 @@
 import { spawn } from "bun";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { RuntimeOutput, ToolCall } from "../scoring.ts";
 import type { Runtime, RuntimeContext } from "./types.ts";
 
@@ -21,6 +21,9 @@ const MAX_BASH_TIMEOUT_MS = 10000;
 
 const systemPrompt = readSystemPrompt();
 
+type JsonObject = Record<string, unknown>;
+type FinishReason = "tool_calls" | "stop" | "length" | "content_filter";
+
 type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
@@ -39,7 +42,7 @@ type OpenAIToolCall = {
 
 type ChatResponse = {
   choices?: Array<{
-    finish_reason?: string;
+    finish_reason?: FinishReason;
     message?: ChatMessage;
   }>;
   error?: {
@@ -70,9 +73,9 @@ const tools: RuntimeTool[] = [
       required: ["path"],
     },
     async run(args, cwd) {
-      const input = parseArgs<{ path: string }>(args);
-      if (!input.path) throw new Error("path is required");
-      const filePath = resolveToolPath(cwd, input.path);
+      const input = parseArgs(args);
+      const path = getRequiredString(input, "path");
+      const filePath = resolveToolPath(cwd, path);
       const data = await readFile(filePath, "utf-8");
       return data;
     },
@@ -91,8 +94,9 @@ const tools: RuntimeTool[] = [
       },
     },
     async run(args, cwd) {
-      const input = parseArgs<{ path?: string }>(args);
-      const dirPath = resolveToolPath(cwd, input.path || ".");
+      const input = parseArgs(args);
+      const path = getOptionalString(input, "path") ?? ".";
+      const dirPath = resolveToolPath(cwd, path);
       const entries = await readdir(dirPath, { withFileTypes: true });
       return JSON.stringify(
         entries.map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
@@ -126,20 +130,18 @@ const tools: RuntimeTool[] = [
       required: ["pattern"],
     },
     async run(args, cwd) {
-      const input = parseArgs<{
-        pattern: string;
-        path?: string;
-        glob?: string;
-        ignore_case?: boolean;
-      }>(args);
-      if (!input.pattern) throw new Error("pattern is required");
+      const input = parseArgs(args);
+      const pattern = getRequiredString(input, "pattern");
+      const path = getOptionalString(input, "path");
+      const glob = getOptionalString(input, "glob");
+      const ignoreCase = getOptionalBoolean(input, "ignore_case") ?? false;
 
       const cmd = ["rg", "--line-number", "--no-heading", "--color=never"];
-      if (input.ignore_case) cmd.push("-i");
-      if (input.glob) cmd.push("--glob", input.glob);
-      cmd.push("--", input.pattern);
-      if (input.path) {
-        cmd.push(input.path);
+      if (ignoreCase) cmd.push("-i");
+      if (glob) cmd.push("--glob", glob);
+      cmd.push("--", pattern);
+      if (path) {
+        cmd.push(resolveToolPath(cwd, path));
       }
 
       const proc = spawn({
@@ -181,12 +183,13 @@ const tools: RuntimeTool[] = [
       required: ["pattern"],
     },
     async run(args, cwd) {
-      const input = parseArgs<{ pattern: string; path?: string }>(args);
-      if (!input.pattern) throw new Error("pattern is required");
+      const input = parseArgs(args);
+      const pattern = getRequiredString(input, "pattern");
+      const path = getOptionalString(input, "path");
 
-      const cmd = ["rg", "--files", "--glob", input.pattern];
-      if (input.path) {
-        cmd.push(input.path);
+      const cmd = ["rg", "--files", "--glob", pattern];
+      if (path) {
+        cmd.push(resolveToolPath(cwd, path));
       }
 
       const proc = spawn({
@@ -236,25 +239,27 @@ Rules:
       required: ["path", "old_str", "new_str"],
     },
     async run(args, cwd) {
-      const input = parseArgs<{ path: string; old_str: string; new_str: string }>(args);
-      if (!input.path) throw new Error("path is required");
-      if (input.old_str === input.new_str) throw new Error("old_str and new_str are identical");
+      const input = parseArgs(args);
+      const path = getRequiredString(input, "path");
+      const oldStr = getRequiredString(input, "old_str");
+      const newStr = getRequiredString(input, "new_str");
+      if (oldStr === newStr) throw new Error("old_str and new_str are identical");
 
-      const filePath = resolveToolPath(cwd, input.path);
+      const filePath = resolveToolPath(cwd, path);
       if (!existsSync(filePath)) {
-        if (input.old_str !== "") throw new Error(`file not found: ${input.path}`);
+        if (oldStr !== "") throw new Error(`file not found: ${path}`);
         await mkdir(dirname(filePath), { recursive: true });
-        await writeFile(filePath, input.new_str, "utf-8");
-        return `created ${input.path}`;
+        await writeFile(filePath, newStr, "utf-8");
+        return `created ${path}`;
       }
 
       const content = await readFile(filePath, "utf-8");
-      const matches = content.split(input.old_str).length - 1;
-      if (matches === 0) throw new Error(`old_str not found in ${input.path}`);
+      const matches = content.split(oldStr).length - 1;
+      if (matches === 0) throw new Error(`old_str not found in ${path}`);
       if (matches > 1)
-        throw new Error(`old_str appears ${matches} times in ${input.path}; must be unique`);
+        throw new Error(`old_str appears ${matches} times in ${path}; must be unique`);
 
-      await writeFile(filePath, content.replace(input.old_str, input.new_str), "utf-8");
+      await writeFile(filePath, content.replace(oldStr, newStr), "utf-8");
       return "ok";
     },
   },
@@ -277,20 +282,21 @@ Rules:
       required: ["path", "content"],
     },
     async run(args, cwd) {
-      const input = parseArgs<{ path: string; content: string }>(args);
-      if (!input.path) throw new Error("path is required");
+      const input = parseArgs(args);
+      const path = getRequiredString(input, "path");
+      const content = getRequiredString(input, "content");
 
-      const filePath = resolveToolPath(cwd, input.path);
+      const filePath = resolveToolPath(cwd, path);
       const existed = existsSync(filePath);
       await mkdir(dirname(filePath), { recursive: true });
-      await writeFile(filePath, input.content, "utf-8");
-      return existed ? `updated ${input.path}` : `created ${input.path}`;
+      await writeFile(filePath, content, "utf-8");
+      return existed ? `updated ${path}` : `created ${path}`;
     },
   },
   {
     name: "bash",
     description:
-      "Run a shell command in the scenario working directory. Use this for tests, builds, linting, and command-line inspection.",
+      "Run a shell command with cwd set to the scenario working directory. Use this for tests, builds, linting, and command-line inspection.",
     parameters: {
       type: "object",
       properties: {
@@ -306,15 +312,16 @@ Rules:
       required: ["command"],
     },
     async run(args, cwd) {
-      const input = parseArgs<{ command: string; timeout_ms?: number }>(args);
-      if (!input.command) throw new Error("command is required");
+      const input = parseArgs(args);
+      const command = getRequiredString(input, "command");
+      const requestedTimeout = getOptionalNumber(input, "timeout_ms");
 
       const timeoutMs = Math.min(
         MAX_BASH_TIMEOUT_MS,
-        Math.max(1, Math.floor(input.timeout_ms ?? DEFAULT_BASH_TIMEOUT_MS))
+        Math.max(1, Math.floor(requestedTimeout ?? DEFAULT_BASH_TIMEOUT_MS))
       );
       const proc = spawn({
-        cmd: [process.env.SHELL || "/bin/zsh", "-lc", input.command],
+        cmd: [process.env.SHELL || "/bin/zsh", "-lc", command],
         cwd,
         stdout: "pipe",
         stderr: "pipe",
@@ -371,9 +378,7 @@ export const localRuntime: Runtime = {
     }
     conversation.push({ role: "user", content: ctx.prompt });
 
-    let iterations = 0;
-
-    while (true) {
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       if (performance.now() >= deadline) {
         return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT");
       }
@@ -387,17 +392,11 @@ export const localRuntime: Runtime = {
       conversation.push(message);
 
       if (message.content) {
-        transcript.push(`Qwopus: ${message.content}`);
+        transcript.push(`assistant: ${message.content}`);
         ctx.onEvent?.({ type: "assistant", content: message.content });
       }
 
       if (reply.finishReason !== "tool_calls" || !message.tool_calls?.length) {
-        return finishRuntime(transcript, toolCalls, startedAt);
-      }
-
-      iterations++;
-      if (iterations > MAX_TOOL_ITERATIONS) {
-        transcript.push(`guard: hit ${MAX_TOOL_ITERATIONS} tool iterations, stopping`);
         return finishRuntime(transcript, toolCalls, startedAt);
       }
 
@@ -421,13 +420,16 @@ export const localRuntime: Runtime = {
         });
       }
     }
+
+    transcript.push(`guard: hit ${MAX_TOOL_ITERATIONS} tool iterations, stopping`);
+    return finishRuntime(transcript, toolCalls, startedAt);
   },
 };
 
 async function callModel(
   conversation: ChatMessage[],
   deadline: number
-): Promise<{ finishReason: string; message?: ChatMessage }> {
+): Promise<{ finishReason: FinishReason; message?: ChatMessage }> {
   const remainingMs = Math.max(1, Math.ceil(deadline - performance.now()));
   const payload = JSON.stringify({
     model: DEFAULT_MODEL,
@@ -473,7 +475,7 @@ async function callModel(
       throw new Error(stderr.trim() || `curl exited with code ${exitCode}`);
     }
 
-    const parsed = JSON.parse(stdout) as ChatResponse;
+    const parsed = parseChatResponse(stdout);
     if (parsed.error?.message) {
       throw new Error(parsed.error.message);
     }
@@ -522,12 +524,31 @@ function finishRuntime(
   };
 }
 
-function parseArgs<T>(args: string): T {
-  return JSON.parse(args) as T;
+function parseArgs(args: string): JsonObject {
+  const parsed = parseJson(args, "tool arguments");
+  if (!isRecord(parsed)) {
+    throw new Error("tool arguments must be a JSON object");
+  }
+  return parsed;
 }
 
 function resolveToolPath(cwd: string, relativePath: string): string {
-  return resolve(cwd, relativePath);
+  if (relativePath.trim() === "") {
+    throw new Error("path is required");
+  }
+  if (isAbsolute(relativePath)) {
+    throw new Error("absolute paths are not allowed");
+  }
+  const resolvedPath = resolve(cwd, relativePath);
+  const relativePathFromCwd = relative(cwd, resolvedPath);
+  if (
+    relativePathFromCwd === ".." ||
+    relativePathFromCwd.startsWith(`..${sep}`) ||
+    isAbsolute(relativePathFromCwd)
+  ) {
+    throw new Error(`path escapes working directory: ${relativePath}`);
+  }
+  return resolvedPath;
 }
 
 async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
@@ -546,8 +567,14 @@ function readRootConfig(): { endpoint?: string; model?: string } {
   if (!existsSync(ROOT_CONFIG_PATH)) return {};
 
   const raw = readFileSync(ROOT_CONFIG_PATH, "utf-8");
-  const parsed = JSON.parse(raw) as { endpoint?: string; model?: string };
-  return parsed;
+  const parsed = parseJson(raw, "root config");
+  if (!isRecord(parsed)) {
+    throw new Error("root config must be a JSON object");
+  }
+  return {
+    endpoint: getOptionalString(parsed, "endpoint"),
+    model: getOptionalString(parsed, "model"),
+  };
 }
 
 function readSystemPrompt(): string | undefined {
@@ -559,4 +586,152 @@ function normalizeEndpoint(endpoint: string): string {
   return endpoint.endsWith("/v1/chat/completions")
     ? endpoint
     : `${endpoint.replace(/\/+$/, "")}/v1/chat/completions`;
+}
+
+function parseChatResponse(raw: string): ChatResponse {
+  const parsed = parseJson(raw, "model response");
+  if (!isRecord(parsed)) {
+    throw new Error("model response must be a JSON object");
+  }
+
+  const choicesValue = parsed.choices;
+  const errorValue = parsed.error;
+  return {
+    choices: choicesValue === undefined ? undefined : parseChoices(choicesValue),
+    error: errorValue === undefined ? undefined : parseErrorPayload(errorValue),
+  };
+}
+
+function parseChoices(value: unknown): ChatResponse["choices"] {
+  if (!Array.isArray(value)) {
+    throw new Error("model response choices must be an array");
+  }
+  return value.map((choice) => {
+    if (!isRecord(choice)) {
+      throw new Error("model response choice must be an object");
+    }
+    return {
+      finish_reason: parseFinishReason(choice.finish_reason),
+      message: choice.message === undefined ? undefined : parseChatMessage(choice.message),
+    };
+  });
+}
+
+function parseErrorPayload(value: unknown): { message?: string } {
+  if (!isRecord(value)) {
+    throw new Error("model response error must be an object");
+  }
+  return { message: getOptionalString(value, "message") };
+}
+
+function parseChatMessage(value: unknown): ChatMessage {
+  if (!isRecord(value)) {
+    throw new Error("model message must be an object");
+  }
+
+  const role = value.role;
+  if (role !== "system" && role !== "user" && role !== "assistant" && role !== "tool") {
+    throw new Error(`unsupported message role: ${String(role)}`);
+  }
+
+  const content = value.content;
+  const normalizedContent =
+    content === null || content === undefined
+      ? ""
+      : typeof content === "string"
+        ? content
+        : (() => {
+            throw new Error("model message content must be a string or null");
+          })();
+
+  return {
+    role,
+    content: normalizedContent,
+    ...(getOptionalString(value, "tool_call_id")
+      ? { tool_call_id: getOptionalString(value, "tool_call_id") }
+      : {}),
+    ...(value.tool_calls === undefined ? {} : { tool_calls: parseToolCalls(value.tool_calls) }),
+  };
+}
+
+function parseToolCalls(value: unknown): OpenAIToolCall[] {
+  if (!Array.isArray(value)) {
+    throw new Error("tool_calls must be an array");
+  }
+  return value.map((call) => {
+    if (!isRecord(call)) {
+      throw new Error("tool call must be an object");
+    }
+    const type = call.type;
+    if (type !== "function") {
+      throw new Error(`unsupported tool call type: ${String(type)}`);
+    }
+    const fn = call.function;
+    if (!isRecord(fn)) {
+      throw new Error("tool call function payload must be an object");
+    }
+    return {
+      id: getRequiredString(call, "id"),
+      type,
+      function: {
+        name: getRequiredString(fn, "name"),
+        arguments: getOptionalString(fn, "arguments") ?? "{}",
+      },
+    };
+  });
+}
+
+function parseFinishReason(value: unknown): FinishReason {
+  if (value === undefined || value === "stop") return "stop";
+  if (value === "tool_calls" || value === "function_call") return "tool_calls";
+  if (value === "length" || value === "content_filter") return value;
+  throw new Error(`unsupported finish_reason: ${String(value)}`);
+}
+
+function parseJson(raw: string, label: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`invalid ${label} JSON: ${detail}`);
+  }
+}
+
+function isRecord(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRequiredString(source: JsonObject, key: string): string {
+  const value = source[key];
+  if (typeof value !== "string") {
+    throw new Error(`${key} must be a string`);
+  }
+  return value;
+}
+
+function getOptionalString(source: JsonObject, key: string): string | undefined {
+  const value = source[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`${key} must be a string`);
+  }
+  return value;
+}
+
+function getOptionalBoolean(source: JsonObject, key: string): boolean | undefined {
+  const value = source[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    throw new Error(`${key} must be a boolean`);
+  }
+  return value;
+}
+
+function getOptionalNumber(source: JsonObject, key: string): number | undefined {
+  const value = source[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${key} must be a finite number`);
+  }
+  return value;
 }
