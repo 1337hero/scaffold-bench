@@ -1,0 +1,8 @@
+{
+  "name": "agent-lab",
+  "version": "0.1.0",
+  "model": "Qwopus3.5-27B-v3-Q6_K.gguf",
+  "endpoint": "http://127.0.0.1:8082",
+  "max_iterations": 10,
+  "tools_enabled": true
+}

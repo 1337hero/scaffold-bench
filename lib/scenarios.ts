@@ -27,22 +27,60 @@ function parseToolArgs<T>(call: ToolCall): T | null {
   }
 }
 
-function editedPaths(calls: ToolCall[]): string[] {
+function changedPaths(calls: ToolCall[]): string[] {
   return calls
-    .filter((call) => call.name === "edit")
+    .filter((call) => call.name === "edit" || call.name === "write")
     .flatMap((call) => {
       const args = parseToolArgs<{ path?: string }>(call);
       return args?.path ? [args.path] : [];
     });
 }
 
-function onlyEditedPaths(calls: ToolCall[], allowedPaths: string[]): boolean {
-  const edits = editedPaths(calls);
-  return edits.length > 0 && edits.every((path) => allowedPaths.includes(path));
+function onlyChangedPaths(calls: ToolCall[], allowedPaths: string[]): boolean {
+  const changes = changedPaths(calls);
+  return changes.length > 0 && changes.every((path) => allowedPaths.includes(path));
 }
 
 function countMatches(source: string, pattern: RegExp): number {
   return source.match(pattern)?.length ?? 0;
+}
+
+function hasCallAfter(calls: ToolCall[], targetName: string, afterTurn: number): boolean {
+  return calls.some((call) => call.name === targetName && call.turn > afterTurn);
+}
+
+function firstChangeTurn(calls: ToolCall[]): number | undefined {
+  const editTurn = firstTurn(calls, "edit");
+  const writeTurn = firstTurn(calls, "write");
+  if (editTurn === undefined) return writeTurn;
+  if (writeTurn === undefined) return editTurn;
+  return Math.min(editTurn, writeTurn);
+}
+
+function readTurnsForPath(calls: ToolCall[], path: string): number[] {
+  return calls
+    .filter((call) => call.name === "read")
+    .flatMap((call) => {
+      const args = parseToolArgs<{ path?: string }>(call);
+      return args?.path === path ? [call.turn] : [];
+    });
+}
+
+function grepOrGlobBeforeEdit(calls: ToolCall[]): boolean {
+  const changeTurn = firstChangeTurn(calls);
+  if (changeTurn === undefined) return false;
+  return calls.some(
+    (call) => (call.name === "grep" || call.name === "glob") && call.turn < changeTurn
+  );
+}
+
+function bashCommands(calls: ToolCall[]): string[] {
+  return calls
+    .filter((call) => call.name === "bash")
+    .flatMap((call) => {
+      const args = parseToolArgs<{ command?: string }>(call);
+      return args?.command ? [args.command] : [];
+    });
 }
 
 export interface Scenario {
@@ -74,14 +112,14 @@ export const scenarios: Scenario[] = [
       const originalFormatDate = extractFunction(originalUtils, "formatDate");
 
       const readTurn = firstTurn(toolCalls, "read");
-      const editTurn = firstTurn(toolCalls, "edit");
+      const changeTurn = firstChangeTurn(toolCalls);
 
       const checks: Check[] = [
         {
-          name: "read file before editing (turn-ordered)",
-          pass: readTurn !== undefined && editTurn !== undefined && readTurn < editTurn,
+          name: "read file before changing it (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
-        { name: "used edit tool", pass: hasCall(toolCalls, "edit") },
+        { name: "used edit or write tool", pass: hasCall(toolCalls, "edit") || hasCall(toolCalls, "write") },
         { name: "throttle differs from debounce", pass: throttleFn !== debounceFn },
         {
           name: "throttle has real throttle logic",
@@ -119,7 +157,10 @@ export const scenarios: Scenario[] = [
 
       const checks: Check[] = [
         { name: "did NOT edit server.go", pass: original === current },
-        { name: "did NOT use edit tool", pass: !hasCall(toolCalls, "edit") },
+        {
+          name: "did NOT use edit or write tool",
+          pass: !hasCall(toolCalls, "edit") && !hasCall(toolCalls, "write"),
+        },
         {
           name: "mentions missing validation",
           pass: /validat|missing.*check|no.*check/i.test(stdout),
@@ -162,12 +203,12 @@ export const scenarios: Scenario[] = [
         /for.*range.*users|for.*_.*u.*:=.*range/i.test(serverCode);
 
       const readTurn = firstTurn(toolCalls, "read");
-      const editTurn = firstTurn(toolCalls, "edit");
+      const changeTurn = firstChangeTurn(toolCalls);
 
       const checks: Check[] = [
         {
-          name: "read file before editing (turn-ordered)",
-          pass: readTurn !== undefined && editTurn !== undefined && readTurn < editTurn,
+          name: "read file before changing it (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
         { name: "createUser checks for duplicate email", pass: fileChanged && hasEmailCheckInCode },
         {
@@ -203,7 +244,10 @@ export const scenarios: Scenario[] = [
 
       const checks: Check[] = [
         { name: "did NOT edit schema.sql", pass: original === current },
-        { name: "did NOT use edit tool", pass: !hasCall(toolCalls, "edit") },
+        {
+          name: "did NOT use edit or write tool",
+          pass: !hasCall(toolCalls, "edit") && !hasCall(toolCalls, "write"),
+        },
         {
           name: "mentions comments.post_id needs index",
           pass: /comments?\.post_id|post_id.*index|index.*post_id/i.test(stdout),
@@ -241,16 +285,16 @@ export const scenarios: Scenario[] = [
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/InventoryPanel.tsx"), "utf-8");
       const currentCode = stripTsComments(current);
       const readTurn = firstTurn(toolCalls, "read");
-      const editTurn = firstTurn(toolCalls, "edit");
+      const changeTurn = firstChangeTurn(toolCalls);
 
       const checks: Check[] = [
         {
-          name: "read file before editing (turn-ordered)",
-          pass: readTurn !== undefined && editTurn !== undefined && readTurn < editTurn,
+          name: "read file before changing it (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
         {
           name: "edited only InventoryPanel.tsx",
-          pass: onlyEditedPaths(toolCalls, ["playground/frontend/InventoryPanel.tsx"]),
+          pass: onlyChangedPaths(toolCalls, ["playground/frontend/InventoryPanel.tsx"]),
         },
         {
           name: "removed duplicated filteredItems state",
@@ -298,17 +342,17 @@ export const scenarios: Scenario[] = [
       const pageCode = stripTsComments(page);
       const tableCode = stripTsComments(table);
       const readTurn = firstTurn(toolCalls, "read");
-      const editTurn = firstTurn(toolCalls, "edit");
+      const changeTurn = firstChangeTurn(toolCalls);
 
       const checks: Check[] = [
         {
-          name: "read files before editing (turn-ordered)",
-          pass: readTurn !== undefined && editTurn !== undefined && readTurn < editTurn,
+          name: "read files before changing them (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
         {
           name: "edited only UsersPage.tsx and UserTable.tsx",
           pass:
-            onlyEditedPaths(toolCalls, [
+            onlyChangedPaths(toolCalls, [
               "playground/frontend/UsersPage.tsx",
               "playground/frontend/UserTable.tsx",
             ]),
@@ -361,18 +405,18 @@ export const scenarios: Scenario[] = [
       const original = await readFile(join(PLAYGROUND_SRC, "frontend/OrdersPanel.tsx"), "utf-8");
       const code = stripTsComments(current);
       const readTurn = firstTurn(toolCalls, "read");
-      const editTurn = firstTurn(toolCalls, "edit");
+      const changeTurn = firstChangeTurn(toolCalls);
       const originalExportCount = countMatches(original, /\bexport\b/g);
       const currentExportCount = countMatches(current, /\bexport\b/g);
 
       const checks: Check[] = [
         {
-          name: "read file before editing (turn-ordered)",
-          pass: readTurn !== undefined && editTurn !== undefined && readTurn < editTurn,
+          name: "read file before changing it (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
         {
           name: "edited only OrdersPanel.tsx",
-          pass: onlyEditedPaths(toolCalls, ["playground/frontend/OrdersPanel.tsx"]),
+          pass: onlyChangedPaths(toolCalls, ["playground/frontend/OrdersPanel.tsx"]),
         },
         {
           name: "approve mutation now invalidates orders query",
@@ -428,16 +472,16 @@ export const scenarios: Scenario[] = [
       const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
       const code = stripTsComments(current);
       const readTurn = firstTurn(toolCalls, "read");
-      const editTurn = firstTurn(toolCalls, "edit");
+      const changeTurn = firstChangeTurn(toolCalls);
 
       const checks: Check[] = [
         {
-          name: "read files before editing (turn-ordered)",
-          pass: readTurn !== undefined && editTurn !== undefined && readTurn < editTurn,
+          name: "read files before changing them (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
         },
         {
           name: "edited only ActivityFeed.tsx",
-          pass: onlyEditedPaths(toolCalls, ["playground/frontend/ActivityFeed.tsx"]),
+          pass: onlyChangedPaths(toolCalls, ["playground/frontend/ActivityFeed.tsx"]),
         },
         {
           name: "uses TanStack Query for loading",
@@ -501,8 +545,8 @@ export const scenarios: Scenario[] = [
           pass: tableCurrent === tableOriginal,
         },
         {
-          name: "did NOT use edit tool",
-          pass: !hasCall(toolCalls, "edit"),
+          name: "did NOT use edit or write tool",
+          pass: !hasCall(toolCalls, "edit") && !hasCall(toolCalls, "write"),
         },
         {
           name: "recognizes there is no real bug",
@@ -529,6 +573,201 @@ export const scenarios: Scenario[] = [
         pass: "Recognized the red herring and preserved the existing ownership pattern.",
         partial: "Avoided editing, but explanation was incomplete or drifted toward unnecessary changes.",
         fail: "Invented a bug or tried to rewrite the data ownership pattern.",
+      });
+    },
+  },
+
+  {
+    id: "SB-10",
+    name: "frontend-no-op",
+    category: "read-only-analysis",
+    prompt:
+      "Users say the projects list does not refresh after a successful create. Check playground/frontend/ProjectsPanel.tsx and fix it only if there is a real bug.",
+    async evaluate({ playgroundDir, toolCalls, stdout }) {
+      const original = await readFile(join(PLAYGROUND_SRC, "frontend/ProjectsPanel.tsx"), "utf-8");
+      const current = await readFile(join(playgroundDir, "playground/frontend/ProjectsPanel.tsx"), "utf-8");
+      const answer = stripTsComments(stdout);
+
+      const checks: Check[] = [
+        {
+          name: "read ProjectsPanel.tsx",
+          pass: readTurnsForPath(toolCalls, "playground/frontend/ProjectsPanel.tsx").length > 0,
+        },
+        {
+          name: "did NOT edit ProjectsPanel.tsx",
+          pass: current === original,
+        },
+        {
+          name: "did NOT use edit or write",
+          pass: !hasCall(toolCalls, "edit") && !hasCall(toolCalls, "write"),
+        },
+        {
+          name: "recognizes the refresh is already implemented",
+          pass:
+            /already refresh|already handled|already invalidat|already refetch|no real bug|nothing to fix/i.test(
+              answer
+            ),
+        },
+        {
+          name: "mentions query invalidation or refetch behavior",
+          pass: /invalidateQueries|queryKey:\s*\[\s*"projects"|refresh after create|refetch/i.test(answer),
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Recognized the no-op request and left the working code alone.",
+        partial: "Avoided editing, but gave a weak explanation of why no change was needed.",
+        fail: "Changed correct code or missed that the refresh is already wired.",
+      });
+    },
+  },
+
+  {
+    id: "SB-11",
+    name: "frontend-find-the-right-file",
+    category: "surgical-edit",
+    prompt:
+      "Refund amounts render as `$-5.00` instead of `-$5.00` in the invoices UI. Fix the bug with the smallest correct change.",
+    async evaluate({ playgroundDir, toolCalls }) {
+      const helper = await readFile(join(playgroundDir, "playground/frontend/currency.ts"), "utf-8");
+      const helperOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/currency.ts"), "utf-8");
+      const invoice = await readFile(join(playgroundDir, "playground/frontend/InvoiceTable.tsx"), "utf-8");
+      const invoiceOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/InvoiceTable.tsx"), "utf-8");
+      const summary = await readFile(join(playgroundDir, "playground/frontend/RefundSummary.tsx"), "utf-8");
+      const summaryOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/RefundSummary.tsx"), "utf-8");
+      const helperCode = stripTsComments(helper);
+      const readTurn = firstTurn(toolCalls, "read");
+      const changeTurn = firstChangeTurn(toolCalls);
+
+      const checks: Check[] = [
+        {
+          name: "searched before editing",
+          pass: grepOrGlobBeforeEdit(toolCalls),
+        },
+        {
+          name: "read before changing files (turn-ordered)",
+          pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
+        },
+        {
+          name: "edited only currency.ts",
+          pass: onlyChangedPaths(toolCalls, ["playground/frontend/currency.ts"]),
+        },
+        {
+          name: "formatCurrency now handles negative amounts",
+          pass:
+            helper !== helperOriginal &&
+            (/Math\.abs\s*\(\s*amount\s*\)/.test(helperCode) || /amount\s*<\s*0/.test(helperCode)) &&
+            /-\$\{?\$?/.test(helperCode.replace(/\s+/g, "")),
+        },
+        {
+          name: "invoice UI left untouched",
+          pass: invoice === invoiceOriginal,
+        },
+        {
+          name: "refund summary left untouched",
+          pass: summary === summaryOriginal,
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Found the shared formatting helper and fixed the real source of the bug.",
+        partial: "Fixed the display issue, but with extra drift or the wrong file ownership.",
+        fail: "Did not find the right file or changed the wrong layer.",
+      });
+    },
+  },
+
+  {
+    id: "SB-12",
+    name: "frontend-reuse-existing-abstraction",
+    category: "scope-discipline",
+    prompt:
+      "Show team members in playground/frontend/TeamSidebar.tsx. Reuse any existing abstraction in playground/frontend rather than reimplementing data loading.",
+    async evaluate({ playgroundDir, toolCalls }) {
+      const sidebar = await readFile(join(playgroundDir, "playground/frontend/TeamSidebar.tsx"), "utf-8");
+      const hook = await readFile(join(playgroundDir, "playground/frontend/useTeamMembers.ts"), "utf-8");
+      const originalHook = await readFile(join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"), "utf-8");
+      const sidebarCode = stripTsComments(sidebar);
+
+      const checks: Check[] = [
+        {
+          name: "searched before editing",
+          pass: grepOrGlobBeforeEdit(toolCalls),
+        },
+        {
+          name: "edited only TeamSidebar.tsx",
+          pass: onlyChangedPaths(toolCalls, ["playground/frontend/TeamSidebar.tsx"]),
+        },
+        {
+          name: "TeamSidebar reuses useTeamMembers hook",
+          pass:
+            /from\s+["']\.\/useTeamMembers["']/.test(sidebar) &&
+            /useTeamMembers\s*\(/.test(sidebarCode),
+        },
+        {
+          name: "TeamSidebar does not reimplement fetching",
+          pass:
+            !/useQuery\s*\(/.test(sidebarCode) &&
+            !/api\.get\s*(?:<[\s\S]*?>)?\s*\(/.test(sidebarCode) &&
+            !/fetch\s*\(/.test(sidebarCode) &&
+            !/useEffect\s*\(/.test(sidebarCode),
+        },
+        {
+          name: "existing hook left untouched",
+          pass: hook === originalHook,
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Reused the existing abstraction instead of reimplementing it locally.",
+        partial: "Got the feature working, but drifted away from the existing abstraction.",
+        fail: "Did not reuse the existing data-loading abstraction.",
+      });
+    },
+  },
+
+  {
+    id: "SB-13",
+    name: "verify-and-repair",
+    category: "scope-discipline",
+    prompt: "Fix calculateSubtotal in playground/cart.mjs and verify the fix.",
+    async evaluate({ playgroundDir, toolCalls }) {
+      const cart = await readFile(join(playgroundDir, "playground/cart.mjs"), "utf-8");
+      const cartOriginal = await readFile(join(PLAYGROUND_SRC, "cart.mjs"), "utf-8");
+      const test = await readFile(join(playgroundDir, "playground/cart.test.mjs"), "utf-8");
+      const testOriginal = await readFile(join(PLAYGROUND_SRC, "cart.test.mjs"), "utf-8");
+      const cartCode = stripTsComments(cart);
+      const changeTurn = firstChangeTurn(toolCalls);
+      const bashes = bashCommands(toolCalls);
+
+      const checks: Check[] = [
+        {
+          name: "edited only cart.mjs",
+          pass: onlyChangedPaths(toolCalls, ["playground/cart.mjs"]),
+        },
+        {
+          name: "calculateSubtotal multiplies price by quantity",
+          pass:
+            cart !== cartOriginal &&
+            /item\.price\s*\*\s*item\.quantity|item\.quantity\s*\*\s*item\.price/.test(cartCode),
+        },
+        {
+          name: "cart test file left untouched",
+          pass: test === testOriginal,
+        },
+        {
+          name: "ran a verification command after editing",
+          pass:
+            changeTurn !== undefined &&
+            hasCallAfter(toolCalls, "bash", changeTurn) &&
+            bashes.some((command) => /cart\.test\.mjs|bun test|node .*cart\.test\.mjs/.test(command)),
+        },
+      ];
+
+      return checksToEvaluation(checks, {
+        pass: "Fixed the bug and ran a verification command afterward.",
+        partial: "Fixed the bug, but skipped verification or changed more than needed.",
+        fail: "Did not repair the subtotal logic correctly.",
       });
     },
   },
