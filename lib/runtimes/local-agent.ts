@@ -413,8 +413,11 @@ export const localRuntime: Runtime = {
         return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT", modelMetrics);
       }
 
-      const reply = await callModel(conversation, deadline);
+      const reply = await callModel(conversation, deadline, (delta) => {
+        ctx.onEvent?.({ type: "assistant_delta", content: delta });
+      });
       applyModelCallMetrics(modelMetrics, reply.metrics);
+      ctx.onEvent?.({ type: "model_metrics", metrics: { ...modelMetrics } });
       const message = reply.message;
       if (!message) {
         return finishRuntime(
@@ -450,6 +453,7 @@ export const localRuntime: Runtime = {
 
         const result = await executeTool(call, ctx.workDir);
         toolCall.result = result;
+        ctx.onEvent?.({ type: "tool_result", call: toolCall, result });
         conversation.push({
           role: "tool",
           tool_call_id: call.id,
@@ -465,13 +469,16 @@ export const localRuntime: Runtime = {
 
 async function callModel(
   conversation: ChatMessage[],
-  deadline: number
+  deadline: number,
+  onDelta?: (text: string) => void
 ): Promise<{ finishReason: FinishReason; message?: ChatMessage; metrics: ModelCallMetrics }> {
   const remainingMs = Math.max(1, Math.ceil(deadline - performance.now()));
   const requestStartedAt = performance.now();
   const payload = JSON.stringify({
     model: DEFAULT_MODEL,
     messages: conversation,
+    stream: true,
+    stream_options: { include_usage: true },
     tools: tools.map((tool) => ({
       type: "function",
       function: {
@@ -489,6 +496,7 @@ async function callModel(
     cmd: [
       "curl",
       "-sS",
+      "-N",
       "-X",
       "POST",
       ...headers,
@@ -502,32 +510,98 @@ async function callModel(
     stderr: "pipe",
   });
 
+  let content = "";
+  let finishReason: FinishReason = "stop";
+  const toolCallsByIndex = new Map<number, { id: string; name: string; arguments: string }>();
+  let usage: ChatResponse["usage"];
+  let timings: ChatResponse["timings"];
+  let errorMessage: string | undefined;
+  let buffer = "";
+  let stderrText = "";
+
   try {
-    const [stdout, stderr, exitCode] = await Promise.all([
-      streamToString(proc.stdout),
-      streamToString(proc.stderr),
-      proc.exited,
-    ]);
+    const stderrPromise = streamToString(proc.stderr).then((s) => {
+      stderrText = s;
+    });
+    const decoder = new TextDecoder();
 
+    for await (const chunk of proc.stdout) {
+      buffer += decoder.decode(chunk, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, nl).trimEnd();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (data === "" || data === "[DONE]") continue;
+
+        let evt: any;
+        try {
+          evt = JSON.parse(data);
+        } catch {
+          continue;
+        }
+
+        if (evt.error?.message) errorMessage = evt.error.message;
+        if (evt.usage) usage = parseUsage(evt.usage);
+        if (evt.timings) timings = parseTimings(evt.timings);
+
+        const choice = evt.choices?.[0];
+        if (!choice) continue;
+        if (choice.finish_reason) finishReason = parseFinishReason(choice.finish_reason);
+
+        const delta = choice.delta;
+        if (!delta) continue;
+
+        if (typeof delta.content === "string" && delta.content.length > 0) {
+          content += delta.content;
+          onDelta?.(delta.content);
+        }
+
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const idx = typeof tc.index === "number" ? tc.index : 0;
+            const existing = toolCallsByIndex.get(idx) ?? { id: "", name: "", arguments: "" };
+            if (typeof tc.id === "string") existing.id = tc.id;
+            if (tc.function?.name) existing.name = tc.function.name;
+            if (typeof tc.function?.arguments === "string") {
+              existing.arguments += tc.function.arguments;
+            }
+            toolCallsByIndex.set(idx, existing);
+          }
+        }
+      }
+    }
+
+    const exitCode = await proc.exited;
+    await stderrPromise;
     if (exitCode !== 0) {
-      throw new Error(stderr.trim() || `curl exited with code ${exitCode}`);
+      throw new Error(stderrText.trim() || `curl exited with code ${exitCode}`);
     }
+    if (errorMessage) throw new Error(errorMessage);
 
-    const parsed = parseChatResponse(stdout);
     const requestFinishedAt = performance.now();
-    if (parsed.error?.message) {
-      throw new Error(parsed.error.message);
-    }
+    const toolCalls: OpenAIToolCall[] = [...toolCallsByIndex.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, tc]) => ({
+        id: tc.id || `call_${Math.random().toString(36).slice(2, 10)}`,
+        type: "function" as const,
+        function: { name: tc.name, arguments: tc.arguments || "{}" },
+      }));
 
-    const choice = parsed.choices?.[0];
-    if (!choice) {
-      throw new Error("no choices in model response");
-    }
+    const message: ChatMessage = {
+      role: "assistant",
+      content,
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    };
 
     return {
-      finishReason: choice.finish_reason ?? "stop",
-      message: choice.message,
-      metrics: extractModelCallMetrics(parsed, requestFinishedAt - requestStartedAt),
+      finishReason: toolCalls.length > 0 ? "tool_calls" : finishReason,
+      message,
+      metrics: extractModelCallMetrics(
+        { usage, timings, choices: [{ finish_reason: finishReason, message }] },
+        requestFinishedAt - requestStartedAt
+      ),
     };
   } catch (error) {
     if (error instanceof Error && /timed out/i.test(error.message)) {

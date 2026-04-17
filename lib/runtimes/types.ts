@@ -1,8 +1,11 @@
-import type { RuntimeOutput, ToolCall } from "../scoring.ts";
+import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
 
 export type RuntimeEvent =
   | { type: "assistant"; content: string }
-  | { type: "tool_call"; call: ToolCall };
+  | { type: "assistant_delta"; content: string }
+  | { type: "tool_call"; call: ToolCall }
+  | { type: "tool_result"; call: ToolCall; result: string }
+  | { type: "model_metrics"; metrics: ModelMetrics };
 
 export interface RuntimeContext {
   workDir: string;
