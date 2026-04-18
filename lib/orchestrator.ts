@@ -4,12 +4,11 @@ import { join } from "node:path";
 import type { Runtime, RuntimeEvent } from "./runtimes/types.ts";
 import type { Scenario } from "./scenarios.ts";
 import { PLAYGROUND_SRC } from "./scenarios.ts";
-import type { ScenarioResult } from "./scoring.ts";
+import type { RuntimeOutput, ScenarioResult } from "./scoring.ts";
 
 export interface RunOptions {
   runtime: Runtime;
   scenario: Scenario;
-  mode: string;
   timeoutMs: number;
   onRuntimeEvent?: (event: RuntimeEvent) => void;
 }
@@ -19,13 +18,24 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
   await cp(PLAYGROUND_SRC, join(workDir, "playground"), { recursive: true });
 
   try {
-    const output = await opts.runtime.run({
-      workDir,
-      prompt: opts.scenario.prompt,
-      mode: opts.mode,
-      timeoutMs: opts.timeoutMs,
-      onEvent: opts.onRuntimeEvent,
-    });
+    const runStartedAt = performance.now();
+    let output: RuntimeOutput;
+    try {
+      output = await opts.runtime.run({
+        workDir,
+        prompt: opts.scenario.prompt,
+        timeoutMs: opts.timeoutMs,
+        onEvent: opts.onRuntimeEvent,
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output = {
+        stdout: "",
+        toolCalls: [],
+        wallTimeMs: Math.round(performance.now() - runStartedAt),
+        error: `CRASH: ${msg}`,
+      };
+    }
 
     const evaluation = output.error
       ? {
@@ -44,7 +54,6 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
       scenarioId: opts.scenario.id,
       category: opts.scenario.category,
       runtime: opts.runtime.name,
-      mode: opts.mode,
       evaluation,
       output,
     };

@@ -1,4 +1,4 @@
 {
   "endpoint": "http://127.0.0.1:8082",
-  "model": "Qwopus3.5-27B-v3-Q6_K.gguf"
+  "model": "qwen-coder"
 }

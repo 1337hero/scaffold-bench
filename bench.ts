@@ -21,7 +21,6 @@ const RUNTIMES: Record<string, Runtime> = {
 const { values } = parseArgs({
   options: {
     runtime: { type: "string", short: "r", default: "local" },
-    mode: { type: "string", short: "m", default: "lite" },
     scenario: { type: "string", short: "s" },
     timeout: { type: "string", short: "t", default: "180000" },
   },
@@ -35,7 +34,6 @@ if (!runtime) {
   process.exit(1);
 }
 
-const mode = String(values.mode);
 const timeoutMs = Number(values.timeout);
 if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
   console.error(`Invalid --timeout: ${values.timeout}. Must be a positive number (ms).`);
@@ -116,7 +114,6 @@ async function main(): Promise<void> {
   const ui = process.stdout.isTTY
     ? new BenchDashboard(
         runtime.name,
-        mode,
         activeScenarios.map((scenario) => ({
           id: scenario.id,
           name: scenario.name,
@@ -134,7 +131,7 @@ async function main(): Promise<void> {
       ui.tick(0);
     } else {
       console.log("━".repeat(72));
-      console.log(`  scaffold-bench — runtime=${runtime.name} mode=${mode}`);
+      console.log(`  scaffold-bench — runtime=${runtime.name}`);
       console.log("━".repeat(72));
     }
 
@@ -148,7 +145,6 @@ async function main(): Promise<void> {
       const result = await runScenario({
         runtime,
         scenario,
-        mode,
         timeoutMs,
         onRuntimeEvent: (event) => {
           ui?.recordEvent(index, event);
@@ -187,14 +183,13 @@ async function main(): Promise<void> {
     const timestamp = Date.now();
     const resultsDir = join(import.meta.dir, "results");
     await mkdir(resultsDir, { recursive: true });
-    const outPath = join(resultsDir, `${timestamp}-${runtime.name}-${mode}.json`);
+    const outPath = join(resultsDir, `${timestamp}-${runtime.name}.json`);
     await Bun.write(
       outPath,
       JSON.stringify(
         {
           timestamp: new Date().toISOString(),
           runtime: runtime.name,
-          mode,
           totalPoints,
           maxPoints,
           modelMetrics,
@@ -208,6 +203,10 @@ async function main(): Promise<void> {
             error: r.output.error,
             modelMetrics: r.output.modelMetrics,
             checks: r.evaluation.checks,
+            ...(r.evaluation.status !== "pass" && {
+              transcript: r.output.stdout,
+              toolCalls: r.output.toolCalls,
+            }),
           })),
         },
         null,

@@ -10,7 +10,6 @@ export type RuntimeEvent =
 export interface RuntimeContext {
   workDir: string;
   prompt: string;
-  mode: string;
   timeoutMs: number;
   onEvent?: (event: RuntimeEvent) => void;
 }

@@ -33,7 +33,6 @@ type DashboardLogEntry = {
 
 type DashboardRenderState = {
   runtimeName: string;
-  mode: string;
   scenarios: BenchScenarioView[];
   startedAt: number;
   activeIndex: number;
@@ -81,7 +80,6 @@ export class BenchDashboard {
 
   constructor(
     private readonly runtimeName: string,
-    private readonly mode: string,
     scenarios: ScenarioViewSeed[]
   ) {
     this.scenarios = scenarios.map((scenario) => ({
@@ -178,7 +176,6 @@ export class BenchDashboard {
   tick(activeIndex: number): void {
     this.render({
       runtimeName: this.runtimeName,
-      mode: this.mode,
       scenarios: this.scenarios,
       startedAt: this.startedAt,
       activeIndex,
@@ -196,7 +193,6 @@ export class BenchDashboard {
   }): void {
     this.render({
       runtimeName: this.runtimeName,
-      mode: this.mode,
       scenarios: this.scenarios,
       startedAt: this.startedAt,
       activeIndex: Math.max(0, this.scenarios.length - 1),
@@ -322,7 +318,7 @@ function renderHeaderRibbon(
   failCount: number
 ): string[] {
   const title = `${BOLD}${TEXT}SCAFFOLD${GOLD}BENCH${RESET}${DIM}  modern agent bench${RESET}`;
-  const runtimeInfo = `${DIM}runtime=${state.runtimeName}  mode=${state.mode}${RESET}`;
+  const runtimeInfo = `${DIM}runtime=${state.runtimeName}${RESET}`;
   const scoreInfo = `${GREEN}${BOLD}${totalPoints}/${maxPoints}${RESET}${DIM} pts${RESET}`;
   const progressInfo = `${DIM}pass${RESET} ${GREEN}${passCount}${RESET}  ${DIM}partial${RESET} ${GOLD}${partialCount}${RESET}  ${DIM}fail${RESET} ${RED}${failCount}${RESET}`;
   const activeInfo = state.final
@@ -474,7 +470,7 @@ function renderMetrics(
 
   const lines = [
     fitAnsi(
-      `${DIM}runtime${RESET} ${TEXT}${state.runtimeName}${RESET}  ${DIM}mode${RESET} ${TEXT}${state.mode}${RESET}`,
+      `${DIM}runtime${RESET} ${TEXT}${state.runtimeName}${RESET}`,
       width
     ),
     fitAnsi(

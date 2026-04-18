@@ -54,7 +54,6 @@ export interface ScenarioResult {
   scenarioId: string;
   category: Category;
   runtime: string;
-  mode: string;
   evaluation: ScenarioEvaluation;
   output: RuntimeOutput;
 }

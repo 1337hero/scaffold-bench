@@ -1,14 +1,6 @@
 <div align="center">
 
-```
-   _____            __  __      _     _   ____                  _     
-  / ____|          / _|/ _|    | |   | | |  _ \                | |    
- | (___   ___ __ _| |_| |_ ___ | | __| | | |_) | ___ _ __   ___| |__  
-  \___ \ / __/ _` |  _|  _/ _ \| |/ _` | |  _ < / _ \ '_ \ / __| '_ \ 
-  ____) | (_| (_| | | | || (_) | | (_| | | |_) |  __/ | | | (__| | | |
- |_____/ \___\__,_|_| |_| \___/|_|\__,_| |____/ \___|_| |_|\___|_| |_|
-
-```                                                                    
+# ScaffoldBench                                                                 
                                                                       
 </div>
 
@@ -16,7 +8,7 @@ A harness for stress-testing local LLMs on **real agentic coding work** — not 
 
 Point it at a locally-running model (Ollama, llama.cpp, LM Studio, vLLM, or any server with an OpenAI-compatible API), run the suite, and find out if your model can actually use tools, stay in scope, and not hallucinate fixes.
 
-**Sample run (4 scenarios, lite prompt, local runtime):**
+**Sample run (4 scenarios, local runtime):**
 
 ```
 SB-01  fix-throttle         surgical-edit       partial  1/2  ✗ throttle logic incomplete
@@ -24,7 +16,7 @@ SB-02  audit-server         audit               pass     2/2
 SB-03  surgical-edit        scope-discipline    pass     2/2
 SB-04  read-only-analysis   read-only-analysis  pass     2/2
 
-Score: 7/8 (87.5%)  →  results/1776383086009-local-lite.json
+Score: 7/8 (87.5%)  →  results/1776383086009-local.json
 ```
 
 ---
@@ -84,7 +76,7 @@ Each scenario defines its own `Check[]` — regex matches, AST-ish function extr
 - ≥ 50% pass → `partial` (1pt)  
 - < 50% → `fail` (0pt)
 
-Results write to `results/{timestamp}-{runtime}-{mode}.json`.
+Results write to `results/{timestamp}-{runtime}.json`.
 
 **Model metrics** are aggregated from real benchmark traffic — no warm-up probe. If the server exposes token usage, the final dashboard and results JSON include:
 
@@ -121,14 +113,11 @@ Set `endpoint` to your server's base URL — the harness appends `/v1/chat/compl
 
 ```bash
 # Full suite
-bun bench.ts --runtime local --mode lite
+bun bench.ts --runtime local
 
 # Single scenario by name or ID
 bun bench.ts --runtime local --scenario fix-throttle
 bun bench.ts --runtime local --scenario SB-01
-
-# No system prompt (test raw model)
-bun bench.ts --runtime local --mode none
 
 # Custom timeout (ms)
 bun bench.ts --runtime local --timeout 300000
@@ -139,7 +128,6 @@ bun bench.ts --runtime local --timeout 300000
 | Flag | Short | Default | Description |
 |---|---|---|---|
 | `--runtime` | `-r` | `local` | Runtime to use |
-| `--mode` | `-m` | `lite` | System prompt mode: `none`, `lite`, `caveman` |
 | `--scenario` | `-s` | all | Run one scenario by name or ID |
 | `--timeout` | `-t` | `180000` | Per-scenario timeout in ms |
 
@@ -216,4 +204,5 @@ Implement the `Runtime` interface from `lib/runtimes/types.ts`, register it in t
 
 ## Roadmap
 
-- TUI polish
+- TUI polish 
+- Move to Web UI

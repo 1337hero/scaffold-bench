@@ -12,7 +12,12 @@ const rootConfig = readRootConfig();
 const DEFAULT_ENDPOINT = normalizeEndpoint(
   Bun.env.SCAFFOLD_ENDPOINT ?? rootConfig.endpoint ?? "http://127.0.0.1:8082"
 );
-const DEFAULT_MODEL = Bun.env.SCAFFOLD_MODEL ?? rootConfig.model ?? "Qwopus3.5-27B-v3-Q6_K.gguf";
+const DEFAULT_MODEL = Bun.env.SCAFFOLD_MODEL ?? rootConfig.model;
+if (!DEFAULT_MODEL) {
+  throw new Error(
+    "No model configured. Set SCAFFOLD_MODEL env var or add a `model` entry to scaffold.config.json."
+  );
+}
 const API_KEY = Bun.env.SCAFFOLD_API_KEY;
 const MAX_TOOL_ITERATIONS = 20;
 const OUTPUT_CAP = 8192;
@@ -20,6 +25,11 @@ const DEFAULT_BASH_TIMEOUT_MS = 5000;
 const MAX_BASH_TIMEOUT_MS = 10000;
 
 const systemPrompt = readSystemPrompt();
+if (!systemPrompt) {
+  throw new Error(
+    `Missing system prompt at ${SYSTEM_PROMPT_PATH}. This file is required.`
+  );
+}
 
 type JsonObject = Record<string, unknown>;
 type FinishReason = "tool_calls" | "stop" | "length" | "content_filter";
@@ -339,7 +349,7 @@ Rules:
         Math.max(1, Math.floor(requestedTimeout ?? DEFAULT_BASH_TIMEOUT_MS))
       );
       const proc = spawn({
-        cmd: [process.env.SHELL || "/bin/zsh", "-lc", command],
+        cmd: ["setsid", process.env.SHELL || "/bin/zsh", "-lc", command],
         cwd,
         stdout: "pipe",
         stderr: "pipe",
@@ -348,7 +358,11 @@ Rules:
       let timedOut = false;
       const timer = setTimeout(() => {
         timedOut = true;
-        proc.kill();
+        try {
+          process.kill(-proc.pid, "SIGKILL");
+        } catch {
+          proc.kill("SIGKILL");
+        }
       }, timeoutMs);
 
       const [stdout, stderr, exitCode] = await Promise.all([
@@ -403,9 +417,7 @@ export const localRuntime: Runtime = {
     const toolCalls: ToolCall[] = [];
     const modelMetrics = createModelMetrics(DEFAULT_MODEL);
 
-    if (systemPrompt && ctx.mode !== "none") {
-      conversation.push({ role: "system", content: systemPrompt });
-    }
+    conversation.push({ role: "system", content: systemPrompt });
     conversation.push({ role: "user", content: ctx.prompt });
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
@@ -413,9 +425,16 @@ export const localRuntime: Runtime = {
         return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT", modelMetrics);
       }
 
-      const reply = await callModel(conversation, deadline, (delta) => {
-        ctx.onEvent?.({ type: "assistant_delta", content: delta });
-      });
+      let reply;
+      try {
+        reply = await callModel(conversation, deadline, (delta) => {
+          ctx.onEvent?.({ type: "assistant_delta", content: delta });
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const errorTag = msg === "TIMEOUT" ? "TIMEOUT" : `CRASH: ${msg}`;
+        return finishRuntime(transcript, toolCalls, startedAt, errorTag, modelMetrics);
+      }
       applyModelCallMetrics(modelMetrics, reply.metrics);
       ctx.onEvent?.({ type: "model_metrics", metrics: { ...modelMetrics } });
       const message = reply.message;
