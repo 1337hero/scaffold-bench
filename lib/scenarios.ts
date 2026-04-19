@@ -211,6 +211,16 @@ function createPointBasedEvaluation(
   };
 }
 
+function createSkippedEvaluation(checkName: string, detail: string): ScenarioEvaluation {
+  return {
+    status: "fail",
+    points: 0,
+    maxPoints: 0,
+    checks: [{ name: checkName, pass: false, detail }],
+    summary: detail,
+  };
+}
+
 type ScenarioEvaluateInput = {
   stdout: string;
   playgroundDir: string;
@@ -1777,4 +1787,1537 @@ export const scenarios: Scenario[] = [
       return { output, evaluation };
     },
   },
+
+  (() => {
+    const SB24_PROMPT = [
+      "Caddy 2.7: `uri replace` does not work with escaped closing braces.",
+      "Input `\\}` should produce `}`, but instead it comes back unchanged as `\\}`.",
+      "",
+      "The failing cases live in `playground/sb24-caddy-replacer/replacer_test.go`.",
+      "The replacer logic is in `playground/sb24-caddy-replacer/replacer.go`.",
+      "",
+      "Run `go test ./...` from inside `playground/sb24-caddy-replacer` to see",
+      "the failing cases, then fix `replacer.go`. Change only what is necessary.",
+      "Verify the tests pass when you're done.",
+    ].join("\n");
+    return {
+    id: "SB-24",
+    name: "caddy-replacer-closing-brace",
+    category: "verify-and-repair" as const,
+    maxPoints: 2,
+    prompt: SB24_PROMPT,
+    async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+      const fixtureDir = join(workDir, "playground/sb24-caddy-replacer");
+      const replacerPath = join(fixtureDir, "replacer.go");
+      const originalReplacer = await readFile(
+        join(PLAYGROUND_SRC, "sb24-caddy-replacer/replacer.go"),
+        "utf-8"
+      );
+
+      // Precondition: Go must be on PATH. Skip cleanly if missing so infra
+      // drift shows as SKIPPED rather than a model failure.
+      const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
+      if (goCheck.exitCode !== 0) {
+        const output: RuntimeOutput = {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: 0,
+          scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
+        };
+        return {
+          output,
+          evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
+        };
+      }
+
+      const runStartedAt = performance.now();
+      let output: RuntimeOutput;
+      try {
+        output = await runtime.run({
+          workDir,
+          prompt: SB24_PROMPT,
+          timeoutMs,
+          onEvent: onRuntimeEvent,
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        output = {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: Math.round(performance.now() - runStartedAt),
+          error: `CRASH: ${msg}`,
+        };
+      }
+
+      if (output.error) {
+        return {
+          output,
+          evaluation: {
+            status: "fail",
+            points: 0,
+            maxPoints: 2,
+            checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+            summary: `Runtime error: ${output.error}`,
+          },
+        };
+      }
+
+      // Run go test ourselves — don't trust model's self-reported bash result.
+      const testRun = Bun.spawnSync(["go", "test", "./..."], {
+        cwd: fixtureDir,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const testsPass = testRun.exitCode === 0;
+      const testOutput = new TextDecoder()
+        .decode(testRun.stdout)
+        .concat(new TextDecoder().decode(testRun.stderr))
+        .trim()
+        .slice(0, 240);
+
+      const replacerAfter = await readFile(replacerPath, "utf-8");
+      const fileChanged = replacerAfter !== originalReplacer;
+      const onlyReplacerChanged = onlyChangedPaths(output.toolCalls, [
+        "playground/sb24-caddy-replacer/replacer.go",
+      ]);
+
+      // Strengthened guard pattern: early-return references BOTH phOpen AND
+      // phClose (root-cause fix), regardless of operand order.
+      const strengthenedGuardLine = replacerAfter
+        .split("\n")
+        .find((line) => line.includes("strings.Contains") && line.includes("phOpen"));
+      const strengthenedGuard =
+        strengthenedGuardLine !== undefined &&
+        strengthenedGuardLine.includes("&&") &&
+        /!strings\.Contains\s*\(\s*input\s*,\s*string\s*\(\s*phOpen\s*\)\s*\)/.test(
+          strengthenedGuardLine
+        ) &&
+        /!strings\.Contains\s*\(\s*input\s*,\s*string\s*\(\s*phClose\s*\)\s*\)/.test(
+          strengthenedGuardLine
+        );
+
+      // Score: 0 if tests fail or scope drifts outside replacer.go; 2 if tests
+      // pass + only replacer.go changed + strengthened guard present; 1 for
+      // a superficial fix that stays in-file.
+      let points: 0 | 1 | 2 = 0;
+      let status: "pass" | "partial" | "fail" = "fail";
+      let summary = "";
+      if (!testsPass) {
+        summary = "Tests still fail after fix.";
+      } else if (!onlyReplacerChanged) {
+        summary = "Tests pass but changes touched files outside replacer.go.";
+      } else if (onlyReplacerChanged && strengthenedGuard) {
+        points = 2;
+        status = "pass";
+        summary = "Tests pass, only replacer.go changed, root-cause guard applied.";
+      } else {
+        points = 1;
+        status = "partial";
+        summary = "Tests pass but the fix is superficial (early-return guard not strengthened).";
+      }
+
+      const checks: Check[] = [
+        { name: "go test ./... passes", pass: testsPass, detail: testOutput },
+        { name: "only replacer.go changed", pass: onlyReplacerChanged },
+        {
+          name: "early-return guard checks both phOpen and phClose",
+          pass: strengthenedGuard,
+          detail: fileChanged ? "pattern not matched in updated file" : "file unchanged",
+        },
+      ];
+
+      return {
+        output,
+        evaluation: { status, points, maxPoints: 2, checks, summary },
+      };
+    },
+    };
+  })(),
+
+  (() => {
+    const SB25_PROMPT = [
+      "Hugo's `Pages.GroupByParam(key)` returns `error: there is no such param`",
+      "when none of the pages has `key` in its front matter. It should return",
+      "`nil, nil` instead — mirroring `SortByParam` and `GroupByParamDate`,",
+      "and avoiding dead-ends for new sites or theme demos.",
+      "",
+      "Tests live in `playground/sb25-hugo-groupbyparam/pagegroup_test.go`.",
+      "The logic is in `playground/sb25-hugo-groupbyparam/pagegroup.go`.",
+      "",
+      "Run `go test ./...` from inside `playground/sb25-hugo-groupbyparam`",
+      "to see the failure, then fix `pagegroup.go`. Only edit pagegroup.go.",
+      "Verify the tests pass when you're done.",
+    ].join("\n");
+    return {
+      id: "SB-25",
+      name: "hugo-groupbyparam-missing-param",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB25_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb25-hugo-groupbyparam");
+        const pagegroupPath = join(fixtureDir, "pagegroup.go");
+        const originalPagegroup = await readFile(
+          join(PLAYGROUND_SRC, "sb25-hugo-groupbyparam/pagegroup.go"),
+          "utf-8"
+        );
+
+        const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
+        if (goCheck.exitCode !== 0) {
+          const output: RuntimeOutput = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: 0,
+            scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
+          };
+          return {
+            output,
+            evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({
+            workDir,
+            prompt: SB25_PROMPT,
+            timeoutMs,
+            onEvent: onRuntimeEvent,
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            error: `CRASH: ${msg}`,
+          };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail",
+              points: 0,
+              maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        const testRun = Bun.spawnSync(["go", "test", "./..."], {
+          cwd: fixtureDir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder()
+          .decode(testRun.stdout)
+          .concat(new TextDecoder().decode(testRun.stderr))
+          .trim()
+          .slice(0, 240);
+
+        const pagegroupAfter = await readFile(pagegroupPath, "utf-8");
+        const onlyPagegroupChanged = onlyChangedPaths(output.toolCalls, [
+          "playground/sb25-hugo-groupbyparam/pagegroup.go",
+        ]);
+
+        // Anchor to the missing-param branch, not raw `return nil, nil` anywhere.
+        // Extract `if !tmp.IsValid() { ... }` block and verify its body returns nil, nil.
+        const branchMatch = /if\s+!tmp\.IsValid\s*\(\s*\)\s*\{([^}]*)\}/.exec(pagegroupAfter);
+        const canonicalFix =
+          branchMatch !== null && /return\s+nil\s*,\s*nil\b/.test(branchMatch[1]);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) {
+          summary = "Tests still fail after fix.";
+        } else if (!onlyPagegroupChanged) {
+          // Editing the test file (or anything else) invalidates the only oracle.
+          summary = "Tests pass but changes touched files outside pagegroup.go — oracle invalidated.";
+        } else if (canonicalFix) {
+          points = 2;
+          status = "pass";
+          summary = "Tests pass, only pagegroup.go changed, missing-param branch returns nil,nil.";
+        } else {
+          points = 1;
+          status = "partial";
+          summary = "Tests pass but fix is behaviorally lenient (missing-param branch doesn't return nil,nil).";
+        }
+
+        const checks: Check[] = [
+          { name: "go test ./... passes", pass: testsPass, detail: testOutput },
+          { name: "only pagegroup.go changed", pass: onlyPagegroupChanged },
+          {
+            name: "missing-param branch (!tmp.IsValid) returns nil, nil",
+            pass: canonicalFix,
+            detail: branchMatch === null
+              ? "!tmp.IsValid branch not found in file"
+              : `branch body: ${branchMatch[1].trim().slice(0, 120)}`,
+          },
+        ];
+
+        return {
+          output,
+          evaluation: { status, points, maxPoints: 2, checks, summary },
+        };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB26_PROMPT = [
+      "Prometheus agent mode crashes on shutdown with a nil-pointer dereference",
+      "inside `promql.(*Engine).Close()`. In agent mode the engine is nil, and",
+      "calling `Close()` on the nil receiver panics when it tries to access",
+      "`ng.activeQueryTracker`.",
+      "",
+      "Tests live in `playground/sb26-prom-engine-close/engine_test.go`.",
+      "The logic is in `playground/sb26-prom-engine-close/engine.go`.",
+      "",
+      "Run `go test ./...` from inside `playground/sb26-prom-engine-close`",
+      "to see the failure, then fix `engine.go`. Only edit engine.go.",
+      "Verify the tests pass when you're done.",
+    ].join("\n");
+    return {
+      id: "SB-26",
+      name: "prometheus-engine-close-nil",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB26_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb26-prom-engine-close");
+        const enginePath = join(fixtureDir, "engine.go");
+
+        const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
+        if (goCheck.exitCode !== 0) {
+          const output: RuntimeOutput = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: 0,
+            scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
+          };
+          return {
+            output,
+            evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({
+            workDir,
+            prompt: SB26_PROMPT,
+            timeoutMs,
+            onEvent: onRuntimeEvent,
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            error: `CRASH: ${msg}`,
+          };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail",
+              points: 0,
+              maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        const testRun = Bun.spawnSync(["go", "test", "./..."], {
+          cwd: fixtureDir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder()
+          .decode(testRun.stdout)
+          .concat(new TextDecoder().decode(testRun.stderr))
+          .trim()
+          .slice(0, 240);
+
+        const engineAfter = await readFile(enginePath, "utf-8");
+        const onlyEngineChanged = onlyChangedPaths(output.toolCalls, [
+          "playground/sb26-prom-engine-close/engine.go",
+        ]);
+
+        // Anchor: extract the Close method body and check that a nil-receiver
+        // guard (if ng == nil { return nil }) appears before the first field
+        // access on ng. This enforces the canonical fix shape.
+        const closeMatch = /func\s+\(\s*ng\s+\*Engine\s*\)\s+Close\s*\(\s*\)\s*error\s*\{([\s\S]*?)\n\}/.exec(
+          engineAfter
+        );
+        let canonicalFix = false;
+        let branchDetail = "Close method not found in file";
+        if (closeMatch) {
+          const body = closeMatch[1];
+          const nilGuardIdx = body.search(/if\s+ng\s*==\s*nil\b/);
+          const fieldAccessIdx = body.search(/ng\.\w+/);
+          canonicalFix =
+            nilGuardIdx !== -1 && (fieldAccessIdx === -1 || nilGuardIdx < fieldAccessIdx);
+          branchDetail = canonicalFix
+            ? "nil guard precedes first ng. field access"
+            : nilGuardIdx === -1
+              ? "no `if ng == nil` guard inside Close()"
+              : "nil guard appears after a field access";
+        }
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) {
+          summary = "Tests still fail after fix.";
+        } else if (!onlyEngineChanged) {
+          summary = "Tests pass but changes touched files outside engine.go — oracle invalidated.";
+        } else if (canonicalFix) {
+          points = 2;
+          status = "pass";
+          summary = "Tests pass, only engine.go changed, Close() nil-guards before field access.";
+        } else {
+          points = 1;
+          status = "partial";
+          summary = "Tests pass but fix doesn't match canonical nil-guard shape.";
+        }
+
+        const checks: Check[] = [
+          { name: "go test ./... passes", pass: testsPass, detail: testOutput },
+          { name: "only engine.go changed", pass: onlyEngineChanged },
+          { name: "Close() nil-guards receiver before field access", pass: canonicalFix, detail: branchDetail },
+        ];
+
+        return {
+          output,
+          evaluation: { status, points, maxPoints: 2, checks, summary },
+        };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB27_PROMPT = [
+      "Terraform's remote-exec provisioner keeps SSH connections open long",
+      "after the scripts have finished running. The disconnect goroutine in",
+      "`RunScripts` waits on the caller's context, which stays live for the",
+      "entire Terraform run — so the communicator stays connected.",
+      "",
+      "It should disconnect promptly once the scripts complete, while still",
+      "disconnecting if the caller cancels mid-execution.",
+      "",
+      "Tests live in `playground/sb27-tf-ssh-leak/runner_test.go`.",
+      "The logic is in `playground/sb27-tf-ssh-leak/runner.go`.",
+      "",
+      "Run `go test ./...` from inside `playground/sb27-tf-ssh-leak` to see",
+      "the failure, then fix `runner.go`. Only edit runner.go. Verify the",
+      "tests pass when you're done.",
+    ].join("\n");
+    return {
+      id: "SB-27",
+      name: "terraform-ssh-connection-leak",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB27_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb27-tf-ssh-leak");
+        const runnerPath = join(fixtureDir, "runner.go");
+
+        const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
+        if (goCheck.exitCode !== 0) {
+          const output: RuntimeOutput = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: 0,
+            scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
+          };
+          return {
+            output,
+            evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({
+            workDir,
+            prompt: SB27_PROMPT,
+            timeoutMs,
+            onEvent: onRuntimeEvent,
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            error: `CRASH: ${msg}`,
+          };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail",
+              points: 0,
+              maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        // Go tests can be slow under parallel harness load; give generous budget.
+        const testRun = Bun.spawnSync(["go", "test", "-timeout", "15s", "./..."], {
+          cwd: fixtureDir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder()
+          .decode(testRun.stdout)
+          .concat(new TextDecoder().decode(testRun.stderr))
+          .trim()
+          .slice(0, 240);
+
+        const runnerAfter = await readFile(runnerPath, "utf-8");
+        const onlyRunnerChanged = onlyChangedPaths(output.toolCalls, [
+          "playground/sb27-tf-ssh-leak/runner.go",
+        ]);
+
+        // Anchor: inside RunScripts, the canonical fix derives a cancellable
+        // context from ctx and defers its cancel function. This captures the
+        // idiomatic pattern that preserves mid-execution cancellation semantics.
+        const runScriptsMatch = /func\s+RunScripts\s*\([^)]*\)[^{]*\{([\s\S]*?)\n\}\s*$/m.exec(
+          runnerAfter
+        );
+        let canonicalFix = false;
+        let fixDetail = "RunScripts function not found";
+        if (runScriptsMatch) {
+          const body = runScriptsMatch[1];
+          const derivedCtx =
+            /(\w+)\s*,\s*(\w+)\s*:=\s*context\.(?:WithCancel|WithTimeout|WithDeadline)\s*\(\s*ctx\b/.exec(
+              body
+            );
+          if (derivedCtx) {
+            const cancelName = derivedCtx[2];
+            const hasDeferCancel = new RegExp(`defer\\s+${cancelName}\\s*\\(`).test(body);
+            canonicalFix = hasDeferCancel;
+            fixDetail = hasDeferCancel
+              ? `derived ctx (${derivedCtx[1]}) with defer ${cancelName}()`
+              : `derived ctx present but no defer ${cancelName}()`;
+          } else {
+            fixDetail = "no context.WithCancel/WithTimeout/WithDeadline from ctx";
+          }
+        }
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) {
+          summary = "Tests still fail after fix.";
+        } else if (!onlyRunnerChanged) {
+          summary = "Tests pass but changes touched files outside runner.go — oracle invalidated.";
+        } else if (canonicalFix) {
+          points = 2;
+          status = "pass";
+          summary = "Tests pass, only runner.go changed, derived context with defer cancel applied.";
+        } else {
+          points = 1;
+          status = "partial";
+          summary =
+            "Tests pass but fix doesn't match canonical context-derivation pattern (e.g., bare defer Disconnect).";
+        }
+
+        const checks: Check[] = [
+          { name: "go test ./... passes", pass: testsPass, detail: testOutput },
+          { name: "only runner.go changed", pass: onlyRunnerChanged },
+          {
+            name: "derives cancellable context from ctx and defers cancel",
+            pass: canonicalFix,
+            detail: fixDetail,
+          },
+        ];
+
+        return {
+          output,
+          evaluation: { status, points, maxPoints: 2, checks, summary },
+        };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB28_PROMPT = [
+      "Axios's Node HTTP adapter upgrades to `follow-redirects` introduced an",
+      "unexpected 10 MB default body limit. Users passing `maxBodyLength: -1`",
+      "(axios's 'unlimited' sentinel) still get blocked because the adapter",
+      "never tells follow-redirects to skip its limit.",
+      "",
+      "Tests live in `playground/sb28-axios-maxbody/http-adapter.test.mjs`.",
+      "The adapter helper is in `playground/sb28-axios-maxbody/http-adapter.mjs`.",
+      "",
+      "Run `node http-adapter.test.mjs` from inside `playground/sb28-axios-maxbody`",
+      "to see the failure, then fix `http-adapter.mjs`. Only edit that file.",
+    ].join("\n");
+    return {
+      id: "SB-28",
+      name: "axios-maxbody-unlimited",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB28_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb28-axios-maxbody");
+        const sourcePath = join(fixtureDir, "http-adapter.mjs");
+
+        const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
+        if (nodeCheck.exitCode !== 0) {
+          const output: RuntimeOutput = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: 0,
+            scenarioMetrics: { skipped: true, reason: "node-not-on-path" },
+          };
+          return {
+            output,
+            evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({
+            workDir,
+            prompt: SB28_PROMPT,
+            timeoutMs,
+            onEvent: onRuntimeEvent,
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            error: `CRASH: ${msg}`,
+          };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail",
+              points: 0,
+              maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        const testRun = Bun.spawnSync(["node", "http-adapter.test.mjs"], {
+          cwd: fixtureDir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder()
+          .decode(testRun.stdout)
+          .concat(new TextDecoder().decode(testRun.stderr))
+          .trim()
+          .slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, [
+          "playground/sb28-axios-maxbody/http-adapter.mjs",
+        ]);
+
+        // Canonical fix sets options.maxBodyLength = Infinity in the unlimited
+        // branch. A ternary or if/else both satisfy this anchor.
+        const canonicalFix = /options\.maxBodyLength\s*=\s*Infinity/.test(sourceAfter);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) {
+          summary = "Tests still fail after fix.";
+        } else if (!onlySourceChanged) {
+          summary = "Tests pass but changes touched files outside http-adapter.mjs — oracle invalidated.";
+        } else if (canonicalFix) {
+          points = 2;
+          status = "pass";
+          summary = "Tests pass, only http-adapter.mjs changed, unlimited maps to Infinity.";
+        } else {
+          points = 1;
+          status = "partial";
+          summary = "Tests pass but fix doesn't use Infinity for the unlimited case.";
+        }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only http-adapter.mjs changed", pass: onlySourceChanged },
+          { name: "unlimited maxBodyLength maps to Infinity", pass: canonicalFix },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB29_PROMPT = [
+      "Axios's `isAbsoluteURL` helper treats protocol-relative URLs like",
+      "`//example.com/` as absolute. That behaviour is the root of",
+      "CVE-2024-39338 — an attacker can redirect server-side requests to",
+      "arbitrary hosts. Protocol-relative URLs must be treated as RELATIVE.",
+      "",
+      "Tests live in `playground/sb29-axios-ssrf/isAbsoluteURL.test.mjs`.",
+      "The helper is in `playground/sb29-axios-ssrf/isAbsoluteURL.mjs`.",
+      "",
+      "Run `node isAbsoluteURL.test.mjs` from inside `playground/sb29-axios-ssrf`",
+      "to see the failure, then fix `isAbsoluteURL.mjs`. Only edit that file.",
+    ].join("\n");
+    return {
+      id: "SB-29",
+      name: "axios-ssrf-protocol-relative",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB29_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb29-axios-ssrf");
+        const sourcePath = join(fixtureDir, "isAbsoluteURL.mjs");
+
+        const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
+        if (nodeCheck.exitCode !== 0) {
+          return {
+            output: {
+              stdout: "",
+              toolCalls: [],
+              wallTimeMs: 0,
+              scenarioMetrics: { skipped: true, reason: "node-not-on-path" },
+            },
+            evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({
+            workDir,
+            prompt: SB29_PROMPT,
+            timeoutMs,
+            onEvent: onRuntimeEvent,
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            error: `CRASH: ${msg}`,
+          };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail",
+              points: 0,
+              maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        const testRun = Bun.spawnSync(["node", "isAbsoluteURL.test.mjs"], {
+          cwd: fixtureDir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder()
+          .decode(testRun.stdout)
+          .concat(new TextDecoder().decode(testRun.stderr))
+          .trim()
+          .slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, [
+          "playground/sb29-axios-ssrf/isAbsoluteURL.mjs",
+        ]);
+
+        // Canonical fix: the regex no longer has the `)?` making the scheme
+        // optional. A wrapper-based fix (pre-check for `//` and bail) passes
+        // tests but leaves the dangerous regex intact → 1 pt.
+        const fnMatch = /function\s+isAbsoluteURL\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/.exec(sourceAfter);
+        const fnBody = fnMatch?.[1] ?? "";
+        const stillHasOptionalScheme = /\)\?\s*\\?\/\s*\\?\//.test(fnBody);
+        const canonicalFix = fnMatch !== null && !stillHasOptionalScheme;
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) {
+          summary = "Tests still fail after fix.";
+        } else if (!onlySourceChanged) {
+          summary = "Tests pass but changes touched files outside isAbsoluteURL.mjs — oracle invalidated.";
+        } else if (canonicalFix) {
+          points = 2;
+          status = "pass";
+          summary = "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.";
+        } else {
+          points = 1;
+          status = "partial";
+          summary = "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).";
+        }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only isAbsoluteURL.mjs changed", pass: onlySourceChanged },
+          { name: "optional-scheme group removed from regex", pass: canonicalFix },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB30_PROMPT = [
+      "Axios's Node adapter ignores the user-configured `timeoutErrorMessage`",
+      "on request timeouts. The error message is always the hard-coded",
+      "`timeout of Xms exceeded`, even when the user set a custom string.",
+      "",
+      "Tests live in `playground/sb30-axios-timeout-msg/buildTimeoutError.test.mjs`.",
+      "The helper is in `playground/sb30-axios-timeout-msg/buildTimeoutError.mjs`.",
+      "",
+      "Run `node buildTimeoutError.test.mjs` from inside `playground/sb30-axios-timeout-msg`",
+      "to see the failure, then fix `buildTimeoutError.mjs`. Only edit that file.",
+    ].join("\n");
+    return {
+      id: "SB-30",
+      name: "axios-timeout-error-message",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB30_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb30-axios-timeout-msg");
+        const sourcePath = join(fixtureDir, "buildTimeoutError.mjs");
+
+        const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
+        if (nodeCheck.exitCode !== 0) {
+          return {
+            output: {
+              stdout: "",
+              toolCalls: [],
+              wallTimeMs: 0,
+              scenarioMetrics: { skipped: true, reason: "node-not-on-path" },
+            },
+            evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({
+            workDir,
+            prompt: SB30_PROMPT,
+            timeoutMs,
+            onEvent: onRuntimeEvent,
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = {
+            stdout: "",
+            toolCalls: [],
+            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            error: `CRASH: ${msg}`,
+          };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail",
+              points: 0,
+              maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        const testRun = Bun.spawnSync(["node", "buildTimeoutError.test.mjs"], {
+          cwd: fixtureDir,
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder()
+          .decode(testRun.stdout)
+          .concat(new TextDecoder().decode(testRun.stderr))
+          .trim()
+          .slice(0, 240);
+
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, [
+          "playground/sb30-axios-timeout-msg/buildTimeoutError.mjs",
+        ]);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) {
+          summary = "Tests still fail after fix.";
+        } else if (!onlySourceChanged) {
+          summary = "Tests pass but changes touched files outside buildTimeoutError.mjs — oracle invalidated.";
+        } else {
+          points = 2;
+          status = "pass";
+          summary = "Tests pass and only buildTimeoutError.mjs changed; fixture oracle covers default and override semantics.";
+        }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only buildTimeoutError.mjs changed", pass: onlySourceChanged },
+          {
+            name: "fixture oracle covers default, override, and empty-string fallback semantics",
+            pass: testsPass,
+            detail: "behavior is enforced by the fixture test suite rather than a specific patch shape",
+          },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB31_PROMPT = [
+      "Babel's generator crashes when an `inputSourceMap` is provided without",
+      "`sourcesContent`. The source-map v3 spec makes sourcesContent optional,",
+      "but `applyInputMap` dereferences `inputMap.sourcesContent[i]`, throwing",
+      "`TypeError: Cannot read properties of undefined (reading '0')`.",
+      "",
+      "Tests live in `playground/sb31-babel-sourcemap/sourceMap.test.mjs`.",
+      "The logic is in `playground/sb31-babel-sourcemap/sourceMap.mjs`.",
+      "",
+      "Run `node sourceMap.test.mjs` from inside `playground/sb31-babel-sourcemap`",
+      "to see the failure, then fix `sourceMap.mjs`. Only edit sourceMap.mjs.",
+    ].join("\n");
+    return {
+      id: "SB-31",
+      name: "babel-sourcemap-undefined-content",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB31_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb31-babel-sourcemap");
+        const sourcePath = join(fixtureDir, "sourceMap.mjs");
+
+        const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
+        if (nodeCheck.exitCode !== 0) {
+          return {
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
+            evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB31_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return {
+            output,
+            evaluation: {
+              status: "fail", points: 0, maxPoints: 2,
+              checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+              summary: `Runtime error: ${output.error}`,
+            },
+          };
+        }
+
+        const testRun = Bun.spawnSync(["node", "sourceMap.test.mjs"], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb31-babel-sourcemap/sourceMap.mjs"]);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside sourceMap.mjs.";
+        else { points = 2; status = "pass"; summary = "Tests pass and only sourceMap.mjs changed; fixture oracle covers missing and partial sourcesContent cases."; }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only sourceMap.mjs changed", pass: onlySourceChanged },
+          {
+            name: "fixture oracle covers absent and partially populated sourcesContent",
+            pass: testsPass,
+            detail: "behavior is enforced by the fixture test suite rather than a specific patch shape",
+          },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB32_PROMPT = [
+      "Babel's `permuteHelper` renames a helper's internal locals to dodge",
+      "collisions with names already bound in the caller's scope. But it",
+      "forgets to reserve the helper's OWN identifier name, so the dodge",
+      "loop can rename a local to the very name the helper is imported as.",
+      "",
+      "Tests live in `playground/sb32-babel-helper-conflict/permuteHelper.test.mjs`.",
+      "The logic is in `playground/sb32-babel-helper-conflict/permuteHelper.mjs`.",
+      "",
+      "Run `node permuteHelper.test.mjs` from inside the fixture directory.",
+      "Only edit permuteHelper.mjs.",
+    ].join("\n");
+    return {
+      id: "SB-32",
+      name: "babel-helper-declaration-conflict",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB32_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb32-babel-helper-conflict");
+        const sourcePath = join(fixtureDir, "permuteHelper.mjs");
+
+        const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
+        if (nodeCheck.exitCode !== 0) {
+          return {
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
+            evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB32_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["node", "permuteHelper.test.mjs"], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb32-babel-helper-conflict/permuteHelper.mjs"]);
+
+        // Canonical: reserve id.name when id is an Identifier. Checks
+        // for `bindings.add(id.name)` guarded by an Identifier-type check.
+        const stripped = stripComments(sourceAfter);
+        const canonicalFix =
+          /bindings\.add\s*\(\s*id\.name\s*\)/.test(stripped) &&
+          /id\.type\s*===\s*["']Identifier["']/.test(stripped);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside permuteHelper.mjs.";
+        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only permuteHelper.mjs changed, helper id reserved in bindings."; }
+        else { points = 1; status = "partial"; summary = "Tests pass but helper id not explicitly reserved (superficial fix)."; }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only permuteHelper.mjs changed", pass: onlySourceChanged },
+          { name: "fix reserves id.name when id.type === 'Identifier'", pass: canonicalFix },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB33_PROMPT = [
+      "When `scope.rename('a', '_a')` walks the AST, shorthand ObjectProperty",
+      "nodes like `{ a }` should be expanded: `{ a: _a }` — key stays, value",
+      "is renamed, and `shorthand` flips to false. Today the rename visitor",
+      "doesn't handle ObjectProperty; both key and value get renamed to `_a`,",
+      "silently changing the object's field name.",
+      "",
+      "Tests live in `playground/sb33-babel-rename-shorthand/renameShorthand.test.mjs`.",
+      "The logic is in `playground/sb33-babel-rename-shorthand/renameShorthand.mjs`.",
+      "",
+      "Run `node renameShorthand.test.mjs`. Only edit renameShorthand.mjs.",
+    ].join("\n");
+    return {
+      id: "SB-33",
+      name: "babel-rename-shorthand",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB33_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb33-babel-rename-shorthand");
+        const sourcePath = join(fixtureDir, "renameShorthand.mjs");
+
+        const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
+        if (nodeCheck.exitCode !== 0) {
+          return {
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
+            evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB33_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["node", "renameShorthand.test.mjs"], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb33-babel-rename-shorthand/renameShorthand.mjs"]);
+
+        // Canonical: an ObjectProperty visitor that flips shorthand=false.
+        // Matches the upstream babel fix shape.
+        const stripped = stripComments(sourceAfter);
+        const canonicalFix =
+          /ObjectProperty\s*[:(]/.test(stripped) &&
+          /shorthand\s*=\s*false/.test(stripped);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside renameShorthand.mjs.";
+        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only renameShorthand.mjs changed, ObjectProperty visitor flips shorthand."; }
+        else { points = 1; status = "partial"; summary = "Tests pass but ObjectProperty visitor with shorthand=false not present (superficial fix)."; }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only renameShorthand.mjs changed", pass: onlySourceChanged },
+          { name: "fix adds ObjectProperty visitor that flips shorthand=false", pass: canonicalFix },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB34_PROMPT = [
+      "Vue's tokenizer handles `<textarea>` as an RCDATA element — it still",
+      "looks for mustache delimiters (`{{`) even though other tags inside are",
+      "treated as text. When an ancestor has `v-pre`, however, mustaches should",
+      "be literal. Today the RCDATA state enters interpolation regardless,",
+      "producing a broken token stream for `<div v-pre><textarea>{{ foo`.",
+      "",
+      "Tests live in `playground/sb34-vue-vpre-textarea/tokenizer.test.ts`.",
+      "The logic is in `playground/sb34-vue-vpre-textarea/tokenizer.ts`.",
+      "",
+      "Run `bun tokenizer.test.ts` from inside the fixture directory.",
+      "Only edit tokenizer.ts.",
+    ].join("\n");
+    return {
+      id: "SB-34",
+      name: "vue-vpre-textarea",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB34_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb34-vue-vpre-textarea");
+        const sourcePath = join(fixtureDir, "tokenizer.ts");
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB34_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["bun", "tokenizer.test.ts"], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb34-vue-vpre-textarea/tokenizer.ts"]);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside tokenizer.ts.";
+        else { points = 2; status = "pass"; summary = "Tests pass and only tokenizer.ts changed; fixture oracle covers v-pre and non-v-pre RCDATA behavior."; }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only tokenizer.ts changed", pass: onlySourceChanged },
+          {
+            name: "fixture oracle covers v-pre literal text and non-v-pre interpolation behavior",
+            pass: testsPass,
+            detail: "behavior is enforced by the fixture test suite rather than a specific patch shape",
+          },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB35_PROMPT = [
+      "Vue's `renderList` (the runtime that powers v-for) wraps each item of",
+      "a reactive array via `toReactive`. That's correct for a deep reactive",
+      "array, but wrong for a `shallowReactive` array — its whole point is",
+      "that nested reads do NOT track reactivity. Today items of a",
+      "`shallowReactive([{foo:1}])` get silently upgraded to deep reactive.",
+      "",
+      "Tests live in `playground/sb35-vue-shallowreactive-vfor/renderList.test.ts`.",
+      "The logic is in `playground/sb35-vue-shallowreactive-vfor/renderList.ts`.",
+      "",
+      "Run `bun renderList.test.ts`. Only edit renderList.ts.",
+    ].join("\n");
+    return {
+      id: "SB-35",
+      name: "vue-shallowreactive-vfor",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB35_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb35-vue-shallowreactive-vfor");
+        const sourcePath = join(fixtureDir, "renderList.ts");
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB35_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["bun", "renderList.test.ts"], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb35-vue-shallowreactive-vfor/renderList.ts"]);
+
+        // Canonical: isShallow(source) informs the wrap decision. Lenient
+        // fixes could short-circuit earlier (e.g. bypass reactive-array
+        // detection entirely) — tests would pass but miss the semantic.
+        const canonicalFix = /isShallow\s*\(\s*source\s*\)/.test(stripComments(sourceAfter));
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside renderList.ts.";
+        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only renderList.ts changed, isShallow(source) consulted."; }
+        else { points = 1; status = "partial"; summary = "Tests pass but isShallow(source) not referenced (superficial fix)."; }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only renderList.ts changed", pass: onlySourceChanged },
+          { name: "fix consults isShallow(source)", pass: canonicalFix },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB36_PROMPT = [
+      "Vue's reactivity `endBatch` decrements `batchDepth` AFTER it processes",
+      "the queued effects. When an effect inside the loop calls another",
+      "`startBatch`/`endBatch` pair (e.g. a sync watcher writing to a ref),",
+      "the nested `endBatch` sees `batchDepth > 1` and returns early — leaving",
+      "dependents in an in-flush state that breaks computed scheduling.",
+      "",
+      "Tests live in `playground/sb36-vue-sync-watchers/effect.test.ts`.",
+      "The logic is in `playground/sb36-vue-sync-watchers/effect.ts`.",
+      "",
+      "Run `bun effect.test.ts`. Only edit effect.ts.",
+    ].join("\n");
+    return {
+      id: "SB-36",
+      name: "vue-sync-watchers-batch",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB36_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb36-vue-sync-watchers");
+        const sourcePath = join(fixtureDir, "effect.ts");
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB36_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["bun", "effect.test.ts"], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb36-vue-sync-watchers/effect.ts"]);
+
+        // Canonical: within endBatch, `batchDepth--` appears BEFORE the
+        // `while (batchedHead)` loop. Structural anchor slices the
+        // endBatch body by its opening brace and the matching closing
+        // brace, then confirms that ordering.
+        const stripped36 = stripComments(sourceAfter);
+        const endBatchStart = stripped36.search(/function\s+endBatch\s*\([^)]*\)[^{]*\{/);
+        let canonicalFix = false;
+        if (endBatchStart !== -1) {
+          let depth = 0;
+          let bodyStart = -1;
+          let bodyEnd = -1;
+          for (let i = endBatchStart; i < stripped36.length; i++) {
+            if (stripped36[i] === "{") {
+              if (depth === 0) bodyStart = i + 1;
+              depth++;
+            } else if (stripped36[i] === "}") {
+              depth--;
+              if (depth === 0) { bodyEnd = i; break; }
+            }
+          }
+          if (bodyStart !== -1 && bodyEnd !== -1) {
+            const body = stripped36.slice(bodyStart, bodyEnd);
+            // Count occurrences: buggy code has 2 decrements (one in the
+            // early-return branch, one after the flush loop); canonical
+            // fix has exactly 1, located before the while loop.
+            const decrementMatches = [...body.matchAll(/batchDepth\s*--/g)];
+            const decrementCount = decrementMatches.length;
+            const loopIdx = body.search(/while\s*\(\s*batchedHead/);
+            const lastDecrement = decrementMatches.at(-1)?.index ?? -1;
+            canonicalFix =
+              decrementCount === 1 &&
+              loopIdx !== -1 &&
+              lastDecrement !== -1 &&
+              lastDecrement < loopIdx;
+          }
+        }
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside effect.ts.";
+        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only effect.ts changed, batchDepth-- moved before flush loop."; }
+        else { points = 1; status = "partial"; summary = "Tests pass but batchDepth-- still after flush loop (superficial fix)."; }
+
+        const checks: Check[] = [
+          { name: "tests pass", pass: testsPass, detail: testOutput },
+          { name: "only effect.ts changed", pass: onlySourceChanged },
+          { name: "batchDepth-- precedes while(batchedHead) in endBatch", pass: canonicalFix },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB37_PROMPT = [
+      "Caddy's `{file.*}` placeholder reads a file and substitutes its",
+      "contents into a Caddyfile expression — handy for basicauth hashes,",
+      "API keys, and the like. Problem: it preserves the trailing newline",
+      "that every text editor appends, so `{file.secret.txt}` equals",
+      "`\"secret\\n\"` instead of `\"secret\"` — breaking anything that",
+      "compares the value literally.",
+      "",
+      "Tests live in `playground/sb37-caddy-file-newline/replacer_test.go`.",
+      "The logic is in `playground/sb37-caddy-file-newline/replacer.go`.",
+      "",
+      "Run `go test ./...` from inside the fixture directory. Only edit replacer.go.",
+    ].join("\n");
+    return {
+      id: "SB-37",
+      name: "caddy-file-trailing-newline",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB37_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb37-caddy-file-newline");
+        const sourcePath = join(fixtureDir, "replacer.go");
+
+        const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
+        if (goCheck.exitCode !== 0) {
+          return {
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "go-not-on-path" } },
+            evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB37_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["go", "test", "./..."], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const sourceAfter = await readFile(sourcePath, "utf-8");
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb37-caddy-file-newline/replacer.go"]);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside replacer.go.";
+        else { points = 2; status = "pass"; summary = "Tests pass and only replacer.go changed; fixture oracle covers newline handling."; }
+
+        const checks: Check[] = [
+          { name: "go test ./... passes", pass: testsPass, detail: testOutput },
+          { name: "only replacer.go changed", pass: onlySourceChanged },
+          {
+            name: "fixture oracle covers LF, CRLF, and interior newline preservation",
+            pass: testsPass,
+            detail: "behavior is enforced by the fixture test suite rather than a specific patch shape",
+          },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
+
+  (() => {
+    const SB38_PROMPT = [
+      "Caddy's Caddyfile lexer rejects valid heredocs that contain blank",
+      "lines when the heredoc itself is indented. The reason: blank lines",
+      "have ZERO leading whitespace, so they never match the computed",
+      "padding, and `finalizeHeredoc` raises a `mismatched leading whitespace`",
+      "error on otherwise-valid input.",
+      "",
+      "Tests live in `playground/sb38-caddy-heredoc-blank/lexer_test.go`.",
+      "The logic is in `playground/sb38-caddy-heredoc-blank/lexer.go`.",
+      "",
+      "Run `go test ./...` from inside the fixture directory. Only edit lexer.go.",
+    ].join("\n");
+    return {
+      id: "SB-38",
+      name: "caddy-heredoc-blank-lines",
+      category: "verify-and-repair" as const,
+      maxPoints: 2,
+      prompt: SB38_PROMPT,
+      async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+        const fixtureDir = join(workDir, "playground/sb38-caddy-heredoc-blank");
+        const sourcePath = join(fixtureDir, "lexer.go");
+
+        const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
+        if (goCheck.exitCode !== 0) {
+          return {
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "go-not-on-path" } },
+            evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
+          };
+        }
+
+        const runStartedAt = performance.now();
+        let output: RuntimeOutput;
+        try {
+          output = await runtime.run({ workDir, prompt: SB38_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+        }
+
+        if (output.error) {
+          return { output, evaluation: { status: "fail", points: 0, maxPoints: 2, checks: [{ name: "completed without runtime error", pass: false, detail: output.error }], summary: `Runtime error: ${output.error}` } };
+        }
+
+        const testRun = Bun.spawnSync(["go", "test", "./..."], { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
+        const testsPass = testRun.exitCode === 0;
+        const testOutput = new TextDecoder().decode(testRun.stdout).concat(new TextDecoder().decode(testRun.stderr)).trim().slice(0, 240);
+
+        const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb38-caddy-heredoc-blank/lexer.go"]);
+
+        let points: 0 | 1 | 2 = 0;
+        let status: "pass" | "partial" | "fail" = "fail";
+        let summary = "";
+        if (!testsPass) summary = "Tests still fail after fix.";
+        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside lexer.go.";
+        else { points = 2; status = "pass"; summary = "Tests pass and only lexer.go changed; fixture oracle covers blank-line acceptance and mismatch preservation."; }
+
+        const checks: Check[] = [
+          { name: "go test ./... passes", pass: testsPass, detail: testOutput },
+          { name: "only lexer.go changed", pass: onlySourceChanged },
+          {
+            name: "fixture oracle covers indented blank lines while preserving mismatch errors",
+            pass: testsPass,
+            detail: "behavior is enforced by the fixture test suite rather than a specific patch shape",
+          },
+        ];
+
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+      },
+    };
+  })(),
 ];
