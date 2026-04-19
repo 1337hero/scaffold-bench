@@ -1,9 +1,10 @@
 import { spawn } from "bun";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
-import type { Runtime, RuntimeContext } from "./types.ts";
+import type { Runtime, RuntimeContext, RuntimeSession, RuntimeSessionContext } from "./types.ts";
 
 const PROJECT_ROOT = join(import.meta.dir, "..", "..");
 const ROOT_CONFIG_PATH = join(PROJECT_ROOT, "scaffold.config.json");
@@ -18,6 +19,7 @@ if (!DEFAULT_MODEL) {
     "No model configured. Set SCAFFOLD_MODEL env var or add a `model` entry to scaffold.config.json."
   );
 }
+const ACTIVE_MODEL = DEFAULT_MODEL;
 const API_KEY = Bun.env.SCAFFOLD_API_KEY;
 const MAX_TOOL_ITERATIONS = 20;
 const OUTPUT_CAP = 8192;
@@ -30,6 +32,7 @@ if (!systemPrompt) {
     `Missing system prompt at ${SYSTEM_PROMPT_PATH}. This file is required.`
   );
 }
+const ACTIVE_SYSTEM_PROMPT = systemPrompt;
 
 type JsonObject = Record<string, unknown>;
 type FinishReason = "tool_calls" | "stop" | "length" | "content_filter";
@@ -410,81 +413,164 @@ export const localRuntime: Runtime = {
   name: "local",
 
   async run(ctx: RuntimeContext): Promise<RuntimeOutput> {
-    const startedAt = performance.now();
-    const deadline = startedAt + ctx.timeoutMs;
-    const conversation: ChatMessage[] = [];
-    const transcript: string[] = [];
-    const toolCalls: ToolCall[] = [];
-    const modelMetrics = createModelMetrics(DEFAULT_MODEL);
-
-    conversation.push({ role: "system", content: systemPrompt });
-    conversation.push({ role: "user", content: ctx.prompt });
-
-    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      if (performance.now() >= deadline) {
-        return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT", modelMetrics);
-      }
-
-      let reply;
-      try {
-        reply = await callModel(conversation, deadline, (delta) => {
-          ctx.onEvent?.({ type: "assistant_delta", content: delta });
-        });
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        const errorTag = msg === "TIMEOUT" ? "TIMEOUT" : `CRASH: ${msg}`;
-        return finishRuntime(transcript, toolCalls, startedAt, errorTag, modelMetrics);
-      }
-      applyModelCallMetrics(modelMetrics, reply.metrics);
-      ctx.onEvent?.({ type: "model_metrics", metrics: { ...modelMetrics } });
-      const message = reply.message;
-      if (!message) {
-        return finishRuntime(
-          transcript,
-          toolCalls,
-          startedAt,
-          "CRASH: missing assistant message",
-          modelMetrics
-        );
-      }
-
-      conversation.push(message);
-
-      if (message.content) {
-        transcript.push(`assistant: ${message.content}`);
-        ctx.onEvent?.({ type: "assistant", content: message.content });
-      }
-
-      if (reply.finishReason !== "tool_calls" || !message.tool_calls?.length) {
-        return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics);
-      }
-
-      for (const call of message.tool_calls) {
-        const args = call.function.arguments ?? "{}";
-        transcript.push(`tool: ${call.function.name}(${args})`);
-        const toolCall: ToolCall = {
-          name: call.function.name,
-          args,
-          turn: toolCalls.length,
-        };
-        toolCalls.push(toolCall);
-        ctx.onEvent?.({ type: "tool_call", call: toolCall });
-
-        const result = await executeTool(call, ctx.workDir);
-        toolCall.result = result;
-        ctx.onEvent?.({ type: "tool_result", call: toolCall, result });
-        conversation.push({
-          role: "tool",
-          tool_call_id: call.id,
-          content: result,
-        });
-      }
+    const session = await createLocalSession({
+      workDir: ctx.workDir,
+      onEvent: ctx.onEvent,
+    });
+    try {
+      return await session.runTurn(ctx.prompt, ctx.timeoutMs);
+    } finally {
+      await session.close?.();
     }
+  },
 
-    transcript.push(`guard: hit ${MAX_TOOL_ITERATIONS} tool iterations, stopping`);
-    return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics);
+  async startSession(ctx: RuntimeSessionContext): Promise<RuntimeSession> {
+    return createLocalSession(ctx);
+  },
+
+  // Queries llama-swap's /upstream/<model>/props endpoint for the currently
+  // configured n_ctx. llama-swap only proxies /upstream/* once the model has
+  // been loaded, so if the probe 404s we fire a minimal chat request to
+  // trigger load, then retry. Returns undefined on any failure so callers
+  // can treat it as "unknown" rather than crash.
+  async getContextWindow(): Promise<number | undefined> {
+    const base = DEFAULT_ENDPOINT.replace(/\/v1\/chat\/completions$/, "");
+    const probeUrl = `${base}/upstream/${encodeURIComponent(ACTIVE_MODEL)}/props`;
+    const extract = (data: JsonObject): number | undefined => {
+      const settings = data.default_generation_settings;
+      if (settings && typeof settings === "object") {
+        const n = (settings as JsonObject).n_ctx;
+        if (typeof n === "number" && Number.isFinite(n)) return n;
+      }
+      const top = data.n_ctx;
+      return typeof top === "number" && Number.isFinite(top) ? top : undefined;
+    };
+    const probe = async (): Promise<Response | undefined> => {
+      try {
+        return await fetch(probeUrl, { signal: AbortSignal.timeout(5_000) });
+      } catch {
+        return undefined;
+      }
+    };
+    try {
+      let res = await probe();
+      if (!res || res.status === 404) {
+        // Trigger model load via a 1-token completion, then retry.
+        const warmupHeaders: Record<string, string> = { "content-type": "application/json" };
+        if (API_KEY) warmupHeaders.authorization = `Bearer ${API_KEY}`;
+        await fetch(DEFAULT_ENDPOINT, {
+          method: "POST",
+          headers: warmupHeaders,
+          body: JSON.stringify({
+            model: ACTIVE_MODEL,
+            messages: [{ role: "user", content: "." }],
+            max_tokens: 1,
+            stream: false,
+          }),
+          signal: AbortSignal.timeout(180_000),
+        }).catch(() => undefined);
+        res = await probe();
+      }
+      if (!res || !res.ok) return undefined;
+      return extract((await res.json()) as JsonObject);
+    } catch {
+      return undefined;
+    }
   },
 };
+
+async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSession> {
+  const conversation: ChatMessage[] = [{ role: "system", content: ACTIVE_SYSTEM_PROMPT }];
+  const transcript: string[] = [];
+  const toolCalls: ToolCall[] = [];
+  const modelMetrics = createModelMetrics(ACTIVE_MODEL);
+
+  return {
+    async runTurn(prompt: string, timeoutMs: number): Promise<RuntimeOutput> {
+      const startedAt = performance.now();
+      const deadline = startedAt + timeoutMs;
+      let firstTokenMs: number | undefined;
+
+      conversation.push({ role: "user", content: prompt });
+
+      for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+        if (performance.now() >= deadline) {
+          return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT", modelMetrics, {
+            firstTokenMs,
+          });
+        }
+
+        let reply;
+        try {
+          reply = await callModel(conversation, deadline, (delta) => {
+            if (firstTokenMs === undefined && delta.trim().length > 0) {
+              firstTokenMs = Math.round(performance.now() - startedAt);
+            }
+            ctx.onEvent?.({ type: "assistant_delta", content: delta });
+          });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          const errorTag = msg === "TIMEOUT" ? "TIMEOUT" : `CRASH: ${msg}`;
+          return finishRuntime(transcript, toolCalls, startedAt, errorTag, modelMetrics, {
+            firstTokenMs,
+          });
+        }
+        applyModelCallMetrics(modelMetrics, reply.metrics);
+        ctx.onEvent?.({ type: "model_metrics", metrics: { ...modelMetrics } });
+        const message = reply.message;
+        if (!message) {
+          return finishRuntime(
+            transcript,
+            toolCalls,
+            startedAt,
+            "CRASH: missing assistant message",
+            modelMetrics,
+            { firstTokenMs }
+          );
+        }
+
+        conversation.push(message);
+
+        if (message.content) {
+          transcript.push(`assistant: ${message.content}`);
+          ctx.onEvent?.({ type: "assistant", content: message.content });
+        }
+
+        if (reply.finishReason !== "tool_calls" || !message.tool_calls?.length) {
+          return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics, {
+            firstTokenMs,
+          });
+        }
+
+        for (const call of message.tool_calls) {
+          const args = call.function.arguments ?? "{}";
+          transcript.push(`tool: ${call.function.name}(${args})`);
+          const toolCall: ToolCall = {
+            name: call.function.name,
+            args,
+            turn: toolCalls.length,
+          };
+          toolCalls.push(toolCall);
+          ctx.onEvent?.({ type: "tool_call", call: toolCall });
+
+          const result = await executeTool(call, ctx.workDir);
+          toolCall.result = result;
+          ctx.onEvent?.({ type: "tool_result", call: toolCall, result });
+          conversation.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: result,
+          });
+        }
+      }
+
+      transcript.push(`guard: hit ${MAX_TOOL_ITERATIONS} tool iterations, stopping`);
+      return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics, {
+        firstTokenMs,
+      });
+    },
+  };
+}
 
 async function callModel(
   conversation: ChatMessage[],
@@ -494,7 +580,7 @@ async function callModel(
   const remainingMs = Math.max(1, Math.ceil(deadline - performance.now()));
   const requestStartedAt = performance.now();
   const payload = JSON.stringify({
-    model: DEFAULT_MODEL,
+    model: ACTIVE_MODEL,
     messages: conversation,
     stream: true,
     stream_options: { include_usage: true },
@@ -507,6 +593,9 @@ async function callModel(
       },
     })),
   });
+  const payloadDir = await mkdtemp(join(tmpdir(), "scaffold-bench-payload-"));
+  const payloadPath = join(payloadDir, "request.json");
+  await writeFile(payloadPath, payload, "utf-8");
   const headers = ["-H", "content-type: application/json"];
   if (API_KEY) {
     headers.push("-H", `authorization: Bearer ${API_KEY}`);
@@ -521,8 +610,8 @@ async function callModel(
       ...headers,
       "--max-time",
       String(Math.max(1, Math.ceil(remainingMs / 1000))),
-      "--data",
-      payload,
+      "--data-binary",
+      `@${payloadPath}`,
       DEFAULT_ENDPOINT,
     ],
     stdout: "pipe",
@@ -627,6 +716,8 @@ async function callModel(
       throw new Error("TIMEOUT");
     }
     throw error;
+  } finally {
+    await rm(payloadDir, { recursive: true, force: true });
   }
 }
 
@@ -648,13 +739,18 @@ function finishRuntime(
   toolCalls: ToolCall[],
   startedAt: number,
   error?: string,
-  modelMetrics?: ModelMetrics
+  modelMetrics?: ModelMetrics,
+  extras?: Pick<RuntimeOutput, "firstTokenMs" | "turnWallTimes" | "turnFirstTokenMs" | "scenarioMetrics">
 ): RuntimeOutput {
   return {
     stdout: stdoutLines.join("\n"),
-    toolCalls,
+    toolCalls: toolCalls.map((call) => ({ ...call })),
     wallTimeMs: Math.round(performance.now() - startedAt),
-    ...(modelMetrics ? { modelMetrics } : {}),
+    ...(extras?.firstTokenMs !== undefined ? { firstTokenMs: extras.firstTokenMs } : {}),
+    ...(extras?.turnWallTimes ? { turnWallTimes: extras.turnWallTimes } : {}),
+    ...(extras?.turnFirstTokenMs ? { turnFirstTokenMs: extras.turnFirstTokenMs } : {}),
+    ...(extras?.scenarioMetrics ? { scenarioMetrics: extras.scenarioMetrics } : {}),
+    ...(modelMetrics ? { modelMetrics: { ...modelMetrics } } : {}),
     ...(error ? { error } : {}),
   };
 }

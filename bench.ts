@@ -11,6 +11,7 @@ import {
   completionTokensPerSecond,
   mergeModelMetrics,
   promptTokensPerSecond,
+  sumScenarioMaxPoints,
 } from "./lib/scoring.ts";
 import type { Category, ScenarioResult, ScenarioStatus } from "./lib/scoring.ts";
 
@@ -22,7 +23,7 @@ const { values } = parseArgs({
   options: {
     runtime: { type: "string", short: "r", default: "local" },
     scenario: { type: "string", short: "s" },
-    timeout: { type: "string", short: "t", default: "180000" },
+    timeout: { type: "string", short: "t", default: "600000" },
   },
   strict: true,
 });
@@ -57,6 +58,9 @@ const categories: Category[] = [
   "scope-discipline",
   "read-only-analysis",
   "verify-and-repair",
+  "implementation",
+  "responsiveness",
+  "long-context",
 ];
 
 function countStatus(s: ScenarioStatus, rs: ScenarioResult[]): number {
@@ -80,7 +84,7 @@ function printPlainSummary(
   console.log("  SUMMARY");
   console.log("━".repeat(72));
   console.log(
-    `  Score:   ${totalPoints}/${maxPoints} points  (${results.length} scenarios, 2pt max each)`
+    `  Score:   ${totalPoints}/${maxPoints} points  (${results.length} scenarios)`
   );
   console.log(
     `  Status:  ${countStatus("pass", results)}✓  ${countStatus("partial", results)}◐  ${countStatus("fail", results)}✗`
@@ -101,7 +105,7 @@ function printPlainSummary(
     const rows = results.filter((r) => r.category === cat);
     if (rows.length === 0) continue;
     const pts = rows.reduce((sum, r) => sum + r.evaluation.points, 0);
-    const max = rows.length * 2;
+    const max = sumScenarioMaxPoints(rows.map((row) => row.evaluation));
     console.log(`    ${cat.padEnd(22)} ${pts}/${max}`);
   }
   console.log();
@@ -175,7 +179,7 @@ async function main(): Promise<void> {
     }
 
     const totalPoints = results.reduce((sum, r) => sum + r.evaluation.points, 0);
-    const maxPoints = results.length * 2;
+    const maxPoints = sumScenarioMaxPoints(results.map((result) => result.evaluation));
     const totalTime = results.reduce((sum, r) => sum + r.output.wallTimeMs, 0);
     const totalTools = results.reduce((sum, r) => sum + r.output.toolCalls.length, 0);
     const modelMetrics = mergeModelMetrics(results.map((result) => result.output.modelMetrics));
@@ -198,10 +202,15 @@ async function main(): Promise<void> {
             category: r.category,
             status: r.evaluation.status,
             points: r.evaluation.points,
+            maxPoints: r.evaluation.maxPoints,
             toolCallCount: r.output.toolCalls.length,
             wallTimeMs: r.output.wallTimeMs,
+            firstTokenMs: r.output.firstTokenMs,
+            turnWallTimes: r.output.turnWallTimes,
+            turnFirstTokenMs: r.output.turnFirstTokenMs,
             error: r.output.error,
             modelMetrics: r.output.modelMetrics,
+            scenarioMetrics: r.output.scenarioMetrics,
             checks: r.evaluation.checks,
             ...(r.evaluation.status !== "pass" && {
               transcript: r.output.stdout,

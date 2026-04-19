@@ -3,6 +3,7 @@ import {
   completionTokensPerSecond,
   mergeModelMetrics,
   promptTokensPerSecond,
+  sumScenarioMaxPoints,
 } from "./scoring.ts";
 import type {
   Category,
@@ -18,6 +19,9 @@ const CATEGORIES: Category[] = [
   "scope-discipline",
   "read-only-analysis",
   "verify-and-repair",
+  "implementation",
+  "responsiveness",
+  "long-context",
 ];
 
 type DashboardLogKind = "assistant" | "tool" | "stdout" | "stderr" | "system";
@@ -251,7 +255,9 @@ function renderDashboard(state: DashboardRenderState, width: number, height: num
   const totalPoints =
     state.totalPoints ??
     state.scenarios.reduce((sum, scenario) => sum + (scenario.result?.evaluation.points ?? 0), 0);
-  const maxPoints = state.maxPoints ?? state.scenarios.length * 2;
+  const maxPoints =
+    state.maxPoints ??
+    sumScenarioMaxPoints(state.scenarios.map((scenario) => scenario.result?.evaluation));
   const completed = state.scenarios.filter((scenario) => scenario.stage === "done").length;
   const passCount = state.scenarios.filter(
     (scenario) => scenario.result?.evaluation.status === "pass"
@@ -467,6 +473,8 @@ function renderMetrics(
   const edits = active
     ? active.toolCalls.filter((call) => call.name === "edit" || call.name === "write").length
     : 0;
+  const firstTokenMs = active?.result?.output.firstTokenMs;
+  const turnWallTimes = active?.result?.output.turnWallTimes;
 
   const lines = [
     fitAnsi(
@@ -479,6 +487,20 @@ function renderMetrics(
     ),
     fitAnsi(`${DIM}file edits${RESET} ${TEXT}${edits}${RESET}`, width),
   ];
+
+  if (firstTokenMs !== undefined) {
+    lines.push(
+      fitAnsi(`${DIM}first token${RESET} ${TEXT}${(firstTokenMs / 1000).toFixed(2)}s${RESET}`, width)
+    );
+  }
+  if (turnWallTimes?.length) {
+    lines.push(
+      fitAnsi(
+        `${DIM}turn walls${RESET} ${TEXT}${turnWallTimes.map((ms) => (ms / 1000).toFixed(1)).join(", ")}s${RESET}`,
+        width
+      )
+    );
+  }
 
   if (metrics) {
     lines.push(
@@ -575,7 +597,8 @@ function renderChecks(
 function renderFinalSummary(state: DashboardRenderState, width: number, height: number): string[] {
   const results = state.scenarios.flatMap((scenario) => (scenario.result ? [scenario.result] : []));
   const totalPoints = state.totalPoints ?? 0;
-  const maxPoints = state.maxPoints ?? results.length * 2;
+  const maxPoints =
+    state.maxPoints ?? sumScenarioMaxPoints(results.map((result) => result.evaluation));
   const lines = [
     fitAnsi(`${DIM}score${RESET} ${GREEN}${BOLD}${totalPoints}/${maxPoints}${RESET}`, width),
     fitAnsi(
@@ -594,7 +617,8 @@ function renderFinalSummary(state: DashboardRenderState, width: number, height: 
     const rows = results.filter((result) => result.category === category);
     if (rows.length === 0) continue;
     const points = rows.reduce((sum, row) => sum + row.evaluation.points, 0);
-    lines.push(fitAnsi(`${DIM}${category}${RESET} ${TEXT}${points}/${rows.length * 2}${RESET}`, width));
+    const max = sumScenarioMaxPoints(rows.map((row) => row.evaluation));
+    lines.push(fitAnsi(`${DIM}${category}${RESET} ${TEXT}${points}/${max}${RESET}`, width));
   }
 
   const misses = state.scenarios.flatMap((scenario) =>

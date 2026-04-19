@@ -4,7 +4,9 @@ export type Category =
   | "scope-discipline"
   | "read-only-analysis"
   | "verify-and-repair"
-  | "implementation";
+  | "implementation"
+  | "responsiveness"
+  | "long-context";
 
 export type ScenarioStatus = "pass" | "partial" | "fail";
 
@@ -24,6 +26,7 @@ export interface Check {
 export interface ScenarioEvaluation {
   status: ScenarioStatus;
   points: number;
+  maxPoints: number;
   checks: Check[];
   summary: string;
 }
@@ -46,6 +49,10 @@ export interface RuntimeOutput {
   stderr?: string;
   toolCalls: ToolCall[];
   wallTimeMs: number;
+  firstTokenMs?: number;
+  turnWallTimes?: number[];
+  turnFirstTokenMs?: Array<number | undefined>;
+  scenarioMetrics?: Record<string, unknown>;
   error?: "TIMEOUT" | "CRASH" | string;
   modelMetrics?: ModelMetrics;
 }
@@ -134,19 +141,32 @@ export function extractGoFunc(source: string, name: string): string {
 export function checksToEvaluation(
   checks: Check[],
   labels: { pass: string; partial: string; fail: string },
-  partialThreshold = 0.5
+  partialThreshold = 0.5,
+  maxPoints = 2
 ): ScenarioEvaluation {
   const passed = checks.filter((c) => c.pass).length;
   const total = checks.length;
   const ratio = total === 0 ? 0 : passed / total;
 
   if (passed === total) {
-    return { status: "pass", points: 2, checks, summary: labels.pass };
+    return { status: "pass", points: maxPoints, maxPoints, checks, summary: labels.pass };
   }
   if (ratio >= partialThreshold) {
-    return { status: "partial", points: 1, checks, summary: labels.partial };
+    return {
+      status: "partial",
+      points: Math.max(1, Math.floor(maxPoints / 2)),
+      maxPoints,
+      checks,
+      summary: labels.partial,
+    };
   }
-  return { status: "fail", points: 0, checks, summary: labels.fail };
+  return { status: "fail", points: 0, maxPoints, checks, summary: labels.fail };
+}
+
+export function sumScenarioMaxPoints(
+  evaluations: Array<Pick<ScenarioEvaluation, "maxPoints"> | undefined>
+): number {
+  return evaluations.reduce((sum, evaluation) => sum + (evaluation?.maxPoints ?? 0), 0);
 }
 
 export function mergeModelMetrics(metrics: Array<ModelMetrics | undefined>): ModelMetrics | undefined {

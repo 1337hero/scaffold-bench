@@ -25,7 +25,7 @@ Score: 7/8 (87.5%)  →  results/1776383086009-local.json
 
 Each scenario gives the model a real task and a real codebase. It has access to seven tools — `read`, `ls`, `grep`, `glob`, `edit`, `write`, `bash` — and a timeout. The harness watches what it does and scores the result with deterministic, code-driven checks. No LLM judge.
 
-**Six scenario categories:**
+**Eight scenario categories:**
 
 | Category | What it probes |
 |---|---|
@@ -35,8 +35,10 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | `read-only-analysis` | Answer a question about the code. Don't reach for the edit tool. |
 | `verify-and-repair` | Close the loop: reproduce the failure, fix it, verify the result, and recover if needed. |
 | `implementation` | Read a spec, build the feature. Multi-file spec-to-code against an existing fixture stack. |
+| `responsiveness` | Stay usable in a tight edit loop. Correctness only counts when the turn stays under budget. |
+| `long-context` | Retrieve the right answer from a very large inline context and start responding quickly. |
 
-**Current scenarios (21 total):**
+**Current scenarios (23 total):**
 
 | ID | Name | Category | Task |
 |---|---|---|---|
@@ -61,6 +63,8 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | SB-19 | hono-audit-log | implementation | Add `audit_events` table, `logAudit` helper, and admin role-update route. |
 | SB-20 | hono-soft-delete-restore | implementation | Use the existing `deleted_at` column to build `POST /items/:id/restore`. |
 | SB-21 | hono-fix-n-plus-1 | implementation | Replace per-row owner query in `GET /items` with a single JOIN. |
+| SB-22 | high-frequency-loop | responsiveness | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
+| SB-23 | long-context-retrieval | long-context | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range. |
 
 The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`. The model reads the spec, writes the feature, and is evaluated on structural checks (files, exports, patterns, and non-modification of unrelated handlers).
 
@@ -68,13 +72,18 @@ The `implementation` scenarios share one fixture: `playground/hono-api/` — a m
 
 ## Scoring
 
-Ternary, per scenario: **pass = 2pts / partial = 1pt / fail = 0pt**.
+Most scenarios are ternary: **pass = 2pts / partial = 1pt / fail = 0pt**.
 
 Each scenario defines its own `Check[]` — regex matches, AST-ish function extraction, file diff comparisons, turn-ordering checks. `checksToEvaluation()` reduces them:
 
 - All checks pass → `pass` (2pt)  
 - ≥ 50% pass → `partial` (1pt)  
 - < 50% → `fail` (0pt)
+
+Two scenarios use custom point models:
+
+- `SB-22` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
+- `SB-23` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
 
 Results write to `results/{timestamp}-{runtime}.json`.
 
@@ -147,7 +156,7 @@ When stdout is a TTY, you get a live split-pane view: scenario list on the left,
 
 Non-TTY (CI, pipes) falls back to plain line-by-line output.
 
-When timing data is available, the final summary also shows aggregate prompt tokens, completion tokens, and prompt / generation throughput for the full run.
+When timing data is available, the final summary also shows aggregate prompt tokens, completion tokens, and prompt / generation throughput for the full run. Scenario JSON now also records `firstTokenMs`, plus per-turn wall/first-token arrays for multi-turn scenarios like `SB-22`.
 
 ---
 
@@ -195,6 +204,8 @@ Append to the `scenarios` array in `lib/scenarios.ts`. Drop your fixture files i
   },
 }
 ```
+
+If you need a large inline prompt fixture, use `buildPrompt()` to assemble it from the copied playground at runtime. For multi-turn cases, use `execute()` plus `runtime.startSession()` so one scenario can manage several user turns in a single conversation.
 
 ## Adding a runtime
 

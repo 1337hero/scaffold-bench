@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import type { RuntimeEvent, Runtime } from "./runtimes/types.ts";
 
 async function readOrEmpty(path: string): Promise<string> {
   try {
@@ -8,7 +9,14 @@ async function readOrEmpty(path: string): Promise<string> {
     return "";
   }
 }
-import type { Category, Check, ScenarioEvaluation, ToolCall } from "./scoring.ts";
+import type {
+  Category,
+  Check,
+  ModelMetrics,
+  RuntimeOutput,
+  ScenarioEvaluation,
+  ToolCall,
+} from "./scoring.ts";
 import {
   bashPassed,
   checksToEvaluation,
@@ -19,6 +27,8 @@ import {
 
 export const PLAYGROUND_SRC = join(import.meta.dir, "..", "playground");
 const TS_COMPILE_COMMAND = "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
+const SB22_LOOP_PATH = "playground/sb22-loop.js";
+const SB23_LONGCONTEXT_PATH = "playground/sb23-longcontext.js";
 
 // Strip // line comments and /* block comments */ so code-pattern regexes
 // don't false-match against BUG comments that ship with the fixtures.
@@ -138,16 +148,155 @@ function firstFailedVerificationAfterChange(
   );
 }
 
+function computeLineRange(source: string, marker: RegExp): { start: number; end: number } | null {
+  const match = marker.exec(source);
+  if (!match) return null;
+  const start = source.slice(0, match.index).split("\n").length;
+  let depth = 0;
+  let seenBrace = false;
+  for (let index = match.index; index < source.length; index++) {
+    const char = source[index];
+    if (char === "{") {
+      depth += 1;
+      seenBrace = true;
+    } else if (char === "}") {
+      depth -= 1;
+      if (seenBrace && depth === 0) {
+        return {
+          start,
+          end: source.slice(0, index + 1).split("\n").length,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function extractReportedLineRange(stdout: string): { start: number; end: number } | null {
+  const explicitRange =
+    /line(?:s)?\s*(\d+)\s*(?:-|–|—|to)\s*(\d+)/i.exec(stdout) ??
+    /(\d+)\s*(?:-|–|—)\s*(\d+)/.exec(stdout);
+  if (!explicitRange) return null;
+  const start = Number.parseInt(explicitRange[1] ?? "", 10);
+  const end = Number.parseInt(explicitRange[2] ?? "", 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return { start: Math.min(start, end), end: Math.max(start, end) };
+}
+
+function rangesWithinTolerance(
+  actual: { start: number; end: number },
+  reported: { start: number; end: number } | null,
+  tolerance: number
+): boolean {
+  return (
+    reported !== null &&
+    Math.abs(actual.start - reported.start) <= tolerance &&
+    Math.abs(actual.end - reported.end) <= tolerance
+  );
+}
+
+function createPointBasedEvaluation(
+  checks: Check[],
+  labels: { pass: string; partial: string; fail: string }
+): ScenarioEvaluation {
+  const points = checks.filter((check) => check.pass).length;
+  const maxPoints = checks.length;
+  const status = points === maxPoints ? "pass" : points > 0 ? "partial" : "fail";
+  return {
+    status,
+    points,
+    maxPoints,
+    checks,
+    summary: status === "pass" ? labels.pass : status === "partial" ? labels.partial : labels.fail,
+  };
+}
+
+type ScenarioEvaluateInput = {
+  stdout: string;
+  playgroundDir: string;
+  toolCalls: ToolCall[];
+  wallTimeMs: number;
+  firstTokenMs?: number;
+  turnWallTimes?: number[];
+  turnFirstTokenMs?: Array<number | undefined>;
+  modelMetrics?: ModelMetrics;
+  scenarioMetrics?: Record<string, unknown>;
+};
+
+type ScenarioExecutionContext = {
+  runtime: Runtime;
+  workDir: string;
+  timeoutMs: number;
+  onRuntimeEvent?: (event: RuntimeEvent) => void;
+};
+
 export interface Scenario {
   id: string;
   name: string;
   category: Category;
   prompt: string;
-  evaluate(input: {
-    stdout: string;
-    playgroundDir: string;
-    toolCalls: ToolCall[];
-  }): Promise<ScenarioEvaluation>;
+  maxPoints?: number;
+  buildPrompt?(input: { playgroundDir: string }): Promise<string>;
+  execute?(input: ScenarioExecutionContext): Promise<{
+    output: RuntimeOutput;
+    evaluation: ScenarioEvaluation;
+  }>;
+  evaluate?(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation>;
+}
+
+const SB22_TURN_PROMPTS = [
+  "Fix the typo in playground/sb22-loop.js where the local variable is named `usre` instead of `user`. Only make that one edit.",
+  "In playground/sb22-loop.js, change the `ENABLED` default from `false` to `true`. Only make that one edit.",
+  "In playground/sb22-loop.js, add the missing `crypto` import so the existing hash call works. Only make that one edit.",
+  "In playground/sb22-loop.js, remove the stray `console.log`. Only make that one edit.",
+  "In playground/sb22-loop.js, fix the off-by-one loop bound so the loop includes the last item. Only make that one edit.",
+] as const;
+
+const SB22_TURN_LABELS = [
+  "fixed typo",
+  "set ENABLED=true",
+  "added crypto import",
+  "removed console.log",
+  "fixed loop bound",
+] as const;
+
+function numberLines(source: string): string {
+  return source
+    .split("\n")
+    .map((line, index) => `${String(index + 1).padStart(5, " ")}: ${line}`)
+    .join("\n");
+}
+
+function sb22TurnCheck(source: string, turnIndex: number): { pass: boolean; detail?: string } {
+  const checks = [
+    {
+      label: "typo still present",
+      pass: /\bconst\s+user\s*=/.test(source) && !/\bconst\s+usre\s*=/.test(source),
+    },
+    {
+      label: "ENABLED is not true",
+      pass: /const\s+ENABLED\s*=\s*true\b/.test(source),
+    },
+    {
+      label: "missing crypto import",
+      pass: /^import\s+(?:\*\s+as\s+)?crypto\s+from\s+["']node:crypto["'];?$/m.test(source),
+    },
+    {
+      label: "console.log still present",
+      pass: !/console\.log\s*\(/.test(source),
+    },
+    {
+      label: "loop bound still off by one",
+      pass: /for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*<\s*users\.length\s*;\s*i\+\+\s*\)/.test(source),
+    },
+  ];
+  const blockingIssues = checks
+    .slice(0, turnIndex + 1)
+    .filter((check) => !check.pass)
+    .map((check) => check.label);
+  return blockingIssues.length === 0
+    ? { pass: true }
+    : { pass: false, detail: blockingIssues.join(", ") };
 }
 
 export const scenarios: Scenario[] = [
@@ -1381,6 +1530,251 @@ export const scenarios: Scenario[] = [
         partial: "Partial fix — still has per-row query, or touched unrelated code.",
         fail: "Did not fix the N+1 or broke the route.",
       });
+    },
+  },
+
+  {
+    id: "SB-22",
+    name: "high-frequency-loop",
+    category: "responsiveness",
+    maxPoints: 5,
+    prompt:
+      "Five sequential micro-fixes in one conversation against playground/sb22-loop.js, scored one point per correct edit completed within 10 seconds.",
+    async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+      if (!runtime.startSession) {
+        const output: RuntimeOutput = {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: 0,
+          error: "CRASH: runtime does not support sessions",
+        };
+        return {
+          output,
+          evaluation: createPointBasedEvaluation(
+            SB22_TURN_LABELS.map((label) => ({
+              name: label,
+              pass: false,
+              detail: "runtime does not support multi-turn sessions",
+            })),
+            {
+              pass: "Completed all five rapid-fire edits under budget.",
+              partial: "Completed some of the rapid-fire edits, but missed correctness or timing on others.",
+              fail: "Did not complete any of the rapid-fire edits under budget.",
+            }
+          ),
+        };
+      }
+
+      const session = await runtime.startSession({ workDir, onEvent: onRuntimeEvent });
+      const loopFile = join(workDir, SB22_LOOP_PATH);
+      const turnWallTimes: number[] = [];
+      const turnFirstTokenMs: Array<number | undefined> = [];
+      const checks: Check[] = [];
+      let totalWallTimeMs = 0;
+      let lastOutput: RuntimeOutput = {
+        stdout: "",
+        toolCalls: [],
+        wallTimeMs: 0,
+      };
+
+      try {
+        for (const [index, prompt] of SB22_TURN_PROMPTS.entries()) {
+          const output = await session.runTurn(prompt, timeoutMs);
+          lastOutput = output;
+          totalWallTimeMs += output.wallTimeMs;
+          turnWallTimes.push(output.wallTimeMs);
+          turnFirstTokenMs.push(output.firstTokenMs);
+
+          const source = await readFile(loopFile, "utf-8");
+          const correctness = sb22TurnCheck(source, index);
+          const underBudget = output.wallTimeMs <= 10_000;
+          const scoped = onlyChangedPaths(output.toolCalls, [SB22_LOOP_PATH]);
+          const pass = !output.error && underBudget && correctness.pass && scoped;
+
+          const detailBits = [
+            `${(output.wallTimeMs / 1000).toFixed(1)}s`,
+            underBudget ? "under budget" : "over 10s budget",
+            correctness.detail,
+            scoped ? undefined : "edited files outside playground/sb22-loop.js",
+            output.error,
+          ].filter(Boolean);
+
+          checks.push({
+            name: `turn ${index + 1}: ${SB22_TURN_LABELS[index]}`,
+            pass,
+            detail: detailBits.length > 0 ? detailBits.join("; ") : undefined,
+          });
+
+          if (output.error) {
+            break;
+          }
+        }
+      } finally {
+        await session.close?.();
+      }
+
+      while (checks.length < SB22_TURN_PROMPTS.length) {
+        const index = checks.length;
+        checks.push({
+          name: `turn ${index + 1}: ${SB22_TURN_LABELS[index]}`,
+          pass: false,
+          detail: "not attempted after earlier runtime failure",
+        });
+      }
+
+      const turnUnderBudget = checks.filter((check) => check.pass).length;
+      const evaluation = createPointBasedEvaluation(checks, {
+        pass: "Completed all five rapid-fire edits under budget.",
+        partial: "Completed some of the rapid-fire edits, but missed correctness or timing on others.",
+        fail: "Did not complete any of the rapid-fire edits under budget.",
+      });
+
+      return {
+        output: {
+          ...lastOutput,
+          wallTimeMs: totalWallTimeMs,
+          turnWallTimes,
+          turnFirstTokenMs,
+          scenarioMetrics: {
+            turnUnderBudget,
+            turnWallTimes,
+            firstTokenMs: turnFirstTokenMs,
+          },
+        },
+        evaluation,
+      };
+    },
+  },
+
+  {
+    id: "SB-23",
+    name: "long-context-retrieval",
+    category: "long-context",
+    maxPoints: 3,
+    prompt:
+      "Long inline codebase retrieval: identify `throttleWithJitter`, report its name, line range, and get the first meaningful token out inside 30 seconds.",
+    // ~20k-token prompt + system + tool schemas + response headroom.
+    // Anything below this will silently fail or truncate on llama.cpp.
+    async execute({ runtime, workDir, timeoutMs, onRuntimeEvent }) {
+      const MIN_REQUIRED_CTX = 28_000;
+      const playgroundDir = workDir;
+      const fixturePath = join(playgroundDir, SB23_LONGCONTEXT_PATH);
+      const source = await readFile(fixturePath, "utf-8");
+      const actualRange = computeLineRange(
+        source,
+        /function\s+throttleWithJitter\s*\([^)]*\)\s*\{/
+      );
+      // Remove the on-disk fixture so grep/read can't short-circuit the
+      // in-context retrieval test. The prompt still inlines the full code.
+      await rm(fixturePath, { force: true });
+
+      const advertisedCtx = runtime.getContextWindow
+        ? await runtime.getContextWindow()
+        : undefined;
+
+      if (advertisedCtx !== undefined && advertisedCtx < MIN_REQUIRED_CTX) {
+        const reason =
+          `model context window ${advertisedCtx} < required ${MIN_REQUIRED_CTX}. ` +
+          `Configure llama-server with -c >= 32768 to run SB-23.`;
+        const output: RuntimeOutput = {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: 0,
+          scenarioMetrics: { skipped: true, advertisedCtx, minRequiredCtx: MIN_REQUIRED_CTX },
+        };
+        const evaluation: ScenarioEvaluation = {
+          status: "fail",
+          points: 0,
+          maxPoints: 3,
+          checks: [
+            { name: "reported function name", pass: false, detail: `SKIPPED: ${reason}` },
+            { name: "reported line range within ±3 lines", pass: false, detail: "skipped" },
+            { name: "first meaningful token within 30s", pass: false, detail: "skipped" },
+          ],
+          summary: `SKIPPED: ${reason}`,
+        };
+        return { output, evaluation };
+      }
+
+      const prompt = [
+        "The complete codebase is inlined below. Answer purely from the text in",
+        "this prompt — do not use tools, do not read or grep any file.",
+        "",
+        "Find the function that implements throttling with jitter. Return exactly",
+        "two lines in this format:",
+        "name: <function name>",
+        "line_range: <start>-<end>",
+        "",
+        numberLines(source),
+      ].join("\n");
+
+      const runStartedAt = performance.now();
+      let output: RuntimeOutput;
+      try {
+        output = await runtime.run({
+          workDir,
+          prompt,
+          timeoutMs,
+          onEvent: onRuntimeEvent,
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        output = {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: Math.round(performance.now() - runStartedAt),
+          error: `CRASH: ${msg}`,
+        };
+      }
+
+      if (output.error) {
+        return {
+          output,
+          evaluation: {
+            status: "fail",
+            points: 0,
+            maxPoints: 3,
+            checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+            summary: `Runtime error: ${output.error}`,
+          },
+        };
+      }
+
+      const { stdout, firstTokenMs, modelMetrics } = output;
+      const reportedRange = extractReportedLineRange(stdout);
+      const promptEvalDetail =
+        modelMetrics?.promptEvalTokens !== undefined && modelMetrics?.promptEvalTimeMs !== undefined
+          ? `${modelMetrics.promptEvalTokens} tok / ${(modelMetrics.promptEvalTimeMs / 1000).toFixed(2)}s`
+          : "unavailable";
+
+      const checks: Check[] = [
+        {
+          name: "reported function name",
+          pass: /\bthrottleWithJitter\b/.test(stdout),
+          detail: stdout.trim().slice(0, 160),
+        },
+        {
+          name: "reported line range within ±3 lines",
+          pass: actualRange !== null && rangesWithinTolerance(actualRange, reportedRange, 3),
+          detail:
+            actualRange !== null
+              ? `expected ${actualRange.start}-${actualRange.end}; got ${reportedRange ? `${reportedRange.start}-${reportedRange.end}` : "none"}`
+              : "could not locate throttleWithJitter in fixture",
+        },
+        {
+          name: "first meaningful token within 30s",
+          pass: firstTokenMs !== undefined && firstTokenMs <= 30_000,
+          detail: `${firstTokenMs ?? "none"}ms; prompt eval ${promptEvalDetail}`,
+        },
+      ];
+
+      const evaluation = createPointBasedEvaluation(checks, {
+        pass: "Retrieved the target function correctly and started responding quickly.",
+        partial: "Found some of the answer, but missed either speed or exact range.",
+        fail: "Missed the retrieval target and did not respond quickly enough.",
+      });
+
+      return { output, evaluation };
     },
   },
 ];

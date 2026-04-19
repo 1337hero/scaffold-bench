@@ -18,37 +18,62 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
   await cp(PLAYGROUND_SRC, join(workDir, "playground"), { recursive: true });
 
   try {
-    const runStartedAt = performance.now();
     let output: RuntimeOutput;
-    try {
-      output = await opts.runtime.run({
+    let evaluation;
+    const scenarioMaxPoints = opts.scenario.maxPoints ?? 2;
+
+    if (opts.scenario.execute) {
+      ({ output, evaluation } = await opts.scenario.execute({
+        runtime: opts.runtime,
         workDir,
-        prompt: opts.scenario.prompt,
         timeoutMs: opts.timeoutMs,
-        onEvent: opts.onRuntimeEvent,
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output = {
-        stdout: "",
-        toolCalls: [],
-        wallTimeMs: Math.round(performance.now() - runStartedAt),
-        error: `CRASH: ${msg}`,
-      };
+        onRuntimeEvent: opts.onRuntimeEvent,
+      }));
+    } else {
+      const runStartedAt = performance.now();
+      try {
+        output = await opts.runtime.run({
+          workDir,
+          prompt: opts.scenario.buildPrompt
+            ? await opts.scenario.buildPrompt({ playgroundDir: workDir })
+            : opts.scenario.prompt,
+          timeoutMs: opts.timeoutMs,
+          onEvent: opts.onRuntimeEvent,
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        output = {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: Math.round(performance.now() - runStartedAt),
+          error: `CRASH: ${msg}`,
+        };
+      }
+
+      evaluation = output.error
+        ? {
+            status: "fail" as const,
+            points: 0 as const,
+            maxPoints: scenarioMaxPoints,
+            checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
+            summary: `Runtime error: ${output.error}`,
+          }
+        : await opts.scenario.evaluate?.({
+            stdout: output.stdout,
+            playgroundDir: workDir,
+            toolCalls: output.toolCalls,
+            wallTimeMs: output.wallTimeMs,
+            firstTokenMs: output.firstTokenMs,
+            turnWallTimes: output.turnWallTimes,
+            turnFirstTokenMs: output.turnFirstTokenMs,
+            modelMetrics: output.modelMetrics,
+            scenarioMetrics: output.scenarioMetrics,
+          });
     }
 
-    const evaluation = output.error
-      ? {
-          status: "fail" as const,
-          points: 0 as const,
-          checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
-          summary: `Runtime error: ${output.error}`,
-        }
-      : await opts.scenario.evaluate({
-          stdout: output.stdout,
-          playgroundDir: workDir,
-          toolCalls: output.toolCalls,
-        });
+    if (!evaluation) {
+      throw new Error(`Scenario ${opts.scenario.id} is missing an evaluation strategy`);
+    }
 
     return {
       scenarioId: opts.scenario.id,
