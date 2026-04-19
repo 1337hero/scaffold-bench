@@ -1,0 +1,22 @@
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Score:   6/12 points  (6 scenarios)
+  Status:  2✓  2◐  2✗
+  Tools:   14 calls
+  Time:    64s total
+  Model:   qwen3-test
+  Prompt:  6300 tok  @ 833.3 t/s
+  Gen:     2000 tok  @ 400.0 t/s
+  Calls:   7 chat requests
+
+  By category:
+    surgical-edit          2/2
+    audit                  3/4
+    scope-discipline       0/2
+    implementation         0/2
+    long-context           1/2
+
+  Results: test/golden/fixture-output.json
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
