@@ -1,5 +1,12 @@
+import { Either, Schema } from "effect";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  BashArgsSchema,
+  EditArgsSchema,
+  ReadArgsSchema,
+  WriteArgsSchema,
+} from "./schemas/index.js";
 import type { RuntimeEvent, Runtime } from "./runtimes/types.ts";
 
 async function readOrEmpty(path: string): Promise<string> {
@@ -40,21 +47,32 @@ function firstTurn(calls: ToolCall[], name: string): number | undefined {
   return calls.find((c) => c.name === name)?.turn;
 }
 
-function parseToolArgs<T>(call: ToolCall): T | null {
+function decodeArgs<A, I>(
+  schema: Schema.Schema<A, I>,
+  call: ToolCall
+): A | null {
+  let parsed: unknown;
   try {
-    return JSON.parse(call.args) as T;
+    parsed = JSON.parse(call.args);
   } catch {
     return null;
   }
+  const result = Schema.decodeUnknownEither(schema)(parsed);
+  return Either.isRight(result) ? result.right : null;
 }
 
 function changedPaths(calls: ToolCall[]): string[] {
-  return calls
-    .filter((call) => call.name === "edit" || call.name === "write")
-    .flatMap((call) => {
-      const args = parseToolArgs<{ path?: string }>(call);
-      return args?.path ? [args.path] : [];
-    });
+  return calls.flatMap((call) => {
+    if (call.name === "edit") {
+      const args = decodeArgs(EditArgsSchema, call);
+      return args ? [args.path] : [];
+    }
+    if (call.name === "write") {
+      const args = decodeArgs(WriteArgsSchema, call);
+      return args ? [args.path] : [];
+    }
+    return [];
+  });
 }
 
 function onlyChangedPaths(calls: ToolCall[], allowedPaths: string[]): boolean {
@@ -78,7 +96,7 @@ function readTurnsForPath(calls: ToolCall[], path: string): number[] {
   return calls
     .filter((call) => call.name === "read")
     .flatMap((call) => {
-      const args = parseToolArgs<{ path?: string }>(call);
+      const args = decodeArgs(ReadArgsSchema, call);
       return args?.path === path ? [call.turn] : [];
     });
 }
@@ -96,7 +114,7 @@ function bashCalls(calls: ToolCall[]): ToolCall[] {
 }
 
 function bashCommand(call: ToolCall): string {
-  const args = parseToolArgs<{ command?: string }>(call);
+  const args = decodeArgs(BashArgsSchema, call);
   return args?.command ?? "";
 }
 

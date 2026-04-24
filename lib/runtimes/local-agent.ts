@@ -4,7 +4,28 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { ChatStreamChunkSchema } from "../schemas/index.js";
+import {
+  BashArgsSchema,
+  ChatStreamChunkSchema,
+  EditArgsSchema,
+  EnvSchema,
+  GlobArgsSchema,
+  GrepArgsSchema,
+  LsArgsSchema,
+  ReadArgsSchema,
+  RootConfigSchema,
+  WriteArgsSchema,
+  toJsonSchema,
+} from "../schemas/index.js";
+import type {
+  BashArgs,
+  EditArgs,
+  GlobArgs,
+  GrepArgs,
+  LsArgs,
+  ReadArgs,
+  WriteArgs,
+} from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
 import type { Runtime, RuntimeContext, RuntimeSession, RuntimeSessionContext } from "./types.ts";
 
@@ -12,17 +33,22 @@ const PROJECT_ROOT = join(import.meta.dir, "..", "..");
 const ROOT_CONFIG_PATH = join(PROJECT_ROOT, "scaffold.config.json");
 const SYSTEM_PROMPT_PATH = join(PROJECT_ROOT, "system-prompt.md");
 const rootConfig = readRootConfig();
+const env = Schema.decodeUnknownSync(EnvSchema)({
+  SCAFFOLD_ENDPOINT: Bun.env.SCAFFOLD_ENDPOINT,
+  SCAFFOLD_MODEL: Bun.env.SCAFFOLD_MODEL,
+  SCAFFOLD_API_KEY: Bun.env.SCAFFOLD_API_KEY,
+});
 const DEFAULT_ENDPOINT = normalizeEndpoint(
-  Bun.env.SCAFFOLD_ENDPOINT ?? rootConfig.endpoint ?? "http://127.0.0.1:8082"
+  env.SCAFFOLD_ENDPOINT ?? rootConfig.endpoint ?? "http://127.0.0.1:8082"
 );
-const DEFAULT_MODEL = Bun.env.SCAFFOLD_MODEL ?? rootConfig.model;
+const DEFAULT_MODEL = env.SCAFFOLD_MODEL ?? rootConfig.model;
 if (!DEFAULT_MODEL) {
   throw new Error(
     "No model configured. Set SCAFFOLD_MODEL env var or add a `model` entry to scaffold.config.json."
   );
 }
 const ACTIVE_MODEL = DEFAULT_MODEL;
-const API_KEY = Bun.env.SCAFFOLD_API_KEY;
+const API_KEY = env.SCAFFOLD_API_KEY;
 const MAX_TOOL_ITERATIONS = 20;
 const OUTPUT_CAP = 8192;
 const DEFAULT_BASH_TIMEOUT_MS = 5000;
@@ -83,167 +109,36 @@ type ChatResponse = {
   total_duration?: number;
 };
 
-type RuntimeTool = {
+type ToolDescriptor = {
   name: string;
   description: string;
-  parameters: Record<string, unknown>;
-  run(args: string, cwd: string): Promise<string>;
+  parameters: object;
 };
 
-const tools: RuntimeTool[] = [
+const tools: ToolDescriptor[] = [
   {
     name: "read",
     description:
       "Read the contents of a file at the given relative path. Returns file contents as a string.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: {
-          type: "string",
-          description: "Relative path of the file to read",
-        },
-      },
-      required: ["path"],
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const path = getRequiredString(input, "path");
-      const filePath = resolveToolPath(cwd, path);
-      const data = await readFile(filePath, "utf-8");
-      return data;
-    },
+    parameters: toJsonSchema(ReadArgsSchema),
   },
   {
     name: "ls",
     description:
       "List files and directories at the given path. If no path is provided, lists the current directory. Directories are marked with a trailing slash.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: {
-          type: "string",
-          description: "Optional relative path. Defaults to current directory.",
-        },
-      },
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const path = getOptionalString(input, "path") ?? ".";
-      const dirPath = resolveToolPath(cwd, path);
-      const entries = await readdir(dirPath, { withFileTypes: true });
-      return JSON.stringify(
-        entries.map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
-      );
-    },
+    parameters: toJsonSchema(LsArgsSchema),
   },
   {
     name: "grep",
     description:
       "Search for a regex pattern across files using ripgrep. Returns matches as file:line:content. Use this to find where things are defined or referenced.",
-    parameters: {
-      type: "object",
-      properties: {
-        pattern: {
-          type: "string",
-          description: "Regex pattern to search for",
-        },
-        path: {
-          type: "string",
-          description: "Optional path to search. Defaults to current directory.",
-        },
-        glob: {
-          type: "string",
-          description: "Optional glob to filter files (e.g. '*.go', '**/*.md').",
-        },
-        ignore_case: {
-          type: "boolean",
-          description: "Case-insensitive search. Defaults to false.",
-        },
-      },
-      required: ["pattern"],
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const pattern = getRequiredString(input, "pattern");
-      const path = getOptionalString(input, "path");
-      const glob = getOptionalString(input, "glob");
-      const ignoreCase = getOptionalBoolean(input, "ignore_case") ?? false;
-
-      const cmd = ["rg", "--line-number", "--no-heading", "--color=never"];
-      if (ignoreCase) cmd.push("-i");
-      if (glob) cmd.push("--glob", glob);
-      cmd.push("--", pattern);
-      if (path) {
-        cmd.push(resolveToolPath(cwd, path));
-      }
-
-      const proc = spawn({
-        cmd,
-        cwd,
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      const [stdout, stderr, exitCode] = await Promise.all([
-        streamToString(proc.stdout),
-        streamToString(proc.stderr),
-        proc.exited,
-      ]);
-
-      if (exitCode === 1) return "no matches";
-      if (exitCode !== 0) {
-        throw new Error(stderr.trim() || `rg exited with code ${exitCode}`);
-      }
-      return truncate(stdout);
-    },
+    parameters: toJsonSchema(GrepArgsSchema),
   },
   {
     name: "glob",
     description:
       "Find files by glob pattern using ripgrep file listing. Returns matching file paths, one per line.",
-    parameters: {
-      type: "object",
-      properties: {
-        pattern: {
-          type: "string",
-          description: "Glob pattern to match (e.g. '*.ts', '**/*.md').",
-        },
-        path: {
-          type: "string",
-          description: "Optional path to search within. Defaults to current directory.",
-        },
-      },
-      required: ["pattern"],
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const pattern = getRequiredString(input, "pattern");
-      const path = getOptionalString(input, "path");
-
-      const cmd = ["rg", "--files", "--glob", pattern];
-      if (path) {
-        cmd.push(resolveToolPath(cwd, path));
-      }
-
-      const proc = spawn({
-        cmd,
-        cwd,
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      const [stdout, stderr, exitCode] = await Promise.all([
-        streamToString(proc.stdout),
-        streamToString(proc.stderr),
-        proc.exited,
-      ]);
-
-      if (exitCode === 1) return "no matches";
-      if (exitCode !== 0) {
-        throw new Error(stderr.trim() || `rg --files exited with code ${exitCode}`);
-      }
-      return truncate(stdout);
-    },
+    parameters: toJsonSchema(GlobArgsSchema),
   },
   {
     name: "edit",
@@ -253,151 +148,168 @@ Rules:
 - old_str must match EXACTLY once in the file (including whitespace). If it appears zero or multiple times, the edit fails.
 - If the file does not exist AND old_str is empty, the file is created with new_str as its contents.
 - old_str and new_str must differ.`,
-    parameters: {
-      type: "object",
-      properties: {
-        path: {
-          type: "string",
-          description: "Relative path of the file to edit",
-        },
-        old_str: {
-          type: "string",
-          description: "Exact substring to replace. Empty to create a new file.",
-        },
-        new_str: {
-          type: "string",
-          description: "Replacement string.",
-        },
-      },
-      required: ["path", "old_str", "new_str"],
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const path = getRequiredString(input, "path");
-      const oldStr = getRequiredString(input, "old_str");
-      const newStr = getRequiredString(input, "new_str");
-      if (oldStr === newStr) throw new Error("old_str and new_str are identical");
-
-      const filePath = resolveToolPath(cwd, path);
-      if (!existsSync(filePath)) {
-        if (oldStr !== "") throw new Error(`file not found: ${path}`);
-        await mkdir(dirname(filePath), { recursive: true });
-        await writeFile(filePath, newStr, "utf-8");
-        return `created ${path}`;
-      }
-
-      const content = await readFile(filePath, "utf-8");
-      const matches = content.split(oldStr).length - 1;
-      if (matches === 0) throw new Error(`old_str not found in ${path}`);
-      if (matches > 1)
-        throw new Error(`old_str appears ${matches} times in ${path}; must be unique`);
-
-      await writeFile(filePath, content.replace(oldStr, newStr), "utf-8");
-      return "ok";
-    },
+    parameters: toJsonSchema(EditArgsSchema),
   },
   {
     name: "write",
     description:
       "Write a complete file at the given relative path. Creates parent directories if needed and overwrites existing contents.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: {
-          type: "string",
-          description: "Relative path of the file to write",
-        },
-        content: {
-          type: "string",
-          description: "Full file contents to write.",
-        },
-      },
-      required: ["path", "content"],
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const path = getRequiredString(input, "path");
-      const content = getRequiredString(input, "content");
-
-      const filePath = resolveToolPath(cwd, path);
-      const existed = existsSync(filePath);
-      await mkdir(dirname(filePath), { recursive: true });
-      await writeFile(filePath, content, "utf-8");
-      return existed ? `updated ${path}` : `created ${path}`;
-    },
+    parameters: toJsonSchema(WriteArgsSchema),
   },
   {
     name: "bash",
     description:
       "Run a shell command with cwd set to the scenario working directory. Use this for tests, builds, linting, and command-line inspection.",
-    parameters: {
-      type: "object",
-      properties: {
-        command: {
-          type: "string",
-          description: "Shell command to execute.",
-        },
-        timeout_ms: {
-          type: "number",
-          description: `Optional timeout in milliseconds. Defaults to ${DEFAULT_BASH_TIMEOUT_MS} and is capped at ${MAX_BASH_TIMEOUT_MS}.`,
-        },
-      },
-      required: ["command"],
-    },
-    async run(args, cwd) {
-      const input = parseArgs(args);
-      const command = getRequiredString(input, "command");
-      const requestedTimeout = getOptionalNumber(input, "timeout_ms");
-
-      const timeoutMs = Math.min(
-        MAX_BASH_TIMEOUT_MS,
-        Math.max(1, Math.floor(requestedTimeout ?? DEFAULT_BASH_TIMEOUT_MS))
-      );
-      const proc = spawn({
-        cmd: ["setsid", process.env.SHELL || "/bin/zsh", "-lc", command],
-        cwd,
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        try {
-          process.kill(-proc.pid, "SIGKILL");
-        } catch {
-          proc.kill("SIGKILL");
-        }
-      }, timeoutMs);
-
-      const [stdout, stderr, exitCode] = await Promise.all([
-        streamToString(proc.stdout),
-        streamToString(proc.stderr),
-        proc.exited,
-      ]);
-
-      clearTimeout(timer);
-
-      const sections = [`exit_code: ${timedOut ? 124 : exitCode}`];
-      if (stdout.trim()) {
-        sections.push(`stdout:\n${truncate(stdout)}`);
-      }
-      if (stderr.trim() || timedOut) {
-        const stderrText = timedOut
-          ? `${stderr}${stderr && !stderr.endsWith("\n") ? "\n" : ""}timed out after ${timeoutMs}ms`
-          : stderr;
-        sections.push(`stderr:\n${truncate(stderrText)}`);
-      }
-      if (sections.length === 1) {
-        sections.push("stdout:\n<empty>");
-      }
-
-      return sections.join("\n\n");
-    },
+    parameters: toJsonSchema(BashArgsSchema),
   },
 ];
 
-const toolRegistry = new Map(tools.map((tool) => [tool.name, tool]));
+async function runRead(args: ReadArgs, cwd: string): Promise<string> {
+  const filePath = resolveToolPath(cwd, args.path);
+  return readFile(filePath, "utf-8");
+}
+
+async function runLs(args: LsArgs, cwd: string): Promise<string> {
+  const dirPath = resolveToolPath(cwd, args.path ?? ".");
+  const entries = await readdir(dirPath, { withFileTypes: true });
+  return JSON.stringify(
+    entries.map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
+  );
+}
+
+async function runGrep(args: GrepArgs, cwd: string): Promise<string> {
+  const cmd = ["rg", "--line-number", "--no-heading", "--color=never"];
+  if (args.ignore_case) cmd.push("-i");
+  if (args.glob) cmd.push("--glob", args.glob);
+  cmd.push("--", args.pattern);
+  if (args.path) {
+    cmd.push(resolveToolPath(cwd, args.path));
+  }
+
+  const proc = spawn({
+    cmd,
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    streamToString(proc.stdout),
+    streamToString(proc.stderr),
+    proc.exited,
+  ]);
+
+  if (exitCode === 1) return "no matches";
+  if (exitCode !== 0) {
+    throw new Error(stderr.trim() || `rg exited with code ${exitCode}`);
+  }
+  return truncate(stdout);
+}
+
+async function runGlob(args: GlobArgs, cwd: string): Promise<string> {
+  const cmd = ["rg", "--files", "--glob", args.pattern];
+  if (args.path) {
+    cmd.push(resolveToolPath(cwd, args.path));
+  }
+
+  const proc = spawn({
+    cmd,
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    streamToString(proc.stdout),
+    streamToString(proc.stderr),
+    proc.exited,
+  ]);
+
+  if (exitCode === 1) return "no matches";
+  if (exitCode !== 0) {
+    throw new Error(stderr.trim() || `rg --files exited with code ${exitCode}`);
+  }
+  return truncate(stdout);
+}
+
+async function runEdit(args: EditArgs, cwd: string): Promise<string> {
+  const { path, old_str: oldStr, new_str: newStr } = args;
+  if (oldStr === newStr) throw new Error("old_str and new_str are identical");
+
+  const filePath = resolveToolPath(cwd, path);
+  if (!existsSync(filePath)) {
+    if (oldStr !== "") throw new Error(`file not found: ${path}`);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, newStr, "utf-8");
+    return `created ${path}`;
+  }
+
+  const content = await readFile(filePath, "utf-8");
+  const matches = content.split(oldStr).length - 1;
+  if (matches === 0) throw new Error(`old_str not found in ${path}`);
+  if (matches > 1)
+    throw new Error(`old_str appears ${matches} times in ${path}; must be unique`);
+
+  await writeFile(filePath, content.replace(oldStr, newStr), "utf-8");
+  return "ok";
+}
+
+async function runWrite(args: WriteArgs, cwd: string): Promise<string> {
+  const { path, content } = args;
+  const filePath = resolveToolPath(cwd, path);
+  const existed = existsSync(filePath);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, content, "utf-8");
+  return existed ? `updated ${path}` : `created ${path}`;
+}
+
+async function runBash(args: BashArgs, cwd: string): Promise<string> {
+  const { command } = args;
+  const timeoutMs = Math.min(
+    MAX_BASH_TIMEOUT_MS,
+    Math.max(1, Math.floor(args.timeout_ms ?? DEFAULT_BASH_TIMEOUT_MS))
+  );
+  const proc = spawn({
+    cmd: ["setsid", process.env.SHELL || "/bin/zsh", "-lc", command],
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try {
+      process.kill(-proc.pid, "SIGKILL");
+    } catch {
+      proc.kill("SIGKILL");
+    }
+  }, timeoutMs);
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    streamToString(proc.stdout),
+    streamToString(proc.stderr),
+    proc.exited,
+  ]);
+
+  clearTimeout(timer);
+
+  const sections = [`exit_code: ${timedOut ? 124 : exitCode}`];
+  if (stdout.trim()) {
+    sections.push(`stdout:\n${truncate(stdout)}`);
+  }
+  if (stderr.trim() || timedOut) {
+    const stderrText = timedOut
+      ? `${stderr}${stderr && !stderr.endsWith("\n") ? "\n" : ""}timed out after ${timeoutMs}ms`
+      : stderr;
+    sections.push(`stderr:\n${truncate(stderrText)}`);
+  }
+  if (sections.length === 1) {
+    sections.push("stdout:\n<empty>");
+  }
+
+  return sections.join("\n\n");
+}
 
 type ModelCallMetrics = {
   promptTokens: number;
@@ -764,13 +676,34 @@ async function callModel(
 }
 
 async function executeTool(call: OpenAIToolCall, cwd: string): Promise<string> {
-  const tool = toolRegistry.get(call.function.name);
-  if (!tool) {
-    return `error: unknown tool "${call.function.name}"`;
+  const rawArgs = call.function.arguments ?? "{}";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawArgs);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return `error: invalid tool arguments JSON: ${detail}`;
   }
 
   try {
-    return await tool.run(call.function.arguments ?? "{}", cwd);
+    switch (call.function.name) {
+      case "read":
+        return await runRead(Schema.decodeUnknownSync(ReadArgsSchema)(parsed), cwd);
+      case "ls":
+        return await runLs(Schema.decodeUnknownSync(LsArgsSchema)(parsed), cwd);
+      case "grep":
+        return await runGrep(Schema.decodeUnknownSync(GrepArgsSchema)(parsed), cwd);
+      case "glob":
+        return await runGlob(Schema.decodeUnknownSync(GlobArgsSchema)(parsed), cwd);
+      case "edit":
+        return await runEdit(Schema.decodeUnknownSync(EditArgsSchema)(parsed), cwd);
+      case "write":
+        return await runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(parsed), cwd);
+      case "bash":
+        return await runBash(Schema.decodeUnknownSync(BashArgsSchema)(parsed), cwd);
+      default:
+        return `error: unknown tool "${call.function.name}"`;
+    }
   } catch (error) {
     return `error: ${error instanceof Error ? error.message : String(error)}`;
   }
@@ -795,14 +728,6 @@ function finishRuntime(
     ...(modelMetrics ? { modelMetrics: { ...modelMetrics } } : {}),
     ...(error ? { error } : {}),
   };
-}
-
-function parseArgs(args: string): JsonObject {
-  const parsed = parseJson(args, "tool arguments");
-  if (!isRecord(parsed)) {
-    throw new Error("tool arguments must be a JSON object");
-  }
-  return parsed;
 }
 
 function resolveToolPath(cwd: string, relativePath: string): string {
@@ -840,14 +765,14 @@ function readRootConfig(): { endpoint?: string; model?: string } {
   if (!existsSync(ROOT_CONFIG_PATH)) return {};
 
   const raw = readFileSync(ROOT_CONFIG_PATH, "utf-8");
-  const parsed = parseJson(raw, "root config");
-  if (!isRecord(parsed)) {
-    throw new Error("root config must be a JSON object");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`invalid root config JSON: ${detail}`);
   }
-  return {
-    endpoint: getOptionalString(parsed, "endpoint"),
-    model: getOptionalString(parsed, "model"),
-  };
+  return Schema.decodeUnknownSync(RootConfigSchema)(parsed);
 }
 
 function readSystemPrompt(): string | undefined {
@@ -866,54 +791,6 @@ function narrowFinishReason(value: string): FinishReason {
   if (value === "tool_calls" || value === "function_call") return "tool_calls";
   if (value === "length" || value === "content_filter") return value;
   throw new Error(`unsupported finish_reason: ${value}`);
-}
-
-function parseJson(raw: string, label: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid ${label} JSON: ${detail}`);
-  }
-}
-
-function isRecord(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function getRequiredString(source: JsonObject, key: string): string {
-  const value = source[key];
-  if (typeof value !== "string") {
-    throw new Error(`${key} must be a string`);
-  }
-  return value;
-}
-
-function getOptionalString(source: JsonObject, key: string): string | undefined {
-  const value = source[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== "string") {
-    throw new Error(`${key} must be a string`);
-  }
-  return value;
-}
-
-function getOptionalBoolean(source: JsonObject, key: string): boolean | undefined {
-  const value = source[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== "boolean") {
-    throw new Error(`${key} must be a boolean`);
-  }
-  return value;
-}
-
-function getOptionalNumber(source: JsonObject, key: string): number | undefined {
-  const value = source[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`${key} must be a finite number`);
-  }
-  return value;
 }
 
 function createModelMetrics(model: string): ModelMetrics {
