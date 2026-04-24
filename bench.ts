@@ -6,7 +6,7 @@ import { parseArgs } from "node:util";
 import { BenchDashboard } from "./lib/dashboard.ts";
 import { runScenario } from "./lib/orchestrator.ts";
 import { localRuntime } from "./lib/runtimes/local-agent.ts";
-import type { Runtime } from "./lib/runtimes/types.ts";
+import type { Runtime, ToolExecutionMode } from "./lib/runtimes/types.ts";
 import { scenarios } from "./lib/scenarios.ts";
 import { RunFileSchema } from "./lib/schemas/run-file.ts";
 import {
@@ -92,12 +92,15 @@ export function printPlainSummary(
   console.log("━".repeat(72));
 }
 
+// TODO: bench.ts main can be refactored to call server/run-engine.ts runBench()
 if (import.meta.main) {
+  console.log("ℹ  Web UI available: bun run web");
   const { values } = parseArgs({
     options: {
       runtime: { type: "string", short: "r", default: "local" },
       scenario: { type: "string", short: "s" },
       timeout: { type: "string", short: "t", default: "600000" },
+      "tool-execution": { type: "string" },
     },
     strict: true,
   });
@@ -114,6 +117,20 @@ if (import.meta.main) {
     console.error(`Invalid --timeout: ${values.timeout}. Must be a positive number (ms).`);
     process.exit(1);
   }
+  const toolExecutionRaw = values["tool-execution"];
+  const toolExecutionValue = toolExecutionRaw === undefined ? undefined : String(toolExecutionRaw);
+  if (
+    toolExecutionValue !== undefined &&
+    toolExecutionValue !== "sequential" &&
+    toolExecutionValue !== "parallel"
+  ) {
+    console.error(
+      `Invalid --tool-execution: ${toolExecutionRaw}. Must be "sequential" or "parallel".`
+    );
+    process.exit(1);
+  }
+  const toolExecution: ToolExecutionMode | undefined = toolExecutionValue;
+
   const filter = values.scenario ? String(values.scenario) : undefined;
   const activeScenarios = filter
     ? scenarios.filter((s) => s.name === filter || s.id === filter)
@@ -162,6 +179,7 @@ if (import.meta.main) {
         runtime,
         scenario,
         timeoutMs,
+        toolExecution,
         onRuntimeEvent: (event) => {
           ui?.recordEvent(index, event);
         },

@@ -11,6 +11,11 @@ export type Props = Schema.Schema.Type<typeof PropsSchema>;
 export const RootConfigSchema = Schema.Struct({
   endpoint: Schema.optional(Schema.String),
   model: Schema.optional(Schema.String),
+  remoteModels: Schema.optional(Schema.Array(Schema.Struct({
+    id: Schema.String,
+    endpoint: Schema.String,
+    requiresApiKey: Schema.optional(Schema.Boolean),
+  }))),
 });
 
 export const EnvSchema = Schema.Struct({

@@ -1,10 +1,10 @@
 import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Runtime, RuntimeEvent } from "./runtimes/types.ts";
+import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.ts";
 import type { Scenario } from "./scenarios.ts";
 import { PLAYGROUND_SRC } from "./scenarios.ts";
-import type { Ms, ScenarioId } from "./schemas/brands.js";
+import type { Ms } from "./schemas/brands.js";
 import { Evaluation } from "./scoring.ts";
 import type { RuntimeOutput, ScenarioEvaluation, ScenarioResult } from "./scoring.ts";
 
@@ -12,7 +12,39 @@ export interface RunOptions {
   runtime: Runtime;
   scenario: Scenario;
   timeoutMs: number;
+  toolExecution?: ToolExecutionMode;
   onRuntimeEvent?: (event: RuntimeEvent) => void;
+  signal?: AbortSignal;
+  runtimeOverrides?: {
+    endpoint?: string;
+    model?: string;
+    apiKey?: string;
+    systemPrompt?: string;
+  };
+}
+
+function withToolExecution(runtime: Runtime, mode?: ToolExecutionMode): Runtime {
+  if (!mode) return runtime;
+
+  const startSession = runtime.startSession;
+  if (!startSession) {
+    return {
+      ...runtime,
+      async run(ctx) {
+        return runtime.run({ ...ctx, toolExecution: ctx.toolExecution ?? mode });
+      },
+    };
+  }
+
+  return {
+    ...runtime,
+    async run(ctx) {
+      return runtime.run({ ...ctx, toolExecution: ctx.toolExecution ?? mode });
+    },
+    async startSession(ctx) {
+      return startSession({ ...ctx, toolExecution: ctx.toolExecution ?? mode });
+    },
+  };
 }
 
 export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
@@ -24,9 +56,11 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
     let evaluation: ScenarioEvaluation;
     const scenarioMaxPoints = opts.scenario.maxPoints ?? 2;
 
+    const runtime = withToolExecution(opts.runtime, opts.toolExecution);
+
     if (opts.scenario.execute) {
       ({ output, evaluation } = await opts.scenario.execute({
-        runtime: opts.runtime,
+        runtime,
         workDir,
         timeoutMs: opts.timeoutMs,
         onRuntimeEvent: opts.onRuntimeEvent,
@@ -34,13 +68,15 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
     } else {
       const runStartedAt = performance.now();
       try {
-        output = await opts.runtime.run({
+        output = await runtime.run({
           workDir,
           prompt: opts.scenario.buildPrompt
             ? await opts.scenario.buildPrompt({ playgroundDir: workDir })
             : opts.scenario.prompt,
           timeoutMs: opts.timeoutMs,
           onEvent: opts.onRuntimeEvent,
+          signal: opts.signal,
+          ...(opts.runtimeOverrides ?? {}),
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);

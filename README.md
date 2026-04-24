@@ -23,7 +23,7 @@ Score: 7/8 (87.5%)  →  results/1776383086009-local.json
 
 ## What it tests
 
-Each scenario gives the model a real task and a real codebase. It has access to seven tools — `read`, `ls`, `grep`, `glob`, `edit`, `write`, `bash` — and a timeout. The harness watches what it does and scores the result with deterministic, code-driven checks. No LLM judge.
+Each scenario gives the model a real task and a real codebase. It has access to five tools — `read`, `ls`, `edit`, `write`, `bash` — and a timeout. Search is done through `bash` (`ugrep`/`rg`, `bfs`/`find`) for fewer, faster tool round-trips. The harness watches what it does and scores the result with deterministic, code-driven checks. No LLM judge.
 
 **Eight scenario categories:**
 
@@ -99,7 +99,7 @@ These appear in the run-level `modelMetrics` key and per-scenario in each result
 
 ## Setup
 
-**Requirements:** `bun`, `rg` (ripgrep), `curl`
+**Requirements:** `bun`, `curl` (plus standard shell utils; `ugrep`/`bfs` or `rg`/`find` recommended)
 
 ```bash
 bun install
@@ -130,6 +130,9 @@ bun bench.ts --runtime local --scenario SB-01
 
 # Custom timeout (ms)
 bun bench.ts --runtime local --timeout 300000
+
+# Enable parallel execution for safe tool batches
+bun bench.ts --runtime local --tool-execution parallel
 ```
 
 **Flags:**
@@ -139,6 +142,7 @@ bun bench.ts --runtime local --timeout 300000
 | `--runtime` | `-r` | `local` | Runtime to use |
 | `--scenario` | `-s` | all | Run one scenario by name or ID |
 | `--timeout` | `-t` | `180000` | Per-scenario timeout in ms |
+| `--tool-execution` | — | `sequential` | Tool execution strategy (`sequential` or `parallel`) |
 
 **Env overrides** (beat `scaffold.config.json`):
 
@@ -160,6 +164,45 @@ When timing data is available, the final summary also shows aggregate prompt tok
 
 ---
 
+## Web UI (beta)
+
+Run the HTTP API server with SSE streaming:
+
+```
+bun run web
+```
+
+Server starts on port 4317 (override with `SCAFFOLD_WEB_PORT` env var).
+
+### API endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/scenarios` | List all scenarios |
+| GET | `/api/models` | Probe local + remote models |
+| POST | `/api/runs` | Start a bench run |
+| GET | `/api/runs` | List past runs |
+| GET | `/api/runs/active` | Check if a run is in progress |
+| GET | `/api/runs/:id` | Get run details (`?withEvents=true` for full event log) |
+| GET | `/api/runs/:id/stream` | SSE stream of live events (`?fromSeq=N` for replay) |
+| POST | `/api/runs/:id/stop` | Cancel an active run |
+| GET | `/api/bench-report` | Serve the latest HTML report |
+
+### Start a run via API
+
+```bash
+# Start a run with specific scenarios
+curl -X POST http://localhost:4317/api/runs \
+  -H 'content-type: application/json' \
+  -d '{"scenarioIds": ["SB-01", "SB-02"]}'
+
+# Stream events
+curl --no-buffer http://localhost:4317/api/runs/$RUN_ID/stream
+```
+
+---
+
 ## Architecture
 
 ```
@@ -175,7 +218,7 @@ playground/          — fixture files (the codebase the model edits)
 results/             — JSON output (gitignored)
 ```
 
-The `local` runtime runs a tool loop: `curl` → model → tool dispatch → repeat, up to 20 iterations. Tools available to the model: `read`, `ls`, `grep` (via `rg`), `glob`, `edit` (exact-match string replace), `write`, and `bash`.
+The `local` runtime runs a tool loop: `curl` → model → tool dispatch → repeat, up to 20 iterations. Tools available to the model: `read`, `ls`, `edit` (exact-match string replace), `write`, and `bash` (including search commands like `ugrep`/`rg` and `bfs`/`find`).
 
 ---
 

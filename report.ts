@@ -1,7 +1,6 @@
-import { Schema } from "effect";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { RunFileSchema, type RunFile } from "./lib/schemas/run-file.ts";
+import { buildReportData, type ReportModelAggregate } from "./lib/report-data.ts";
 
 type Aggregated = {
   m: string;
@@ -35,154 +34,20 @@ const CATS = [
   "long-context",
 ];
 
-const resultsDir = join(import.meta.dir, "results");
-const outPath = join(import.meta.dir, "bench-report.html");
-
-const files = readdirSync(resultsDir)
-  .filter((f) => f.endsWith(".json"))
-  .map((f) => ({ name: f, path: join(resultsDir, f) }));
-
-const groups = new Map<string, RunFile[]>();
-for (const f of files) {
-  const raw = Schema.decodeUnknownSync(RunFileSchema)(JSON.parse(readFileSync(f.path, "utf8")));
-  const model = raw.modelMetrics?.model ?? "unknown";
-  if (!groups.has(model)) groups.set(model, []);
-  groups.get(model)!.push(raw);
-}
-
-const data: Aggregated[] = [];
-for (const [model, runs] of groups) {
-  const source: "local" | "api" = model.includes("/") ? "api" : "local";
-
-  let totalPoints = 0;
-  let maxPoints = 0;
-  let totalWallMs = 0;
-  let scenarioWallMs = 0;
-  let scenarioCount = 0;
-  let firstTokenSum = 0;
-  let firstTokenCount = 0;
-
-  let promptEvalTokens = 0;
-  let promptEvalTimeMs = 0;
-  let completionEvalTokens = 0;
-  let completionEvalTimeMs = 0;
-  let hasPromptTiming = false;
-  let hasCompletionTiming = false;
-
-  let promptTokens = 0;
-  let completionTokens = 0;
-  let totalRequestTimeMs = 0;
-  let requests = 0;
-  let toolCalls = 0;
-
-  const catAgg: Record<string, { pts: number; max: number }> = {};
-  const scenarioIds = new Set<string>();
-  let latestTs = "";
-
-  for (const r of runs) {
-    totalPoints += r.totalPoints;
-    maxPoints += r.maxPoints;
-    if (!latestTs || r.timestamp > latestTs) latestTs = r.timestamp;
-
-    const m = r.modelMetrics;
-    if (m) {
-      promptTokens += m.promptTokens ?? 0;
-      completionTokens += m.completionTokens ?? 0;
-      totalRequestTimeMs += m.totalRequestTimeMs ?? 0;
-      requests += m.requestCount ?? 0;
-      if (m.promptEvalTokens !== undefined && m.promptEvalTimeMs !== undefined) {
-        promptEvalTokens += m.promptEvalTokens;
-        promptEvalTimeMs += m.promptEvalTimeMs;
-        hasPromptTiming = true;
-      }
-      if (m.completionEvalTokens !== undefined && m.completionEvalTimeMs !== undefined) {
-        completionEvalTokens += m.completionEvalTokens;
-        completionEvalTimeMs += m.completionEvalTimeMs;
-        hasCompletionTiming = true;
-      }
-    }
-
-    for (const s of r.results) {
-      scenarioWallMs += s.wallTimeMs ?? 0;
-      totalWallMs += s.wallTimeMs ?? 0;
-      scenarioCount++;
-      scenarioIds.add(s.scenarioId);
-      toolCalls += s.toolCallCount ?? 0;
-      if (typeof s.firstTokenMs === "number") {
-        firstTokenSum += s.firstTokenMs;
-        firstTokenCount++;
-      }
-      if (!catAgg[s.category]) catAgg[s.category] = { pts: 0, max: 0 };
-      catAgg[s.category].pts += s.points ?? 0;
-      catAgg[s.category].max += s.maxPoints ?? 0;
-    }
-  }
-
-  const runsCount = runs.length;
-  const score_pct = maxPoints > 0 ? (totalPoints / maxPoints) * 100 : 0;
-
-  let completion_tps: number | null = null;
-  let completion_approx = false;
-  if (hasCompletionTiming && completionEvalTimeMs > 0) {
-    completion_tps = completionEvalTokens / (completionEvalTimeMs / 1000);
-  } else if (completionTokens > 0 && totalRequestTimeMs > 0) {
-    completion_tps = completionTokens / (totalRequestTimeMs / 1000);
-    completion_approx = true;
-  }
-
-  let prompt_tps: number | null = null;
-  let prompt_approx = false;
-  if (hasPromptTiming && promptEvalTimeMs > 0) {
-    prompt_tps = promptEvalTokens / (promptEvalTimeMs / 1000);
-  } else if (promptTokens > 0 && totalRequestTimeMs > 0) {
-    prompt_tps = promptTokens / (totalRequestTimeMs / 1000);
-    prompt_approx = true;
-  }
-
-  const cats: Aggregated["categories"] = {};
-  for (const c of CATS) {
-    const agg = catAgg[c];
-    if (!agg || agg.max === 0) cats[c] = { pts: agg?.pts ?? 0, max: 0, pct: null };
-    else cats[c] = { pts: agg.pts, max: agg.max, pct: (agg.pts / agg.max) * 100 };
-  }
-
-  data.push({
-    m: model,
-    source,
-    runs: runsCount,
-    score_pct,
-    points_avg: totalPoints / runsCount,
-    max_avg: maxPoints / runsCount,
-    total_wall_s: totalWallMs / 1000,
-    avg_scenario_s: scenarioCount ? scenarioWallMs / scenarioCount / 1000 : 0,
-    avg_first_token_s: firstTokenCount ? firstTokenSum / firstTokenCount / 1000 : null,
-    completion_tps,
-    completion_tps_approx: completion_approx,
-    prompt_tps,
-    prompt_tps_approx: prompt_approx,
-    tool_calls_total: toolCalls,
-    requests,
-    categories: cats,
-    scenario_count: scenarioIds.size,
-    latest_ts: latestTs,
-  });
-}
-
-data.sort((a, b) => b.score_pct - a.score_pct);
-
-const totalRuns = files.length;
-const totalScenarioRuns = data.reduce((s, d) => s + d.runs * d.scenario_count, 0);
-const localCount = data.filter((d) => d.source === "local").length;
-const apiCount = data.filter((d) => d.source === "api").length;
-const snapshot = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-
-const best = data[0];
-const scored = data.filter((d) => d.avg_scenario_s > 0);
-const aligned = [...scored].sort((a, b) => b.score_pct / b.avg_scenario_s - a.score_pct / a.avg_scenario_s)[0];
-const fastestGen = [...data].filter((d) => d.completion_tps != null).sort((a, b) => (b.completion_tps ?? 0) - (a.completion_tps ?? 0))[0];
-const fastestPrompt = [...data].filter((d) => d.prompt_tps != null).sort((a, b) => (b.prompt_tps ?? 0) - (a.prompt_tps ?? 0))[0];
-
-const html = `<!doctype html>
+function buildHtml(
+  data: Aggregated[],
+  resultsDir: string,
+  totalRuns: number,
+  totalScenarioRuns: number,
+  localCount: number,
+  apiCount: number,
+  snapshot: string,
+  best: Aggregated | undefined,
+  aligned: Aggregated | undefined,
+  fastestGen: Aggregated | undefined,
+  fastestPrompt: Aggregated | undefined,
+): string {
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -378,7 +243,7 @@ const html = `<!doctype html>
 </section>
 
 <div class="footer">
-  Generated from ${resultsDir} · ${totalRuns} result files · ${totalScenarioRuns} scenario runs aggregated.
+  Generated from database · ${totalRuns} runs · ${totalScenarioRuns} scenario runs aggregated.
 </div>
 
 </div>
@@ -548,8 +413,60 @@ render();
 </script>
 </body>
 </html>`;
+}
 
-writeFileSync(outPath, html);
-console.log(
-  `wrote ${outPath}\n  ${data.length} models · ${totalRuns} runs · ${localCount} local · ${apiCount} api`,
-);
+function toLegacyReportModel(model: ReportModelAggregate): Aggregated {
+  const categories: Aggregated["categories"] = {};
+  for (const [category, score] of Object.entries(model.categories)) {
+    categories[category] = { pts: score.points, max: score.maxPoints, pct: score.pct };
+  }
+
+  return {
+    m: model.model,
+    source: model.source,
+    runs: model.runs,
+    score_pct: model.scorePct,
+    points_avg: model.pointsAvg,
+    max_avg: model.maxAvg,
+    total_wall_s: model.totalWallSeconds,
+    avg_scenario_s: model.avgScenarioSeconds,
+    avg_first_token_s: model.avgFirstTokenSeconds,
+    completion_tps: model.completionTps,
+    completion_tps_approx: model.completionTpsApprox,
+    prompt_tps: model.promptTps,
+    prompt_tps_approx: model.promptTpsApprox,
+    tool_calls_total: model.toolCallsTotal,
+    requests: model.requests,
+    categories,
+    scenario_count: model.scenarioCount,
+    latest_ts: model.latestTimestamp,
+  };
+}
+
+export async function generateReport(resultsDir: string, outPath: string): Promise<void> {
+  const report = buildReportData();
+  const data = report.models.map(toLegacyReportModel);
+  const html = buildHtml(
+    data,
+    resultsDir,
+    report.totals.runs,
+    report.totals.scenarioRuns,
+    report.totals.local,
+    report.totals.api,
+    report.snapshot,
+    report.awards.bestOverall ? toLegacyReportModel(report.awards.bestOverall) : undefined,
+    report.awards.bestAligned ? toLegacyReportModel(report.awards.bestAligned) : undefined,
+    report.awards.fastestGeneration ? toLegacyReportModel(report.awards.fastestGeneration) : undefined,
+    report.awards.fastestPrompt ? toLegacyReportModel(report.awards.fastestPrompt) : undefined,
+  );
+
+  writeFileSync(outPath, html);
+}
+
+
+if (import.meta.main) {
+  const defaultResultsDir = join(import.meta.dir, "results");
+  const defaultOutPath = join(import.meta.dir, "bench-report.html");
+  await generateReport(defaultResultsDir, defaultOutPath);
+  console.log(`wrote ${defaultOutPath}`);
+}

@@ -1,9 +1,20 @@
 import { spawn } from "bun";
 import { Either, Schema } from "effect";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import type {
+  BashArgs,
+  EditArgs,
+  LsArgs,
+  Ms,
+  Ns,
+  ReadArgs,
+  SafeRelativePath,
+  TokenCount,
+  ToolResult,
+  WriteArgs,
+} from "../schemas/index.js";
 import {
   BashArgsSchema,
   ChatStreamChunkSchema,
@@ -19,21 +30,8 @@ import {
   ok,
   toJsonSchema,
 } from "../schemas/index.js";
-import type {
-  BashArgs,
-  EditArgs,
-  LsArgs,
-  Ms,
-  Ns,
-  ReadArgs,
-  SafeRelativePath,
-  TokenCount,
-  ToolResult,
-  WriteArgs,
-} from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
 import type {
-  AfterToolCallInput,
   BeforeToolCallInput,
   Runtime,
   RuntimeContext,
@@ -77,7 +75,6 @@ if (!systemPrompt) {
 }
 const ACTIVE_SYSTEM_PROMPT = systemPrompt;
 
-type JsonObject = Record<string, unknown>;
 type FinishReason = "tool_calls" | "stop" | "length" | "content_filter";
 
 type ChatMessage = {
@@ -101,56 +98,48 @@ type PendingToolExecution = {
   toolCall: ToolCall;
 };
 
-type ChatResponse = {
-  choices?: Array<{
-    finish_reason?: FinishReason;
-    message?: ChatMessage;
-  }>;
-  error?: {
-    message?: string;
-  };
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-  };
-  timings?: {
-    prompt_n?: number;
-    prompt_ms?: number;
-    prompt_per_second?: number;
-    predicted_n?: number;
-    predicted_ms?: number;
-    predicted_per_second?: number;
-  };
+type Usage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+};
+
+type Timings = {
+  prompt_n?: number;
+  prompt_ms?: number;
+  predicted_n?: number;
+  predicted_ms?: number;
+};
+
+type ModelMetricSource = {
+  usage?: Usage;
+  timings?: Timings;
   prompt_eval_count?: number;
   prompt_eval_duration?: number;
   eval_count?: number;
   eval_duration?: number;
-  total_duration?: number;
 };
 
-type ToolDescriptor = {
-  name: string;
+type ToolHandler = {
   description: string;
   parameters: object;
+  run: (args: unknown, cwd: string, signal?: AbortSignal) => Promise<string>;
 };
 
-const tools: ToolDescriptor[] = [
-  {
-    name: "read",
+const toolHandlers: Record<string, ToolHandler> = {
+  read: {
     description:
       "Read the contents of a file at the given relative path. Returns file contents as a string.",
     parameters: toJsonSchema(ReadArgsSchema),
+    run: (args, cwd) => runRead(Schema.decodeUnknownSync(ReadArgsSchema)(args), cwd),
   },
-  {
-    name: "ls",
+  ls: {
     description:
       "List files and directories at the given path. If no path is provided, lists the current directory. Directories are marked with a trailing slash.",
     parameters: toJsonSchema(LsArgsSchema),
+    run: (args, cwd) => runLs(Schema.decodeUnknownSync(LsArgsSchema)(args), cwd),
   },
-
-  {
-    name: "edit",
+  edit: {
     description: `Edit a file by replacing old_str with new_str.
 
 Rules:
@@ -158,20 +147,31 @@ Rules:
 - If the file does not exist AND old_str is empty, the file is created with new_str as its contents.
 - old_str and new_str must differ.`,
     parameters: toJsonSchema(EditArgsSchema),
+    run: (args, cwd) => runEdit(Schema.decodeUnknownSync(EditArgsSchema)(args), cwd),
   },
-  {
-    name: "write",
+  write: {
     description:
       "Write a complete file at the given relative path. Creates parent directories if needed and overwrites existing contents.",
     parameters: toJsonSchema(WriteArgsSchema),
+    run: (args, cwd) => runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(args), cwd),
   },
-  {
-    name: "bash",
+  bash: {
     description:
       "Run a shell command with cwd set to the scenario working directory. Prefer this for fast codebase search and verification; prefer one focused search command over multiple tool calls (examples: `ugrep -n \"pattern\" .`, `bfs . -type f`, `rg -n \"pattern\" .`, `find . -type f`).",
     parameters: toJsonSchema(BashArgsSchema),
+    run: (args, cwd, signal) =>
+      runBash(Schema.decodeUnknownSync(BashArgsSchema)(args), cwd, signal),
   },
-];
+};
+
+const openAiTools = Object.entries(toolHandlers).map(([name, tool]) => ({
+  type: "function",
+  function: {
+    name,
+    description: tool.description,
+    parameters: tool.parameters,
+  },
+}));
 
 async function runRead(args: ReadArgs, cwd: string): Promise<string> {
   const filePath = resolveToolPath(cwd, args.path);
@@ -185,7 +185,6 @@ async function runLs(args: LsArgs, cwd: string): Promise<string> {
     entries.map((entry) => (entry.isDirectory() ? `${entry.name}/` : entry.name))
   );
 }
-
 
 async function runEdit(args: EditArgs, cwd: string): Promise<string> {
   const { path, old_str: oldStr, new_str: newStr } = args;
@@ -234,20 +233,10 @@ async function runBash(args: BashArgs, cwd: string, signal?: AbortSignal): Promi
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    try {
-      process.kill(-proc.pid, "SIGKILL");
-    } catch {
-      proc.kill("SIGKILL");
-    }
+    killProcessGroup(proc);
   }, timeoutMs);
 
-  const onAbort = () => {
-    try {
-      process.kill(-proc.pid, "SIGKILL");
-    } catch {
-      proc.kill("SIGKILL");
-    }
-  };
+  const onAbort = () => killProcessGroup(proc);
   if (signal?.aborted) {
     onAbort();
   } else {
@@ -291,23 +280,11 @@ type ModelCallMetrics = {
   completionEvalTimeMs?: Ms;
 };
 
-// Built-in local runtime for OpenAI-compatible chat-completions endpoints.
 export const localRuntime: Runtime = {
   name: "local",
 
   async run(ctx: RuntimeContext): Promise<RuntimeOutput> {
-    const session = await createLocalSession({
-      workDir: ctx.workDir,
-      onEvent: ctx.onEvent,
-      toolExecution: ctx.toolExecution,
-      beforeToolCall: ctx.beforeToolCall,
-      afterToolCall: ctx.afterToolCall,
-      signal: ctx.signal,
-      endpoint: ctx.endpoint,
-      model: ctx.model,
-      apiKey: ctx.apiKey,
-      systemPrompt: ctx.systemPrompt,
-    });
+    const session = await createLocalSession(ctx);
     try {
       return await session.runTurn(ctx.prompt, ctx.timeoutMs);
     } finally {
@@ -319,11 +296,6 @@ export const localRuntime: Runtime = {
     return createLocalSession(ctx);
   },
 
-  // Queries llama-swap's /upstream/<model>/props endpoint for the currently
-  // configured n_ctx. llama-swap only proxies /upstream/* once the model has
-  // been loaded, so if the probe 404s we fire a minimal chat request to
-  // trigger load, then retry. Returns undefined on any failure so callers
-  // can treat it as "unknown" rather than crash.
   async getContextWindow(): Promise<number | undefined> {
     const base = DEFAULT_ENDPOINT.replace(/\/v1\/chat\/completions$/, "");
     const probeUrl = `${base}/upstream/${encodeURIComponent(ACTIVE_MODEL)}/props`;
@@ -346,20 +318,7 @@ export const localRuntime: Runtime = {
     try {
       let res = await probe();
       if (!res || res.status === 404) {
-        // Trigger model load via a 1-token completion, then retry.
-        const warmupHeaders: Record<string, string> = { "content-type": "application/json" };
-        if (API_KEY) warmupHeaders.authorization = `Bearer ${API_KEY}`;
-        await fetch(DEFAULT_ENDPOINT, {
-          method: "POST",
-          headers: warmupHeaders,
-          body: JSON.stringify({
-            model: ACTIVE_MODEL,
-            messages: [{ role: "user", content: "." }],
-            max_tokens: 1,
-            stream: false,
-          }),
-          signal: AbortSignal.timeout(180_000),
-        }).catch(() => undefined);
+        await warmupModel();
         res = await probe();
       }
       if (!res || !res.ok) return undefined;
@@ -387,21 +346,14 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
       const startedAt = performance.now();
       const deadline = startedAt + timeoutMs;
       let firstTokenMs: Ms | undefined;
+      const finish = (error?: string) =>
+        finishRuntime(transcript, toolCalls, startedAt, error, modelMetrics, firstTokenMs);
 
       conversation.push({ role: "user", content: prompt });
 
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-        if (performance.now() >= deadline) {
-          return finishRuntime(transcript, toolCalls, startedAt, "TIMEOUT", modelMetrics, {
-            firstTokenMs,
-          });
-        }
-
-        if (signal?.aborted) {
-          return finishRuntime(transcript, toolCalls, startedAt, "ABORTED", modelMetrics, {
-            firstTokenMs,
-          });
-        }
+        if (performance.now() >= deadline) return finish("TIMEOUT");
+        if (signal?.aborted) return finish("ABORTED");
 
         let reply;
         try {
@@ -422,24 +374,15 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
             }
           );
         } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
+          const msg = errorMessage(error);
           const errorTag = msg === "TIMEOUT" ? "TIMEOUT" : `CRASH: ${msg}`;
-          return finishRuntime(transcript, toolCalls, startedAt, errorTag, modelMetrics, {
-            firstTokenMs,
-          });
+          return finish(errorTag);
         }
         applyModelCallMetrics(modelMetrics, reply.metrics);
         ctx.onEvent?.({ type: "model_metrics", metrics: { ...modelMetrics } });
         const message = reply.message;
         if (!message) {
-          return finishRuntime(
-            transcript,
-            toolCalls,
-            startedAt,
-            "CRASH: missing assistant message",
-            modelMetrics,
-            { firstTokenMs }
-          );
+          return finish("CRASH: missing assistant message");
         }
 
         conversation.push(message);
@@ -450,9 +393,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
         }
 
         if (reply.finishReason !== "tool_calls" || !message.tool_calls?.length) {
-          return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics, {
-            firstTokenMs,
-          });
+          return finish();
         }
 
         const pendingCalls: PendingToolExecution[] = message.tool_calls.map((call) => {
@@ -479,8 +420,6 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
           const pending = pendingCalls[i];
           const result = results[i];
           pending.toolCall.result = result;
-          // The LLM-facing tool message is still a string; preserve the legacy
-          // `error: <msg>` prefix so existing prompt patterns stay stable.
           const resultText = result.ok ? result.value : `error: ${result.message}`;
           ctx.onEvent?.({ type: "tool_result", call: pending.toolCall, result: resultText });
           conversation.push({
@@ -492,9 +431,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
       }
 
       transcript.push(`guard: hit ${MAX_TOOL_ITERATIONS} tool iterations, stopping`);
-      return finishRuntime(transcript, toolCalls, startedAt, undefined, modelMetrics, {
-        firstTokenMs,
-      });
+      return finish();
     },
   };
 }
@@ -512,200 +449,174 @@ async function callModel(
   config: CallModelConfig,
   onDelta?: (text: string) => void
 ): Promise<{ finishReason: FinishReason; message?: ChatMessage; metrics: ModelCallMetrics }> {
-  const remainingMs = Math.max(1, Math.ceil(deadline - performance.now()));
   const requestStartedAt = performance.now();
-  const payload = JSON.stringify({
-    model: config.model,
-    messages: conversation,
-    stream: true,
-    stream_options: { include_usage: true },
-    tools: tools.map((tool) => ({
-      type: "function",
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters,
-      },
-    })),
-  });
-  const payloadDir = await mkdtemp(join(tmpdir(), "scaffold-bench-payload-"));
-  const payloadPath = join(payloadDir, "request.json");
-  await writeFile(payloadPath, payload, "utf-8");
-  const headers = ["-H", "content-type: application/json"];
-  if (config.apiKey) {
-    headers.push("-H", `authorization: Bearer ${config.apiKey}`);
-  }
-  const proc = spawn({
-    cmd: [
-      "curl",
-      "-sS",
-      "-N",
-      "-X",
-      "POST",
-      ...headers,
-      "--max-time",
-      String(Math.max(1, Math.ceil(remainingMs / 1000))),
-      "--data-binary",
-      `@${payloadPath}`,
-      config.endpoint,
-    ],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const remainingMs = Math.max(1, Math.ceil(deadline - requestStartedAt));
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, remainingMs);
+  const onAbort = () => controller.abort();
 
-  const onAbort = () => {
-    try {
-      proc.kill("SIGTERM");
-    } catch {}
-  };
-  if (config.signal?.aborted) {
-    onAbort();
-  } else {
-    config.signal?.addEventListener("abort", onAbort, { once: true });
-  }
-
-  let content = "";
-  let finishReason: FinishReason = "stop";
-  const toolCallsByIndex = new Map<number, { id: string; name: string; arguments: string }>();
-  let usage: ChatResponse["usage"];
-  let timings: ChatResponse["timings"];
-  let errorMessage: string | undefined;
-  let buffer = "";
-  let stderrText = "";
-  let rawBody = "";
-  let sawSseLine = false;
+  if (config.signal?.aborted) onAbort();
+  else config.signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const stderrPromise = streamToString(proc.stderr).then((s) => {
-      stderrText = s;
+    const response = await fetch(config.endpoint, {
+      method: "POST",
+      headers: chatHeaders(config.apiKey),
+      body: JSON.stringify({
+        model: config.model,
+        messages: conversation,
+        stream: true,
+        stream_options: { include_usage: true },
+        tools: openAiTools,
+      }),
+      signal: controller.signal,
     });
-    const decoder = new TextDecoder();
-
-    for await (const chunk of proc.stdout) {
-      const text = decoder.decode(chunk, { stream: true });
-      rawBody += text;
-      buffer += text;
-      let nl: number;
-      while ((nl = buffer.indexOf("\n")) !== -1) {
-        const line = buffer.slice(0, nl).trimEnd();
-        buffer = buffer.slice(nl + 1);
-        if (!line.startsWith("data:")) continue;
-        sawSseLine = true;
-        const data = line.slice(5).trim();
-        if (data === "" || data === "[DONE]") continue;
-
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(data);
-        } catch {
-          continue;
-        }
-        const result = Schema.decodeUnknownEither(ChatStreamChunkSchema)(parsed);
-        if (Either.isLeft(result)) {
-          console.error("[stream] chunk decode error:", result.left.message);
-          continue;
-        }
-        const evt = result.right;
-
-        if (evt.error?.message) errorMessage = evt.error.message;
-        if (evt.usage) {
-          usage = {
-            prompt_tokens: evt.usage.prompt_tokens,
-            completion_tokens: evt.usage.completion_tokens,
-            total_tokens: evt.usage.total_tokens,
-          };
-        }
-        if (evt.timings) {
-          timings = {
-            prompt_n: evt.timings.prompt_n,
-            prompt_ms: evt.timings.prompt_ms,
-            prompt_per_second: evt.timings.prompt_per_second,
-            predicted_n: evt.timings.predicted_n,
-            predicted_ms: evt.timings.predicted_ms,
-            predicted_per_second: evt.timings.predicted_per_second,
-          };
-        }
-
-        const choice = evt.choices?.[0];
-        if (!choice) continue;
-        if (choice.finish_reason) finishReason = narrowFinishReason(choice.finish_reason);
-
-        const delta = choice.delta;
-        if (!delta) continue;
-
-        if (typeof delta.content === "string" && delta.content.length > 0) {
-          content += delta.content;
-          onDelta?.(delta.content);
-        }
-
-        if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const idx = tc.index;
-            const existing = toolCallsByIndex.get(idx) ?? { id: "", name: "", arguments: "" };
-            if (typeof tc.id === "string") existing.id = tc.id;
-            if (tc.function?.name) existing.name = tc.function.name;
-            if (typeof tc.function?.arguments === "string") {
-              existing.arguments += tc.function.arguments;
-            }
-            toolCallsByIndex.set(idx, existing);
-          }
-        }
-      }
-    }
-
-    const exitCode = await proc.exited;
-    await stderrPromise;
-    if (exitCode !== 0) {
-      throw new Error(stderrText.trim() || `curl exited with code ${exitCode}`);
-    }
-    if (errorMessage) throw new Error(errorMessage);
-    if (!sawSseLine) {
-      const trimmed = rawBody.trim();
-      if (trimmed) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          const msg = parsed?.error?.message ?? parsed?.message ?? trimmed;
-          throw new Error(`non-SSE response from ${config.endpoint}: ${String(msg).slice(0, 500)}`);
-        } catch (e) {
-          if (e instanceof Error && e.message.startsWith("non-SSE")) throw e;
-          throw new Error(`non-SSE response from ${config.endpoint}: ${trimmed.slice(0, 500)}`);
-        }
-      }
-      throw new Error(`empty response body from ${config.endpoint}`);
-    }
-
-    const requestFinishedAt = performance.now();
-    const toolCalls: OpenAIToolCall[] = [...toolCallsByIndex.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([, tc]) => ({
-        id: tc.id || `call_${Math.random().toString(36).slice(2, 10)}`,
-        type: "function" as const,
-        function: { name: tc.name, arguments: tc.arguments || "{}" },
-      }));
-
+    const stream = await readChatStream(response, config.endpoint, onDelta);
+    const toolCalls = buildToolCalls(stream.toolCallsByIndex);
     const message: ChatMessage = {
       role: "assistant",
-      content,
-      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+      content: stream.content,
+      ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
     };
 
     return {
-      finishReason: toolCalls.length > 0 ? "tool_calls" : finishReason,
+      finishReason: toolCalls.length ? "tool_calls" : stream.finishReason,
       message,
       metrics: extractModelCallMetrics(
-        { usage, timings, choices: [{ finish_reason: finishReason, message }] },
-        requestFinishedAt - requestStartedAt
+        { usage: stream.usage, timings: stream.timings },
+        performance.now() - requestStartedAt
       ),
     };
   } catch (error) {
-    if (error instanceof Error && /timed out/i.test(error.message)) {
-      throw new Error("TIMEOUT");
-    }
+    if (timedOut || /timed out/i.test(errorMessage(error))) throw new Error("TIMEOUT");
     throw error;
   } finally {
+    clearTimeout(timer);
     config.signal?.removeEventListener("abort", onAbort);
-    await rm(payloadDir, { recursive: true, force: true });
   }
+}
+
+type ToolCallParts = { id: string; name: string; arguments: string };
+
+type ChatStream = {
+  content: string;
+  finishReason: FinishReason;
+  toolCallsByIndex: Map<number, ToolCallParts>;
+  usage?: Usage;
+  timings?: Timings;
+};
+
+function chatHeaders(apiKey: string | undefined): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+  };
+}
+
+async function readChatStream(
+  response: Response,
+  endpoint: string,
+  onDelta?: (text: string) => void
+): Promise<ChatStream> {
+  if (!response.body) throw new Error(`empty response body from ${endpoint}`);
+
+  const stream: ChatStream = {
+    content: "",
+    finishReason: "stop",
+    toolCallsByIndex: new Map(),
+  };
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let rawBody = "";
+  let sawSseLine = false;
+  let streamError: string | undefined;
+
+  const consume = (line: string) => {
+    if (!line.startsWith("data:")) return;
+    sawSseLine = true;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") return;
+
+    const evt = parseStreamChunk(data);
+    if (!evt) return;
+
+    if (evt.error?.message) streamError = evt.error.message;
+    stream.usage = evt.usage ?? stream.usage;
+    stream.timings = evt.timings ?? stream.timings;
+
+    const choice = evt.choices?.[0];
+    if (!choice) return;
+    if (choice.finish_reason) stream.finishReason = narrowFinishReason(choice.finish_reason);
+
+    const delta = choice.delta;
+    if (typeof delta.content === "string" && delta.content.length) {
+      stream.content += delta.content;
+      onDelta?.(delta.content);
+    }
+
+    for (const tc of delta.tool_calls ?? []) {
+      const current = stream.toolCallsByIndex.get(tc.index) ?? {
+        id: "",
+        name: "",
+        arguments: "",
+      };
+      if (typeof tc.id === "string") current.id = tc.id;
+      if (tc.function?.name) current.name = tc.function.name;
+      if (typeof tc.function?.arguments === "string") current.arguments += tc.function.arguments;
+      stream.toolCallsByIndex.set(tc.index, current);
+    }
+  };
+
+  for await (const chunk of response.body) {
+    const text = decoder.decode(chunk, { stream: true });
+    rawBody += text;
+    buffer += text;
+    for (let nl = buffer.indexOf("\n"); nl !== -1; nl = buffer.indexOf("\n")) {
+      consume(buffer.slice(0, nl).trimEnd());
+      buffer = buffer.slice(nl + 1);
+    }
+  }
+  if (buffer.trim()) consume(buffer.trimEnd());
+
+  if (streamError) throw new Error(streamError);
+  if (!sawSseLine) throw nonSseError(endpoint, rawBody);
+  return stream;
+}
+
+function parseStreamChunk(data: string): Schema.Schema.Type<typeof ChatStreamChunkSchema> | undefined {
+  try {
+    const result = Schema.decodeUnknownEither(ChatStreamChunkSchema)(JSON.parse(data));
+    if (Either.isRight(result)) return result.right;
+    console.error("[stream] chunk decode error:", result.left.message);
+  } catch {}
+  return undefined;
+}
+
+function nonSseError(endpoint: string, body: string): Error {
+  const trimmed = body.trim();
+  if (!trimmed) return new Error(`empty response body from ${endpoint}`);
+
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: { message?: unknown }; message?: unknown };
+    const message = parsed.error?.message ?? parsed.message ?? trimmed;
+    return new Error(`non-SSE response from ${endpoint}: ${String(message).slice(0, 500)}`);
+  } catch {
+    return new Error(`non-SSE response from ${endpoint}: ${trimmed.slice(0, 500)}`);
+  }
+}
+
+function buildToolCalls(toolCallsByIndex: Map<number, ToolCallParts>): OpenAIToolCall[] {
+  return [...toolCallsByIndex.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, tc]) => ({
+      id: tc.id || `call_${Math.random().toString(36).slice(2, 10)}`,
+      type: "function",
+      function: { name: tc.name, arguments: tc.arguments || "{}" },
+    }));
 }
 
 type ToolExecutionHooks = Pick<
@@ -787,7 +698,7 @@ async function executeSafeBatchParallel(
             results[index] = result;
           })
           .catch((error) => {
-            results[index] = err(error instanceof Error ? error.message : String(error));
+            results[index] = err(errorMessage(error));
           })
           .finally(() => {
             active -= 1;
@@ -821,8 +732,7 @@ async function executeTool(
   try {
     parsed = JSON.parse(rawArgs);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    return err(`invalid tool arguments JSON: ${detail}`);
+    return err(`invalid tool arguments JSON: ${errorMessage(error)}`);
   }
 
   const beforeInput: BeforeToolCallInput = {
@@ -839,44 +749,24 @@ async function executeTool(
       return err(before.reason ?? `tool execution blocked: ${call.function.name}`);
     }
   } catch (error) {
-    return err(error instanceof Error ? error.message : String(error));
+    return err(errorMessage(error));
   }
 
+  const tool = toolHandlers[call.function.name];
   let result: ToolResult;
   try {
-    switch (call.function.name) {
-      case "read":
-        result = ok(await runRead(Schema.decodeUnknownSync(ReadArgsSchema)(parsed), cwd));
-        break;
-      case "ls":
-        result = ok(await runLs(Schema.decodeUnknownSync(LsArgsSchema)(parsed), cwd));
-        break;
-      case "edit":
-        result = ok(await runEdit(Schema.decodeUnknownSync(EditArgsSchema)(parsed), cwd));
-        break;
-      case "write":
-        result = ok(await runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(parsed), cwd));
-        break;
-      case "bash":
-        result = ok(await runBash(Schema.decodeUnknownSync(BashArgsSchema)(parsed), cwd, hooks?.signal));
-        break;
-      default:
-        result = err(`unknown tool "${call.function.name}"`);
-        break;
-    }
+    result = tool
+      ? ok(await tool.run(parsed, cwd, hooks?.signal))
+      : err(`unknown tool "${call.function.name}"`);
   } catch (error) {
-    result = err(error instanceof Error ? error.message : String(error));
+    result = err(errorMessage(error));
   }
 
   try {
-    const afterInput: AfterToolCallInput = {
-      ...beforeInput,
-      result,
-    };
-    const overridden = await hooks?.afterToolCall?.(afterInput);
+    const overridden = await hooks?.afterToolCall?.({ ...beforeInput, result });
     return overridden ?? result;
   } catch (error) {
-    return err(error instanceof Error ? error.message : String(error));
+    return err(errorMessage(error));
   }
 }
 
@@ -884,25 +774,20 @@ function finishRuntime(
   stdoutLines: string[],
   toolCalls: ToolCall[],
   startedAt: number,
-  error?: string,
-  modelMetrics?: ModelMetrics,
-  extras?: Pick<RuntimeOutput, "firstTokenMs" | "turnWallTimes" | "turnFirstTokenMs" | "scenarioMetrics">
+  error: string | undefined,
+  modelMetrics: ModelMetrics,
+  firstTokenMs?: Ms
 ): RuntimeOutput {
   return {
     stdout: stdoutLines.join("\n"),
     toolCalls: toolCalls.map((call) => ({ ...call })),
     wallTimeMs: Math.round(performance.now() - startedAt) as Ms,
-    ...(extras?.firstTokenMs !== undefined ? { firstTokenMs: extras.firstTokenMs } : {}),
-    ...(extras?.turnWallTimes ? { turnWallTimes: extras.turnWallTimes } : {}),
-    ...(extras?.turnFirstTokenMs ? { turnFirstTokenMs: extras.turnFirstTokenMs } : {}),
-    ...(extras?.scenarioMetrics ? { scenarioMetrics: extras.scenarioMetrics } : {}),
-    ...(modelMetrics ? { modelMetrics: { ...modelMetrics } } : {}),
+    ...(firstTokenMs !== undefined ? { firstTokenMs } : {}),
+    modelMetrics: { ...modelMetrics },
     ...(error ? { error } : {}),
   };
 }
 
-// This function IS the sandbox guard — `as SafeRelativePath` is justified
-// because every escape path throws above this return.
 function resolveToolPath(cwd: string, relativePath: string): SafeRelativePath {
   if (relativePath.trim() === "") {
     throw new Error("path is required");
@@ -934,6 +819,10 @@ function truncate(value: string): string {
   return value.length > OUTPUT_CAP ? `${value.slice(0, OUTPUT_CAP)}\n... [truncated]` : value;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function readRootConfig(): { endpoint?: string; model?: string } {
   if (!existsSync(ROOT_CONFIG_PATH)) return {};
 
@@ -942,8 +831,7 @@ function readRootConfig(): { endpoint?: string; model?: string } {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid root config JSON: ${detail}`);
+    throw new Error(`invalid root config JSON: ${errorMessage(error)}`);
   }
   return Schema.decodeUnknownSync(RootConfigSchema)(parsed);
 }
@@ -951,6 +839,30 @@ function readRootConfig(): { endpoint?: string; model?: string } {
 function readSystemPrompt(): string | undefined {
   if (!existsSync(SYSTEM_PROMPT_PATH)) return undefined;
   return readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
+}
+
+async function warmupModel(): Promise<void> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
+  await fetch(DEFAULT_ENDPOINT, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: ACTIVE_MODEL,
+      messages: [{ role: "user", content: "." }],
+      max_tokens: 1,
+      stream: false,
+    }),
+    signal: AbortSignal.timeout(180_000),
+  }).catch(() => undefined);
+}
+
+function killProcessGroup(proc: ReturnType<typeof spawn>): void {
+  try {
+    process.kill(-proc.pid, "SIGKILL");
+  } catch {
+    proc.kill("SIGKILL");
+  }
 }
 
 function normalizeEndpoint(endpoint: string): string {
@@ -1001,7 +913,7 @@ function applyModelCallMetrics(target: ModelMetrics, metrics: ModelCallMetrics):
 }
 
 function extractModelCallMetrics(
-  response: ChatResponse,
+  response: ModelMetricSource,
   requestTimeMs: number
 ): ModelCallMetrics {
   const promptEvalTokens = response.timings?.prompt_n ?? response.prompt_eval_count;

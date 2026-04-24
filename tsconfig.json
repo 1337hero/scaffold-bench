@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["bench.ts", "lib/**/*.ts"]
+  "include": ["bench.ts", "lib/**/*.ts", "server/**/*.ts", "report.ts", "web.ts"]
 }

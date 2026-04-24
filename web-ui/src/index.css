@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --color-bg-main: #0C0D10;
+  --color-gold: #FFBF00;
+  --color-gold-dim: #997300;
+  --color-gold-bg: rgba(255, 191, 0, 0.05);
+  --color-green-main: #2ECC71;
+  --color-red-main: #E74C3C;
+  --color-blue-main: #3498DB;
+  --color-text-dim: #626772;
+  --color-text-main: #E2E4E9;
+  --color-border-main: #242831;
+  --color-content-bg: #090A0D;
+  --color-prompt-bg: #16191E;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-main) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.2);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border-main);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-dim);
+}

@@ -103,11 +103,19 @@ function readTurnsForPath(calls: ToolCall[], path: string): number[] {
     });
 }
 
-function grepOrGlobBeforeEdit(calls: ToolCall[]): boolean {
+function isSearchLikeBashCall(call: ToolCall): boolean {
+  if (call.name !== "bash") return false;
+  const command = normalizeCommand(bashCommand(call));
+  return /(^|\s)(ugrep|rg|grep|bfs|find)(\s|$)/.test(command);
+}
+
+function searchBeforeEdit(calls: ToolCall[]): boolean {
   const changeTurn = firstChangeTurn(calls);
   if (changeTurn === undefined) return false;
   return calls.some(
-    (call) => (call.name === "grep" || call.name === "glob") && call.turn < changeTurn
+    (call) =>
+      (call.name === "grep" || call.name === "glob" || isSearchLikeBashCall(call)) &&
+      call.turn < changeTurn
   );
 }
 
@@ -941,7 +949,7 @@ export const scenarios: Scenario[] = [
       const checks: Check[] = [
         {
           name: "searched before editing",
-          pass: grepOrGlobBeforeEdit(toolCalls),
+          pass: searchBeforeEdit(toolCalls),
         },
         {
           name: "read before changing files (turn-ordered)",
@@ -1001,7 +1009,7 @@ export const scenarios: Scenario[] = [
       const checks: Check[] = [
         {
           name: "searched before editing",
-          pass: grepOrGlobBeforeEdit(toolCalls),
+          pass: searchBeforeEdit(toolCalls),
         },
         {
           name: "edited only TeamSidebar.tsx",
