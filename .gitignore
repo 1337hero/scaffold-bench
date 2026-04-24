@@ -5,6 +5,7 @@ node_modules
 results/*
 !results/.gitkeep
 results/.probe-cache.json
+bench-report.html
 
 # Environment / secrets
 env/

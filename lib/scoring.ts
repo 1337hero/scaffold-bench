@@ -1,3 +1,15 @@
+import type { Ms, ScenarioId, TokenCount } from "./schemas/brands.js";
+import type { ToolResult } from "./schemas/tool-result.js";
+import { Evaluation } from "./schemas/evaluation.js";
+import type { ScenarioEvaluation } from "./schemas/evaluation.js";
+export { Evaluation };
+export type {
+  ScenarioEvaluation,
+  PassEvaluation,
+  PartialEvaluation,
+  FailEvaluation,
+} from "./schemas/evaluation.js";
+
 export type Category =
   | "surgical-edit"
   | "audit"
@@ -14,7 +26,7 @@ export interface ToolCall {
   name: string;
   args: string;
   turn: number;
-  result?: string;
+  result?: ToolResult;
 }
 
 export interface Check {
@@ -23,42 +35,34 @@ export interface Check {
   detail?: string;
 }
 
-export interface ScenarioEvaluation {
-  status: ScenarioStatus;
-  points: number;
-  maxPoints: number;
-  checks: Check[];
-  summary: string;
-}
-
 export interface ModelMetrics {
   model?: string;
   requestCount: number;
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  totalRequestTimeMs: number;
-  promptEvalTokens?: number;
-  promptEvalTimeMs?: number;
-  completionEvalTokens?: number;
-  completionEvalTimeMs?: number;
+  promptTokens: TokenCount;
+  completionTokens: TokenCount;
+  totalTokens: TokenCount;
+  totalRequestTimeMs: Ms;
+  promptEvalTokens?: TokenCount;
+  promptEvalTimeMs?: Ms;
+  completionEvalTokens?: TokenCount;
+  completionEvalTimeMs?: Ms;
 }
 
 export interface RuntimeOutput {
   stdout: string;
   stderr?: string;
   toolCalls: ToolCall[];
-  wallTimeMs: number;
-  firstTokenMs?: number;
-  turnWallTimes?: number[];
-  turnFirstTokenMs?: Array<number | undefined>;
+  wallTimeMs: Ms;
+  firstTokenMs?: Ms;
+  turnWallTimes?: Ms[];
+  turnFirstTokenMs?: Array<Ms | undefined>;
   scenarioMetrics?: Record<string, unknown>;
   error?: "TIMEOUT" | "CRASH" | string;
   modelMetrics?: ModelMetrics;
 }
 
 export interface ScenarioResult {
-  scenarioId: string;
+  scenarioId: ScenarioId;
   category: Category;
   runtime: string;
   evaluation: ScenarioEvaluation;
@@ -83,13 +87,25 @@ export function hasCall(
   return calls.some((c) => c.name === name && (predicate ? predicate(c) : true));
 }
 
+function normalizeResult(
+  result: ToolCall["result"]
+): { ok: boolean; text: string } | undefined {
+  if (result === undefined) return undefined;
+  return result.ok
+    ? { ok: true, text: result.value }
+    : { ok: false, text: result.message };
+}
+
 export function toolFailed(call: ToolCall): boolean {
-  return call.result?.startsWith("error:") ?? false;
+  const r = normalizeResult(call.result);
+  return r ? !r.ok : false;
 }
 
 export function bashExitCode(call: ToolCall): number | undefined {
-  if (call.name !== "bash" || call.result === undefined) return undefined;
-  const match = /^exit_code:\s*(\d+)/m.exec(call.result);
+  if (call.name !== "bash") return undefined;
+  const r = normalizeResult(call.result);
+  if (!r) return undefined;
+  const match = /^exit_code:\s*(\d+)/m.exec(r.text);
   return match ? parseInt(match[1], 10) : undefined;
 }
 
@@ -149,18 +165,17 @@ export function checksToEvaluation(
   const ratio = total === 0 ? 0 : passed / total;
 
   if (passed === total) {
-    return { status: "pass", points: maxPoints, maxPoints, checks, summary: labels.pass };
+    return Evaluation.pass(maxPoints, checks, labels.pass);
   }
   if (ratio >= partialThreshold) {
-    return {
-      status: "partial",
-      points: Math.max(1, Math.floor(maxPoints / 2)),
+    return Evaluation.partial(
+      Math.max(1, Math.floor(maxPoints / 2)),
       maxPoints,
       checks,
-      summary: labels.partial,
-    };
+      labels.partial
+    );
   }
-  return { status: "fail", points: 0, maxPoints, checks, summary: labels.fail };
+  return Evaluation.fail(maxPoints, checks, labels.fail);
 }
 
 export function sumScenarioMaxPoints(
@@ -197,12 +212,22 @@ export function mergeModelMetrics(metrics: Array<ModelMetrics | undefined>): Mod
   return {
     model: models.length === 1 ? models[0] : undefined,
     requestCount: defined.reduce((sum, metric) => sum + metric.requestCount, 0),
-    promptTokens: defined.reduce((sum, metric) => sum + metric.promptTokens, 0),
-    completionTokens: defined.reduce((sum, metric) => sum + metric.completionTokens, 0),
-    totalTokens: defined.reduce((sum, metric) => sum + metric.totalTokens, 0),
-    totalRequestTimeMs: defined.reduce((sum, metric) => sum + metric.totalRequestTimeMs, 0),
-    ...(hasPromptTiming ? { promptEvalTokens, promptEvalTimeMs } : {}),
-    ...(hasCompletionTiming ? { completionEvalTokens, completionEvalTimeMs } : {}),
+    promptTokens: defined.reduce((sum, metric) => sum + metric.promptTokens, 0) as TokenCount,
+    completionTokens: defined.reduce((sum, metric) => sum + metric.completionTokens, 0) as TokenCount,
+    totalTokens: defined.reduce((sum, metric) => sum + metric.totalTokens, 0) as TokenCount,
+    totalRequestTimeMs: defined.reduce(
+      (sum, metric) => sum + metric.totalRequestTimeMs,
+      0
+    ) as Ms,
+    ...(hasPromptTiming
+      ? { promptEvalTokens: promptEvalTokens as TokenCount, promptEvalTimeMs: promptEvalTimeMs as Ms }
+      : {}),
+    ...(hasCompletionTiming
+      ? {
+          completionEvalTokens: completionEvalTokens as TokenCount,
+          completionEvalTimeMs: completionEvalTimeMs as Ms,
+        }
+      : {}),
   };
 }
 
