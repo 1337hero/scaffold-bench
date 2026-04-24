@@ -9,8 +9,6 @@ import {
   ChatStreamChunkSchema,
   EditArgsSchema,
   EnvSchema,
-  GlobArgsSchema,
-  GrepArgsSchema,
   LsArgsSchema,
   PropsSchema,
   ReadArgsSchema,
@@ -24,8 +22,6 @@ import {
 import type {
   BashArgs,
   EditArgs,
-  GlobArgs,
-  GrepArgs,
   LsArgs,
   Ms,
   Ns,
@@ -36,7 +32,14 @@ import type {
   WriteArgs,
 } from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
-import type { Runtime, RuntimeContext, RuntimeSession, RuntimeSessionContext } from "./types.ts";
+import type {
+  AfterToolCallInput,
+  BeforeToolCallInput,
+  Runtime,
+  RuntimeContext,
+  RuntimeSession,
+  RuntimeSessionContext,
+} from "./types.ts";
 
 const PROJECT_ROOT = join(import.meta.dir, "..", "..");
 const ROOT_CONFIG_PATH = join(PROJECT_ROOT, "scaffold.config.json");
@@ -62,6 +65,9 @@ const MAX_TOOL_ITERATIONS = 20;
 const OUTPUT_CAP = 8192;
 const DEFAULT_BASH_TIMEOUT_MS = 5000;
 const MAX_BASH_TIMEOUT_MS = 10000;
+const DEFAULT_TOOL_EXECUTION_MODE: RuntimeSessionContext["toolExecution"] = "sequential";
+const MAX_PARALLEL_SAFE_TOOL_CALLS = 8;
+const MAX_PARALLEL_BASH_CALLS = 2;
 
 const systemPrompt = readSystemPrompt();
 if (!systemPrompt) {
@@ -88,6 +94,11 @@ type OpenAIToolCall = {
     name: string;
     arguments: string;
   };
+};
+
+type PendingToolExecution = {
+  call: OpenAIToolCall;
+  toolCall: ToolCall;
 };
 
 type ChatResponse = {
@@ -137,18 +148,7 @@ const tools: ToolDescriptor[] = [
       "List files and directories at the given path. If no path is provided, lists the current directory. Directories are marked with a trailing slash.",
     parameters: toJsonSchema(LsArgsSchema),
   },
-  {
-    name: "grep",
-    description:
-      "Search for a regex pattern across files using ripgrep. Returns matches as file:line:content. Use this to find where things are defined or referenced.",
-    parameters: toJsonSchema(GrepArgsSchema),
-  },
-  {
-    name: "glob",
-    description:
-      "Find files by glob pattern using ripgrep file listing. Returns matching file paths, one per line.",
-    parameters: toJsonSchema(GlobArgsSchema),
-  },
+
   {
     name: "edit",
     description: `Edit a file by replacing old_str with new_str.
@@ -168,7 +168,7 @@ Rules:
   {
     name: "bash",
     description:
-      "Run a shell command with cwd set to the scenario working directory. Use this for tests, builds, linting, and command-line inspection.",
+      "Run a shell command with cwd set to the scenario working directory. Prefer this for fast codebase search and verification; prefer one focused search command over multiple tool calls (examples: `ugrep -n \"pattern\" .`, `bfs . -type f`, `rg -n \"pattern\" .`, `find . -type f`).",
     parameters: toJsonSchema(BashArgsSchema),
   },
 ];
@@ -186,60 +186,6 @@ async function runLs(args: LsArgs, cwd: string): Promise<string> {
   );
 }
 
-async function runGrep(args: GrepArgs, cwd: string): Promise<string> {
-  const cmd = ["rg", "--line-number", "--no-heading", "--color=never"];
-  if (args.ignore_case) cmd.push("-i");
-  if (args.glob) cmd.push("--glob", args.glob);
-  cmd.push("--", args.pattern);
-  if (args.path) {
-    cmd.push(resolveToolPath(cwd, args.path));
-  }
-
-  const proc = spawn({
-    cmd,
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const [stdout, stderr, exitCode] = await Promise.all([
-    streamToString(proc.stdout),
-    streamToString(proc.stderr),
-    proc.exited,
-  ]);
-
-  if (exitCode === 1) return "no matches";
-  if (exitCode !== 0) {
-    throw new Error(stderr.trim() || `rg exited with code ${exitCode}`);
-  }
-  return truncate(stdout);
-}
-
-async function runGlob(args: GlobArgs, cwd: string): Promise<string> {
-  const cmd = ["rg", "--files", "--glob", args.pattern];
-  if (args.path) {
-    cmd.push(resolveToolPath(cwd, args.path));
-  }
-
-  const proc = spawn({
-    cmd,
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  const [stdout, stderr, exitCode] = await Promise.all([
-    streamToString(proc.stdout),
-    streamToString(proc.stderr),
-    proc.exited,
-  ]);
-
-  if (exitCode === 1) return "no matches";
-  if (exitCode !== 0) {
-    throw new Error(stderr.trim() || `rg --files exited with code ${exitCode}`);
-  }
-  return truncate(stdout);
-}
 
 async function runEdit(args: EditArgs, cwd: string): Promise<string> {
   const { path, old_str: oldStr, new_str: newStr } = args;
@@ -272,7 +218,7 @@ async function runWrite(args: WriteArgs, cwd: string): Promise<string> {
   return existed ? `updated ${path}` : `created ${path}`;
 }
 
-async function runBash(args: BashArgs, cwd: string): Promise<string> {
+async function runBash(args: BashArgs, cwd: string, signal?: AbortSignal): Promise<string> {
   const { command } = args;
   const timeoutMs = Math.min(
     MAX_BASH_TIMEOUT_MS,
@@ -295,6 +241,19 @@ async function runBash(args: BashArgs, cwd: string): Promise<string> {
     }
   }, timeoutMs);
 
+  const onAbort = () => {
+    try {
+      process.kill(-proc.pid, "SIGKILL");
+    } catch {
+      proc.kill("SIGKILL");
+    }
+  };
+  if (signal?.aborted) {
+    onAbort();
+  } else {
+    signal?.addEventListener("abort", onAbort, { once: true });
+  }
+
   const [stdout, stderr, exitCode] = await Promise.all([
     streamToString(proc.stdout),
     streamToString(proc.stderr),
@@ -302,6 +261,7 @@ async function runBash(args: BashArgs, cwd: string): Promise<string> {
   ]);
 
   clearTimeout(timer);
+  signal?.removeEventListener("abort", onAbort);
 
   const sections = [`exit_code: ${timedOut ? 124 : exitCode}`];
   if (stdout.trim()) {
@@ -339,6 +299,14 @@ export const localRuntime: Runtime = {
     const session = await createLocalSession({
       workDir: ctx.workDir,
       onEvent: ctx.onEvent,
+      toolExecution: ctx.toolExecution,
+      beforeToolCall: ctx.beforeToolCall,
+      afterToolCall: ctx.afterToolCall,
+      signal: ctx.signal,
+      endpoint: ctx.endpoint,
+      model: ctx.model,
+      apiKey: ctx.apiKey,
+      systemPrompt: ctx.systemPrompt,
     });
     try {
       return await session.runTurn(ctx.prompt, ctx.timeoutMs);
@@ -403,10 +371,16 @@ export const localRuntime: Runtime = {
 };
 
 async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSession> {
-  const conversation: ChatMessage[] = [{ role: "system", content: ACTIVE_SYSTEM_PROMPT }];
+  const effectiveEndpoint = ctx.endpoint ? normalizeEndpoint(ctx.endpoint) : DEFAULT_ENDPOINT;
+  const effectiveModel = ctx.model ?? ACTIVE_MODEL;
+  const effectiveApiKey = ctx.apiKey ?? API_KEY;
+  const effectiveSystemPrompt = ctx.systemPrompt ?? ACTIVE_SYSTEM_PROMPT;
+  const signal = ctx.signal;
+
+  const conversation: ChatMessage[] = [{ role: "system", content: effectiveSystemPrompt }];
   const transcript: string[] = [];
   const toolCalls: ToolCall[] = [];
-  const modelMetrics = createModelMetrics(ACTIVE_MODEL);
+  const modelMetrics = createModelMetrics(effectiveModel);
 
   return {
     async runTurn(prompt: string, timeoutMs: number): Promise<RuntimeOutput> {
@@ -423,14 +397,30 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
           });
         }
 
+        if (signal?.aborted) {
+          return finishRuntime(transcript, toolCalls, startedAt, "ABORTED", modelMetrics, {
+            firstTokenMs,
+          });
+        }
+
         let reply;
         try {
-          reply = await callModel(conversation, deadline, (delta) => {
-            if (firstTokenMs === undefined && delta.trim().length > 0) {
-              firstTokenMs = Math.round(performance.now() - startedAt) as Ms;
+          reply = await callModel(
+            conversation,
+            deadline,
+            {
+              endpoint: effectiveEndpoint,
+              model: effectiveModel,
+              apiKey: effectiveApiKey,
+              signal,
+            },
+            (delta) => {
+              if (firstTokenMs === undefined && delta.trim().length > 0) {
+                firstTokenMs = Math.round(performance.now() - startedAt) as Ms;
+              }
+              ctx.onEvent?.({ type: "assistant_delta", content: delta });
             }
-            ctx.onEvent?.({ type: "assistant_delta", content: delta });
-          });
+          );
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           const errorTag = msg === "TIMEOUT" ? "TIMEOUT" : `CRASH: ${msg}`;
@@ -465,7 +455,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
           });
         }
 
-        for (const call of message.tool_calls) {
+        const pendingCalls: PendingToolExecution[] = message.tool_calls.map((call) => {
           const args = call.function.arguments ?? "{}";
           transcript.push(`tool: ${call.function.name}(${args})`);
           const toolCall: ToolCall = {
@@ -475,16 +465,27 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
           };
           toolCalls.push(toolCall);
           ctx.onEvent?.({ type: "tool_call", call: toolCall });
+          return { call, toolCall };
+        });
 
-          const result = await executeTool(call, ctx.workDir);
-          toolCall.result = result;
+        const results = await executeToolBatch(pendingCalls, ctx.workDir, {
+          toolExecution: ctx.toolExecution ?? DEFAULT_TOOL_EXECUTION_MODE,
+          beforeToolCall: ctx.beforeToolCall,
+          afterToolCall: ctx.afterToolCall,
+          signal,
+        });
+
+        for (let i = 0; i < pendingCalls.length; i++) {
+          const pending = pendingCalls[i];
+          const result = results[i];
+          pending.toolCall.result = result;
           // The LLM-facing tool message is still a string; preserve the legacy
           // `error: <msg>` prefix so existing prompt patterns stay stable.
           const resultText = result.ok ? result.value : `error: ${result.message}`;
-          ctx.onEvent?.({ type: "tool_result", call: toolCall, result: resultText });
+          ctx.onEvent?.({ type: "tool_result", call: pending.toolCall, result: resultText });
           conversation.push({
             role: "tool",
-            tool_call_id: call.id,
+            tool_call_id: pending.call.id,
             content: resultText,
           });
         }
@@ -498,15 +499,23 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
   };
 }
 
+type CallModelConfig = {
+  endpoint: string;
+  model: string;
+  apiKey: string | undefined;
+  signal?: AbortSignal;
+};
+
 async function callModel(
   conversation: ChatMessage[],
   deadline: number,
+  config: CallModelConfig,
   onDelta?: (text: string) => void
 ): Promise<{ finishReason: FinishReason; message?: ChatMessage; metrics: ModelCallMetrics }> {
   const remainingMs = Math.max(1, Math.ceil(deadline - performance.now()));
   const requestStartedAt = performance.now();
   const payload = JSON.stringify({
-    model: ACTIVE_MODEL,
+    model: config.model,
     messages: conversation,
     stream: true,
     stream_options: { include_usage: true },
@@ -523,8 +532,8 @@ async function callModel(
   const payloadPath = join(payloadDir, "request.json");
   await writeFile(payloadPath, payload, "utf-8");
   const headers = ["-H", "content-type: application/json"];
-  if (API_KEY) {
-    headers.push("-H", `authorization: Bearer ${API_KEY}`);
+  if (config.apiKey) {
+    headers.push("-H", `authorization: Bearer ${config.apiKey}`);
   }
   const proc = spawn({
     cmd: [
@@ -538,11 +547,22 @@ async function callModel(
       String(Math.max(1, Math.ceil(remainingMs / 1000))),
       "--data-binary",
       `@${payloadPath}`,
-      DEFAULT_ENDPOINT,
+      config.endpoint,
     ],
     stdout: "pipe",
     stderr: "pipe",
   });
+
+  const onAbort = () => {
+    try {
+      proc.kill("SIGTERM");
+    } catch {}
+  };
+  if (config.signal?.aborted) {
+    onAbort();
+  } else {
+    config.signal?.addEventListener("abort", onAbort, { once: true });
+  }
 
   let content = "";
   let finishReason: FinishReason = "stop";
@@ -645,13 +665,13 @@ async function callModel(
         try {
           const parsed = JSON.parse(trimmed);
           const msg = parsed?.error?.message ?? parsed?.message ?? trimmed;
-          throw new Error(`non-SSE response from ${DEFAULT_ENDPOINT}: ${String(msg).slice(0, 500)}`);
+          throw new Error(`non-SSE response from ${config.endpoint}: ${String(msg).slice(0, 500)}`);
         } catch (e) {
           if (e instanceof Error && e.message.startsWith("non-SSE")) throw e;
-          throw new Error(`non-SSE response from ${DEFAULT_ENDPOINT}: ${trimmed.slice(0, 500)}`);
+          throw new Error(`non-SSE response from ${config.endpoint}: ${trimmed.slice(0, 500)}`);
         }
       }
-      throw new Error(`empty response body from ${DEFAULT_ENDPOINT}`);
+      throw new Error(`empty response body from ${config.endpoint}`);
     }
 
     const requestFinishedAt = performance.now();
@@ -683,11 +703,119 @@ async function callModel(
     }
     throw error;
   } finally {
+    config.signal?.removeEventListener("abort", onAbort);
     await rm(payloadDir, { recursive: true, force: true });
   }
 }
 
-async function executeTool(call: OpenAIToolCall, cwd: string): Promise<ToolResult> {
+type ToolExecutionHooks = Pick<
+  RuntimeSessionContext,
+  "toolExecution" | "beforeToolCall" | "afterToolCall"
+> & {
+  signal?: AbortSignal;
+};
+
+async function executeToolBatch(
+  pendingCalls: PendingToolExecution[],
+  cwd: string,
+  hooks?: ToolExecutionHooks
+): Promise<ToolResult[]> {
+  const mode = hooks?.toolExecution ?? DEFAULT_TOOL_EXECUTION_MODE;
+  if (mode !== "parallel") {
+    const results: ToolResult[] = [];
+    for (const pending of pendingCalls) {
+      results.push(await executeTool(pending.call, cwd, hooks));
+    }
+    return results;
+  }
+
+  const results: ToolResult[] = new Array(pendingCalls.length);
+  for (let i = 0; i < pendingCalls.length; ) {
+    if (!isParallelSafeTool(pendingCalls[i].call.function.name)) {
+      results[i] = await executeTool(pendingCalls[i].call, cwd, hooks);
+      i += 1;
+      continue;
+    }
+
+    let end = i + 1;
+    while (end < pendingCalls.length && isParallelSafeTool(pendingCalls[end].call.function.name)) {
+      end += 1;
+    }
+
+    const segment = pendingCalls.slice(i, end);
+    const segmentResults = await executeSafeBatchParallel(segment, cwd, hooks);
+    for (let segIdx = 0; segIdx < segmentResults.length; segIdx++) {
+      results[i + segIdx] = segmentResults[segIdx];
+    }
+    i = end;
+  }
+
+  return results;
+}
+
+function isParallelSafeTool(name: string): boolean {
+  return name === "read" || name === "ls" || name === "bash";
+}
+
+function isBashTool(pending: PendingToolExecution): boolean {
+  return pending.call.function.name === "bash";
+}
+
+async function executeSafeBatchParallel(
+  batch: PendingToolExecution[],
+  cwd: string,
+  hooks?: ToolExecutionHooks
+): Promise<ToolResult[]> {
+  const results: ToolResult[] = new Array(batch.length);
+  let nextIndex = 0;
+  let active = 0;
+  let activeBash = 0;
+
+  await new Promise<void>((resolve) => {
+    const launch = () => {
+      while (nextIndex < batch.length && active < MAX_PARALLEL_SAFE_TOOL_CALLS) {
+        const index = nextIndex;
+        const pending = batch[index];
+        if (isBashTool(pending) && activeBash >= MAX_PARALLEL_BASH_CALLS) break;
+
+        nextIndex += 1;
+        active += 1;
+        if (isBashTool(pending)) activeBash += 1;
+
+        void executeTool(pending.call, cwd, hooks)
+          .then((result) => {
+            results[index] = result;
+          })
+          .catch((error) => {
+            results[index] = err(error instanceof Error ? error.message : String(error));
+          })
+          .finally(() => {
+            active -= 1;
+            if (isBashTool(pending)) activeBash -= 1;
+            if (nextIndex >= batch.length && active === 0) {
+              resolve();
+              return;
+            }
+            launch();
+          });
+      }
+    };
+
+    if (batch.length === 0) {
+      resolve();
+      return;
+    }
+    launch();
+  });
+
+  return results;
+}
+
+async function executeTool(
+  call: OpenAIToolCall,
+  cwd: string,
+  hooks?: ToolExecutionHooks
+): Promise<ToolResult> {
   const rawArgs = call.function.arguments ?? "{}";
   let parsed: unknown;
   try {
@@ -697,25 +825,56 @@ async function executeTool(call: OpenAIToolCall, cwd: string): Promise<ToolResul
     return err(`invalid tool arguments JSON: ${detail}`);
   }
 
+  const beforeInput: BeforeToolCallInput = {
+    id: call.id,
+    name: call.function.name,
+    rawArgs,
+    parsedArgs: parsed,
+    workDir: cwd,
+  };
+
+  try {
+    const before = await hooks?.beforeToolCall?.(beforeInput);
+    if (before?.block) {
+      return err(before.reason ?? `tool execution blocked: ${call.function.name}`);
+    }
+  } catch (error) {
+    return err(error instanceof Error ? error.message : String(error));
+  }
+
+  let result: ToolResult;
   try {
     switch (call.function.name) {
       case "read":
-        return ok(await runRead(Schema.decodeUnknownSync(ReadArgsSchema)(parsed), cwd));
+        result = ok(await runRead(Schema.decodeUnknownSync(ReadArgsSchema)(parsed), cwd));
+        break;
       case "ls":
-        return ok(await runLs(Schema.decodeUnknownSync(LsArgsSchema)(parsed), cwd));
-      case "grep":
-        return ok(await runGrep(Schema.decodeUnknownSync(GrepArgsSchema)(parsed), cwd));
-      case "glob":
-        return ok(await runGlob(Schema.decodeUnknownSync(GlobArgsSchema)(parsed), cwd));
+        result = ok(await runLs(Schema.decodeUnknownSync(LsArgsSchema)(parsed), cwd));
+        break;
       case "edit":
-        return ok(await runEdit(Schema.decodeUnknownSync(EditArgsSchema)(parsed), cwd));
+        result = ok(await runEdit(Schema.decodeUnknownSync(EditArgsSchema)(parsed), cwd));
+        break;
       case "write":
-        return ok(await runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(parsed), cwd));
+        result = ok(await runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(parsed), cwd));
+        break;
       case "bash":
-        return ok(await runBash(Schema.decodeUnknownSync(BashArgsSchema)(parsed), cwd));
+        result = ok(await runBash(Schema.decodeUnknownSync(BashArgsSchema)(parsed), cwd, hooks?.signal));
+        break;
       default:
-        return err(`unknown tool "${call.function.name}"`);
+        result = err(`unknown tool "${call.function.name}"`);
+        break;
     }
+  } catch (error) {
+    result = err(error instanceof Error ? error.message : String(error));
+  }
+
+  try {
+    const afterInput: AfterToolCallInput = {
+      ...beforeInput,
+      result,
+    };
+    const overridden = await hooks?.afterToolCall?.(afterInput);
+    return overridden ?? result;
   } catch (error) {
     return err(error instanceof Error ? error.message : String(error));
   }

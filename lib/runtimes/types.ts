@@ -1,4 +1,5 @@
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
+import type { ToolResult } from "../schemas/tool-result.js";
 
 export type RuntimeEvent =
   | { type: "assistant"; content: string }
@@ -7,16 +8,55 @@ export type RuntimeEvent =
   | { type: "tool_result"; call: ToolCall; result: string }
   | { type: "model_metrics"; metrics: ModelMetrics };
 
+export interface BeforeToolCallInput {
+  id: string;
+  name: string;
+  rawArgs: string;
+  parsedArgs: unknown;
+  workDir: string;
+}
+
+export interface BeforeToolCallResult {
+  block?: boolean;
+  reason?: string;
+}
+
+export interface AfterToolCallInput extends BeforeToolCallInput {
+  result: ToolResult;
+}
+
+export type ToolExecutionMode = "sequential" | "parallel";
+
 export interface RuntimeContext {
   workDir: string;
   prompt: string;
   timeoutMs: number;
   onEvent?: (event: RuntimeEvent) => void;
+  toolExecution?: ToolExecutionMode;
+  beforeToolCall?:
+    | ((input: BeforeToolCallInput) => Promise<BeforeToolCallResult | void>)
+    | ((input: BeforeToolCallInput) => BeforeToolCallResult | void);
+  afterToolCall?:
+    | ((input: AfterToolCallInput) => Promise<ToolResult | void>)
+    | ((input: AfterToolCallInput) => ToolResult | void);
+  signal?: AbortSignal;
+  endpoint?: string;
+  model?: string;
+  apiKey?: string;
+  systemPrompt?: string;
 }
 
 export interface RuntimeSessionContext {
   workDir: string;
   onEvent?: (event: RuntimeEvent) => void;
+  toolExecution?: RuntimeContext["toolExecution"];
+  beforeToolCall?: RuntimeContext["beforeToolCall"];
+  afterToolCall?: RuntimeContext["afterToolCall"];
+  signal?: AbortSignal;
+  endpoint?: string;
+  model?: string;
+  apiKey?: string;
+  systemPrompt?: string;
 }
 
 export interface RuntimeSession {

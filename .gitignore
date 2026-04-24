@@ -27,3 +27,9 @@ run-all-models-bench.sh
 #misc
 .codex
 .claude
+
+# Local database
+scaffold-bench.db
+scaffold-bench.db-journal
+scaffold-bench.db-wal
+scaffold-bench.db-shm
