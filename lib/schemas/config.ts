@@ -1,5 +1,13 @@
 import { Schema } from "effect";
 
+export const PropsSchema = Schema.Struct({
+  n_ctx: Schema.optional(Schema.Number),
+  default_generation_settings: Schema.optional(
+    Schema.Struct({ n_ctx: Schema.optional(Schema.Number) })
+  ),
+});
+export type Props = Schema.Schema.Type<typeof PropsSchema>;
+
 export const RootConfigSchema = Schema.Struct({
   endpoint: Schema.optional(Schema.String),
   model: Schema.optional(Schema.String),

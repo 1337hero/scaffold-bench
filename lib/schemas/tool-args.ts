@@ -1,4 +1,5 @@
 import { JSONSchema, Schema } from "effect";
+import { Ms } from "./brands.js";
 
 export const ReadArgsSchema = Schema.Struct({
   path: Schema.String,
@@ -35,7 +36,7 @@ export const WriteArgsSchema = Schema.Struct({
 
 export const BashArgsSchema = Schema.Struct({
   command: Schema.String,
-  timeout_ms: Schema.optional(Schema.Number),
+  timeout_ms: Schema.optional(Ms),
 });
 
 export type ReadArgs = Schema.Schema.Type<typeof ReadArgsSchema>;

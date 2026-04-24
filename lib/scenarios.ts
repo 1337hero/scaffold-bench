@@ -7,6 +7,7 @@ import {
   ReadArgsSchema,
   WriteArgsSchema,
 } from "./schemas/index.js";
+import type { Ms, ScenarioId } from "./schemas/brands.js";
 import type { RuntimeEvent, Runtime } from "./runtimes/types.ts";
 
 async function readOrEmpty(path: string): Promise<string> {
@@ -25,6 +26,7 @@ import type {
   ToolCall,
 } from "./scoring.ts";
 import {
+  Evaluation,
   bashPassed,
   checksToEvaluation,
   extractFunction,
@@ -219,14 +221,9 @@ function createPointBasedEvaluation(
 ): ScenarioEvaluation {
   const points = checks.filter((check) => check.pass).length;
   const maxPoints = checks.length;
-  const status = points === maxPoints ? "pass" : points > 0 ? "partial" : "fail";
-  return {
-    status,
-    points,
-    maxPoints,
-    checks,
-    summary: status === "pass" ? labels.pass : status === "partial" ? labels.partial : labels.fail,
-  };
+  if (points === maxPoints) return Evaluation.pass(maxPoints, checks, labels.pass);
+  if (points > 0) return Evaluation.partial(points, maxPoints, checks, labels.partial);
+  return Evaluation.fail(maxPoints, checks, labels.fail);
 }
 
 type ScenarioEvaluateInput = {
@@ -248,19 +245,34 @@ type ScenarioExecutionContext = {
   onRuntimeEvent?: (event: RuntimeEvent) => void;
 };
 
-export interface Scenario {
-  id: string;
+// Common shape shared by both scenario kinds.
+type ScenarioBase = {
+  id: ScenarioId;
   name: string;
   category: Category;
   prompt: string;
   maxPoints?: number;
   buildPrompt?(input: { playgroundDir: string }): Promise<string>;
-  execute?(input: ScenarioExecutionContext): Promise<{
+};
+
+// A scenario either takes total control of execution (`execute`) OR
+// it relies on the orchestrator to invoke the runtime and then evaluates
+// the output (`evaluate`). Never both — discriminated at the type level
+// so the orchestrator no longer needs a runtime "missing evaluation" guard.
+export type ExecuteScenario = ScenarioBase & {
+  execute(input: ScenarioExecutionContext): Promise<{
     output: RuntimeOutput;
     evaluation: ScenarioEvaluation;
   }>;
-  evaluate?(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation>;
-}
+  evaluate?: never;
+};
+
+export type EvaluateScenario = ScenarioBase & {
+  evaluate(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation>;
+  execute?: never;
+};
+
+export type Scenario = ExecuteScenario | EvaluateScenario;
 
 const SB22_TURN_PROMPTS = [
   "Fix the typo in playground/sb22-loop.js where the local variable is named `usre` instead of `user`. Only make that one edit.",
@@ -319,7 +331,7 @@ function sb22TurnCheck(source: string, turnIndex: number): { pass: boolean; deta
 
 export const scenarios: Scenario[] = [
   {
-    id: "SB-01",
+    id: "SB-01" as ScenarioId,
     name: "fix-throttle",
     category: "surgical-edit",
     prompt:
@@ -372,7 +384,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-02",
+    id: "SB-02" as ScenarioId,
     name: "audit-server",
     category: "audit",
     prompt: "Audit playground/server.go for bugs. List what you find but do not fix anything.",
@@ -410,7 +422,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-03",
+    id: "SB-03" as ScenarioId,
     name: "surgical-edit",
     category: "scope-discipline",
     prompt:
@@ -459,7 +471,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-04",
+    id: "SB-04" as ScenarioId,
     name: "read-only-analysis",
     category: "read-only-analysis",
     prompt: "What indexes are missing in playground/schema.sql? What problems could that cause?",
@@ -500,7 +512,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-05",
+    id: "SB-05" as ScenarioId,
     name: "frontend-derived-state-fix",
     category: "surgical-edit",
     prompt:
@@ -557,7 +569,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-06",
+    id: "SB-06" as ScenarioId,
     name: "frontend-query-owner",
     category: "scope-discipline",
     prompt:
@@ -631,7 +643,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-07",
+    id: "SB-07" as ScenarioId,
     name: "frontend-scope-discipline",
     category: "scope-discipline",
     prompt:
@@ -700,7 +712,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-08",
+    id: "SB-08" as ScenarioId,
     name: "frontend-stack-loyalty",
     category: "surgical-edit",
     prompt:
@@ -769,7 +781,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-09",
+    id: "SB-09" as ScenarioId,
     name: "frontend-red-herring",
     category: "read-only-analysis",
     prompt:
@@ -836,7 +848,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-10",
+    id: "SB-10" as ScenarioId,
     name: "frontend-no-op",
     category: "read-only-analysis",
     prompt:
@@ -885,7 +897,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-11",
+    id: "SB-11" as ScenarioId,
     name: "frontend-find-the-right-file",
     category: "surgical-edit",
     prompt:
@@ -956,7 +968,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-12",
+    id: "SB-12" as ScenarioId,
     name: "frontend-reuse-existing-abstraction",
     category: "scope-discipline",
     prompt:
@@ -1014,7 +1026,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-13",
+    id: "SB-13" as ScenarioId,
     name: "verify-and-repair",
     category: "verify-and-repair",
     prompt: "Fix calculateSubtotal in playground/cart.mjs and verify the fix.",
@@ -1058,7 +1070,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-14",
+    id: "SB-14" as ScenarioId,
     name: "verify-fail-recover-pass",
     category: "verify-and-repair",
     prompt:
@@ -1108,7 +1120,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-15",
+    id: "SB-15" as ScenarioId,
     name: "typescript-compile-loop",
     category: "verify-and-repair",
     prompt: `Use TypeScript compile feedback to fix playground/ts-compile/user-summary.ts. Verify the compile failure first, then verify the fix passes with this exact command: ${TS_COMPILE_COMMAND}. Change only what is necessary.`,
@@ -1171,7 +1183,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-16",
+    id: "SB-16" as ScenarioId,
     name: "iterate-to-green",
     category: "verify-and-repair",
     prompt:
@@ -1250,7 +1262,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-17",
+    id: "SB-17" as ScenarioId,
     name: "hono-admin-password-reset",
     category: "implementation",
     prompt:
@@ -1328,7 +1340,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-18",
+    id: "SB-18" as ScenarioId,
     name: "hono-cursor-pagination",
     category: "implementation",
     prompt:
@@ -1377,7 +1389,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-19",
+    id: "SB-19" as ScenarioId,
     name: "hono-audit-log",
     category: "implementation",
     prompt:
@@ -1447,7 +1459,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-20",
+    id: "SB-20" as ScenarioId,
     name: "hono-soft-delete-restore",
     category: "implementation",
     prompt:
@@ -1497,7 +1509,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-21",
+    id: "SB-21" as ScenarioId,
     name: "hono-fix-n-plus-1",
     category: "implementation",
     prompt:
@@ -1552,7 +1564,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-22",
+    id: "SB-22" as ScenarioId,
     name: "high-frequency-loop",
     category: "responsiveness",
     maxPoints: 5,
@@ -1563,7 +1575,7 @@ export const scenarios: Scenario[] = [
         const output: RuntimeOutput = {
           stdout: "",
           toolCalls: [],
-          wallTimeMs: 0,
+          wallTimeMs: 0 as Ms,
           error: "CRASH: runtime does not support sessions",
         };
         return {
@@ -1585,14 +1597,14 @@ export const scenarios: Scenario[] = [
 
       const session = await runtime.startSession({ workDir, onEvent: onRuntimeEvent });
       const loopFile = join(workDir, SB22_LOOP_PATH);
-      const turnWallTimes: number[] = [];
-      const turnFirstTokenMs: Array<number | undefined> = [];
+      const turnWallTimes: Ms[] = [];
+      const turnFirstTokenMs: Array<Ms | undefined> = [];
       const checks: Check[] = [];
       let totalWallTimeMs = 0;
       let lastOutput: RuntimeOutput = {
         stdout: "",
         toolCalls: [],
-        wallTimeMs: 0,
+        wallTimeMs: 0 as Ms,
       };
 
       try {
@@ -1650,7 +1662,7 @@ export const scenarios: Scenario[] = [
       return {
         output: {
           ...lastOutput,
-          wallTimeMs: totalWallTimeMs,
+          wallTimeMs: totalWallTimeMs as Ms,
           turnWallTimes,
           turnFirstTokenMs,
           scenarioMetrics: {
@@ -1665,7 +1677,7 @@ export const scenarios: Scenario[] = [
   },
 
   {
-    id: "SB-23",
+    id: "SB-23" as ScenarioId,
     name: "long-context-retrieval",
     category: "long-context",
     maxPoints: 3,
@@ -1697,20 +1709,18 @@ export const scenarios: Scenario[] = [
         const output: RuntimeOutput = {
           stdout: "",
           toolCalls: [],
-          wallTimeMs: 0,
+          wallTimeMs: 0 as Ms,
           scenarioMetrics: { skipped: true, advertisedCtx, minRequiredCtx: MIN_REQUIRED_CTX },
         };
-        const evaluation: ScenarioEvaluation = {
-          status: "fail",
-          points: 0,
-          maxPoints: 3,
-          checks: [
+        const evaluation = Evaluation.fail(
+          3,
+          [
             { name: "reported function name", pass: false, detail: `SKIPPED: ${reason}` },
             { name: "reported line range within ±3 lines", pass: false, detail: "skipped" },
             { name: "first meaningful token within 30s", pass: false, detail: "skipped" },
           ],
-          summary: `SKIPPED: ${reason}`,
-        };
+          `SKIPPED: ${reason}`
+        );
         return { output, evaluation };
       }
 
@@ -1740,7 +1750,7 @@ export const scenarios: Scenario[] = [
         output = {
           stdout: "",
           toolCalls: [],
-          wallTimeMs: Math.round(performance.now() - runStartedAt),
+          wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
           error: `CRASH: ${msg}`,
         };
       }
@@ -1748,13 +1758,11 @@ export const scenarios: Scenario[] = [
       if (output.error) {
         return {
           output,
-          evaluation: {
-            status: "fail",
-            points: 0,
-            maxPoints: 3,
-            checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
-            summary: `Runtime error: ${output.error}`,
-          },
+          evaluation: Evaluation.fail(
+            3,
+            [{ name: "completed without runtime error", pass: false, detail: output.error }],
+            `Runtime error: ${output.error}`
+          ),
         };
       }
 

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { Ms, TokenCount } from "./brands.js";
 
 const ToolCallDeltaSchema = Schema.Struct({
   index: Schema.Number,
@@ -25,19 +26,19 @@ const ChoiceSchema = Schema.Struct({
 });
 
 export const UsageSchema = Schema.Struct({
-  prompt_tokens: Schema.optional(Schema.Number),
-  completion_tokens: Schema.optional(Schema.Number),
-  total_tokens: Schema.optional(Schema.Number),
+  prompt_tokens: Schema.optional(TokenCount),
+  completion_tokens: Schema.optional(TokenCount),
+  total_tokens: Schema.optional(TokenCount),
 });
 
 export const TimingsSchema = Schema.Struct({
   prompt_n: Schema.optional(Schema.Number),
-  prompt_ms: Schema.optional(Schema.Number),
-  prompt_per_token_ms: Schema.optional(Schema.Number),
+  prompt_ms: Schema.optional(Ms),
+  prompt_per_token_ms: Schema.optional(Ms),
   prompt_per_second: Schema.optional(Schema.Number),
   predicted_n: Schema.optional(Schema.Number),
-  predicted_ms: Schema.optional(Schema.Number),
-  predicted_per_token_ms: Schema.optional(Schema.Number),
+  predicted_ms: Schema.optional(Ms),
+  predicted_per_token_ms: Schema.optional(Ms),
   predicted_per_second: Schema.optional(Schema.Number),
 });
 

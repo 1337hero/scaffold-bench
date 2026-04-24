@@ -12,9 +12,13 @@ import {
   GlobArgsSchema,
   GrepArgsSchema,
   LsArgsSchema,
+  PropsSchema,
   ReadArgsSchema,
   RootConfigSchema,
   WriteArgsSchema,
+  err,
+  nsToMs,
+  ok,
   toJsonSchema,
 } from "../schemas/index.js";
 import type {
@@ -23,7 +27,12 @@ import type {
   GlobArgs,
   GrepArgs,
   LsArgs,
+  Ms,
+  Ns,
   ReadArgs,
+  SafeRelativePath,
+  TokenCount,
+  ToolResult,
   WriteArgs,
 } from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
@@ -312,14 +321,14 @@ async function runBash(args: BashArgs, cwd: string): Promise<string> {
 }
 
 type ModelCallMetrics = {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  totalRequestTimeMs: number;
-  promptEvalTokens?: number;
-  promptEvalTimeMs?: number;
-  completionEvalTokens?: number;
-  completionEvalTimeMs?: number;
+  promptTokens: TokenCount;
+  completionTokens: TokenCount;
+  totalTokens: TokenCount;
+  totalRequestTimeMs: Ms;
+  promptEvalTokens?: TokenCount;
+  promptEvalTimeMs?: Ms;
+  completionEvalTokens?: TokenCount;
+  completionEvalTimeMs?: Ms;
 };
 
 // Built-in local runtime for OpenAI-compatible chat-completions endpoints.
@@ -350,13 +359,13 @@ export const localRuntime: Runtime = {
   async getContextWindow(): Promise<number | undefined> {
     const base = DEFAULT_ENDPOINT.replace(/\/v1\/chat\/completions$/, "");
     const probeUrl = `${base}/upstream/${encodeURIComponent(ACTIVE_MODEL)}/props`;
-    const extract = (data: JsonObject): number | undefined => {
-      const settings = data.default_generation_settings;
-      if (settings && typeof settings === "object") {
-        const n = (settings as JsonObject).n_ctx;
-        if (typeof n === "number" && Number.isFinite(n)) return n;
-      }
-      const top = data.n_ctx;
+    const extract = (data: unknown): number | undefined => {
+      const result = Schema.decodeUnknownEither(PropsSchema)(data);
+      if (Either.isLeft(result)) return undefined;
+      const props = result.right;
+      const fromSettings = props.default_generation_settings?.n_ctx;
+      if (typeof fromSettings === "number" && Number.isFinite(fromSettings)) return fromSettings;
+      const top = props.n_ctx;
       return typeof top === "number" && Number.isFinite(top) ? top : undefined;
     };
     const probe = async (): Promise<Response | undefined> => {
@@ -386,7 +395,7 @@ export const localRuntime: Runtime = {
         res = await probe();
       }
       if (!res || !res.ok) return undefined;
-      return extract((await res.json()) as JsonObject);
+      return extract(await res.json());
     } catch {
       return undefined;
     }
@@ -403,7 +412,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
     async runTurn(prompt: string, timeoutMs: number): Promise<RuntimeOutput> {
       const startedAt = performance.now();
       const deadline = startedAt + timeoutMs;
-      let firstTokenMs: number | undefined;
+      let firstTokenMs: Ms | undefined;
 
       conversation.push({ role: "user", content: prompt });
 
@@ -418,7 +427,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
         try {
           reply = await callModel(conversation, deadline, (delta) => {
             if (firstTokenMs === undefined && delta.trim().length > 0) {
-              firstTokenMs = Math.round(performance.now() - startedAt);
+              firstTokenMs = Math.round(performance.now() - startedAt) as Ms;
             }
             ctx.onEvent?.({ type: "assistant_delta", content: delta });
           });
@@ -469,11 +478,14 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
 
           const result = await executeTool(call, ctx.workDir);
           toolCall.result = result;
-          ctx.onEvent?.({ type: "tool_result", call: toolCall, result });
+          // The LLM-facing tool message is still a string; preserve the legacy
+          // `error: <msg>` prefix so existing prompt patterns stay stable.
+          const resultText = result.ok ? result.value : `error: ${result.message}`;
+          ctx.onEvent?.({ type: "tool_result", call: toolCall, result: resultText });
           conversation.push({
             role: "tool",
             tool_call_id: call.id,
-            content: result,
+            content: resultText,
           });
         }
       }
@@ -675,37 +687,37 @@ async function callModel(
   }
 }
 
-async function executeTool(call: OpenAIToolCall, cwd: string): Promise<string> {
+async function executeTool(call: OpenAIToolCall, cwd: string): Promise<ToolResult> {
   const rawArgs = call.function.arguments ?? "{}";
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawArgs);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    return `error: invalid tool arguments JSON: ${detail}`;
+    return err(`invalid tool arguments JSON: ${detail}`);
   }
 
   try {
     switch (call.function.name) {
       case "read":
-        return await runRead(Schema.decodeUnknownSync(ReadArgsSchema)(parsed), cwd);
+        return ok(await runRead(Schema.decodeUnknownSync(ReadArgsSchema)(parsed), cwd));
       case "ls":
-        return await runLs(Schema.decodeUnknownSync(LsArgsSchema)(parsed), cwd);
+        return ok(await runLs(Schema.decodeUnknownSync(LsArgsSchema)(parsed), cwd));
       case "grep":
-        return await runGrep(Schema.decodeUnknownSync(GrepArgsSchema)(parsed), cwd);
+        return ok(await runGrep(Schema.decodeUnknownSync(GrepArgsSchema)(parsed), cwd));
       case "glob":
-        return await runGlob(Schema.decodeUnknownSync(GlobArgsSchema)(parsed), cwd);
+        return ok(await runGlob(Schema.decodeUnknownSync(GlobArgsSchema)(parsed), cwd));
       case "edit":
-        return await runEdit(Schema.decodeUnknownSync(EditArgsSchema)(parsed), cwd);
+        return ok(await runEdit(Schema.decodeUnknownSync(EditArgsSchema)(parsed), cwd));
       case "write":
-        return await runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(parsed), cwd);
+        return ok(await runWrite(Schema.decodeUnknownSync(WriteArgsSchema)(parsed), cwd));
       case "bash":
-        return await runBash(Schema.decodeUnknownSync(BashArgsSchema)(parsed), cwd);
+        return ok(await runBash(Schema.decodeUnknownSync(BashArgsSchema)(parsed), cwd));
       default:
-        return `error: unknown tool "${call.function.name}"`;
+        return err(`unknown tool "${call.function.name}"`);
     }
   } catch (error) {
-    return `error: ${error instanceof Error ? error.message : String(error)}`;
+    return err(error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -720,7 +732,7 @@ function finishRuntime(
   return {
     stdout: stdoutLines.join("\n"),
     toolCalls: toolCalls.map((call) => ({ ...call })),
-    wallTimeMs: Math.round(performance.now() - startedAt),
+    wallTimeMs: Math.round(performance.now() - startedAt) as Ms,
     ...(extras?.firstTokenMs !== undefined ? { firstTokenMs: extras.firstTokenMs } : {}),
     ...(extras?.turnWallTimes ? { turnWallTimes: extras.turnWallTimes } : {}),
     ...(extras?.turnFirstTokenMs ? { turnFirstTokenMs: extras.turnFirstTokenMs } : {}),
@@ -730,7 +742,9 @@ function finishRuntime(
   };
 }
 
-function resolveToolPath(cwd: string, relativePath: string): string {
+// This function IS the sandbox guard — `as SafeRelativePath` is justified
+// because every escape path throws above this return.
+function resolveToolPath(cwd: string, relativePath: string): SafeRelativePath {
   if (relativePath.trim() === "") {
     throw new Error("path is required");
   }
@@ -746,7 +760,7 @@ function resolveToolPath(cwd: string, relativePath: string): string {
   ) {
     throw new Error(`path escapes working directory: ${relativePath}`);
   }
-  return resolvedPath;
+  return resolvedPath as SafeRelativePath;
 }
 
 async function streamToString(stream: ReadableStream<Uint8Array>): Promise<string> {
@@ -797,23 +811,23 @@ function createModelMetrics(model: string): ModelMetrics {
   return {
     model,
     requestCount: 0,
-    promptTokens: 0,
-    completionTokens: 0,
-    totalTokens: 0,
-    totalRequestTimeMs: 0,
+    promptTokens: 0 as TokenCount,
+    completionTokens: 0 as TokenCount,
+    totalTokens: 0 as TokenCount,
+    totalRequestTimeMs: 0 as Ms,
   };
 }
 
 function applyModelCallMetrics(target: ModelMetrics, metrics: ModelCallMetrics): void {
   target.requestCount += 1;
-  target.promptTokens += metrics.promptTokens;
-  target.completionTokens += metrics.completionTokens;
-  target.totalTokens += metrics.totalTokens;
-  target.totalRequestTimeMs += metrics.totalRequestTimeMs;
+  target.promptTokens = (target.promptTokens + metrics.promptTokens) as TokenCount;
+  target.completionTokens = (target.completionTokens + metrics.completionTokens) as TokenCount;
+  target.totalTokens = (target.totalTokens + metrics.totalTokens) as TokenCount;
+  target.totalRequestTimeMs = (target.totalRequestTimeMs + metrics.totalRequestTimeMs) as Ms;
 
   if (metrics.promptEvalTokens !== undefined && metrics.promptEvalTimeMs !== undefined) {
-    target.promptEvalTokens = (target.promptEvalTokens ?? 0) + metrics.promptEvalTokens;
-    target.promptEvalTimeMs = (target.promptEvalTimeMs ?? 0) + metrics.promptEvalTimeMs;
+    target.promptEvalTokens = ((target.promptEvalTokens ?? 0) + metrics.promptEvalTokens) as TokenCount;
+    target.promptEvalTimeMs = ((target.promptEvalTimeMs ?? 0) + metrics.promptEvalTimeMs) as Ms;
   }
 
   if (
@@ -821,9 +835,9 @@ function applyModelCallMetrics(target: ModelMetrics, metrics: ModelCallMetrics):
     metrics.completionEvalTimeMs !== undefined
   ) {
     target.completionEvalTokens =
-      (target.completionEvalTokens ?? 0) + metrics.completionEvalTokens;
+      ((target.completionEvalTokens ?? 0) + metrics.completionEvalTokens) as TokenCount;
     target.completionEvalTimeMs =
-      (target.completionEvalTimeMs ?? 0) + metrics.completionEvalTimeMs;
+      ((target.completionEvalTimeMs ?? 0) + metrics.completionEvalTimeMs) as Ms;
   }
 }
 
@@ -838,25 +852,31 @@ function extractModelCallMetrics(
   const totalTokens =
     response.usage?.total_tokens ?? promptTokens + completionTokens;
   const promptEvalTimeMs =
-    response.timings?.prompt_ms ?? durationNsToMs(response.prompt_eval_duration);
+    response.timings?.prompt_ms ?? nsDurationToMs(response.prompt_eval_duration);
   const completionEvalTimeMs =
-    response.timings?.predicted_ms ?? durationNsToMs(response.eval_duration);
+    response.timings?.predicted_ms ?? nsDurationToMs(response.eval_duration);
 
   return {
-    promptTokens,
-    completionTokens,
-    totalTokens,
-    totalRequestTimeMs: requestTimeMs,
+    promptTokens: promptTokens as TokenCount,
+    completionTokens: completionTokens as TokenCount,
+    totalTokens: totalTokens as TokenCount,
+    totalRequestTimeMs: requestTimeMs as Ms,
     ...(promptEvalTimeMs !== undefined && promptEvalTokens !== undefined
-      ? { promptEvalTokens, promptEvalTimeMs }
+      ? {
+          promptEvalTokens: promptEvalTokens as TokenCount,
+          promptEvalTimeMs: promptEvalTimeMs as Ms,
+        }
       : {}),
     ...(completionEvalTimeMs !== undefined
       && completionEvalTokens !== undefined
-      ? { completionEvalTokens, completionEvalTimeMs }
+      ? {
+          completionEvalTokens: completionEvalTokens as TokenCount,
+          completionEvalTimeMs: completionEvalTimeMs as Ms,
+        }
       : {}),
   };
 }
 
-function durationNsToMs(value: number | undefined): number | undefined {
-  return value === undefined ? undefined : value / 1_000_000;
+function nsDurationToMs(value: number | undefined): Ms | undefined {
+  return value === undefined ? undefined : nsToMs(value as Ns);
 }
