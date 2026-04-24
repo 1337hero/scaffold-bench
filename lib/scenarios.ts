@@ -347,6 +347,207 @@ function sb22TurnCheck(source: string, turnIndex: number): { pass: boolean; deta
     : { pass: false, detail: blockingIssues.join(", ") };
 }
 
+const SB24_PROMPT = [
+  "Caddy 2.7: `uri replace` does not work with escaped closing braces.",
+  "Input `\\}` should produce `}`, but instead it comes back unchanged as `\\}`.",
+  "",
+  "The failing cases live in `playground/sb24-caddy-replacer/replacer_test.go`.",
+  "The replacer logic is in `playground/sb24-caddy-replacer/replacer.go`.",
+  "",
+  "Run `go test ./...` from inside `playground/sb24-caddy-replacer` to see",
+  "the failing cases, then fix `replacer.go`. Change only what is necessary.",
+  "Verify the tests pass when you're done.",
+].join("\n");
+
+const SB25_PROMPT = [
+  "Hugo's `Pages.GroupByParam(key)` returns `error: there is no such param`",
+  "when none of the pages has `key` in its front matter. It should return",
+  "`nil, nil` instead — mirroring `SortByParam` and `GroupByParamDate`,",
+  "and avoiding dead-ends for new sites or theme demos.",
+  "",
+  "Tests live in `playground/sb25-hugo-groupbyparam/pagegroup_test.go`.",
+  "The logic is in `playground/sb25-hugo-groupbyparam/pagegroup.go`.",
+  "",
+  "Run `go test ./...` from inside `playground/sb25-hugo-groupbyparam`",
+  "to see the failure, then fix `pagegroup.go`. Only edit pagegroup.go.",
+  "Verify the tests pass when you're done.",
+].join("\n");
+
+const SB26_PROMPT = [
+  "Prometheus agent mode crashes on shutdown with a nil-pointer dereference",
+  "inside `promql.(*Engine).Close()`. In agent mode the engine is nil, and",
+  "calling `Close()` on the nil receiver panics when it tries to access",
+  "`ng.activeQueryTracker`.",
+  "",
+  "Tests live in `playground/sb26-prom-engine-close/engine_test.go`.",
+  "The logic is in `playground/sb26-prom-engine-close/engine.go`.",
+  "",
+  "Run `go test ./...` from inside `playground/sb26-prom-engine-close`",
+  "to see the failure, then fix `engine.go`. Only edit engine.go.",
+  "Verify the tests pass when you're done.",
+].join("\n");
+
+const SB27_PROMPT = [
+  "Terraform's remote-exec provisioner keeps SSH connections open long",
+  "after the scripts have finished running. The disconnect goroutine in",
+  "`RunScripts` waits on the caller's context, which stays live for the",
+  "entire Terraform run — so the communicator stays connected.",
+  "",
+  "It should disconnect promptly once the scripts complete, while still",
+  "disconnecting if the caller cancels mid-execution.",
+  "",
+  "Tests live in `playground/sb27-tf-ssh-leak/runner_test.go`.",
+  "The logic is in `playground/sb27-tf-ssh-leak/runner.go`.",
+  "",
+  "Run `go test ./...` from inside `playground/sb27-tf-ssh-leak` to see",
+  "the failure, then fix `runner.go`. Only edit runner.go. Verify the",
+  "tests pass when you're done.",
+].join("\n");
+
+const SB28_PROMPT = [
+  "Axios's Node HTTP adapter upgrades to `follow-redirects` introduced an",
+  "unexpected 10 MB default body limit. Users passing `maxBodyLength: -1`",
+  "(axios's 'unlimited' sentinel) still get blocked because the adapter",
+  "never tells follow-redirects to skip its limit.",
+  "",
+  "Tests live in `playground/sb28-axios-maxbody/http-adapter.test.mjs`.",
+  "The adapter helper is in `playground/sb28-axios-maxbody/http-adapter.mjs`.",
+  "",
+  "Run `node http-adapter.test.mjs` from inside `playground/sb28-axios-maxbody`",
+  "to see the failure, then fix `http-adapter.mjs`. Only edit that file.",
+].join("\n");
+
+const SB29_PROMPT = [
+  "Axios's `isAbsoluteURL` helper treats protocol-relative URLs like",
+  "`//example.com/` as absolute. That behaviour is the root of",
+  "CVE-2024-39338 — an attacker can redirect server-side requests to",
+  "arbitrary hosts. Protocol-relative URLs must be treated as RELATIVE.",
+  "",
+  "Tests live in `playground/sb29-axios-ssrf/isAbsoluteURL.test.mjs`.",
+  "The helper is in `playground/sb29-axios-ssrf/isAbsoluteURL.mjs`.",
+  "",
+  "Run `node isAbsoluteURL.test.mjs` from inside `playground/sb29-axios-ssrf`",
+  "to see the failure, then fix `isAbsoluteURL.mjs`. Only edit that file.",
+].join("\n");
+
+const SB30_PROMPT = [
+  "Axios's Node adapter ignores the user-configured `timeoutErrorMessage`",
+  "on request timeouts. The error message is always the hard-coded",
+  "`timeout of Xms exceeded`, even when the user set a custom string.",
+  "",
+  "Tests live in `playground/sb30-axios-timeout-msg/buildTimeoutError.test.mjs`.",
+  "The helper is in `playground/sb30-axios-timeout-msg/buildTimeoutError.mjs`.",
+  "",
+  "Run `node buildTimeoutError.test.mjs` from inside `playground/sb30-axios-timeout-msg`",
+  "to see the failure, then fix `buildTimeoutError.mjs`. Only edit that file.",
+].join("\n");
+
+const SB31_PROMPT = [
+  "Babel's generator crashes when an `inputSourceMap` is provided without",
+  "`sourcesContent`. The source-map v3 spec makes sourcesContent optional,",
+  "but `applyInputMap` dereferences `inputMap.sourcesContent[i]`, throwing",
+  "`TypeError: Cannot read properties of undefined (reading '0')`.",
+  "",
+  "Tests live in `playground/sb31-babel-sourcemap/sourceMap.test.mjs`.",
+  "The logic is in `playground/sb31-babel-sourcemap/sourceMap.mjs`.",
+  "",
+  "Run `node sourceMap.test.mjs` from inside `playground/sb31-babel-sourcemap`",
+  "to see the failure, then fix `sourceMap.mjs`. Only edit sourceMap.mjs.",
+].join("\n");
+
+const SB32_PROMPT = [
+  "Babel's `permuteHelper` renames a helper's internal locals to dodge",
+  "collisions with names already bound in the caller's scope. But it",
+  "forgets to reserve the helper's OWN identifier name, so the dodge",
+  "loop can rename a local to the very name the helper is imported as.",
+  "",
+  "Tests live in `playground/sb32-babel-helper-conflict/permuteHelper.test.mjs`.",
+  "The logic is in `playground/sb32-babel-helper-conflict/permuteHelper.mjs`.",
+  "",
+  "Run `node permuteHelper.test.mjs` from inside the fixture directory.",
+  "Only edit permuteHelper.mjs.",
+].join("\n");
+
+const SB33_PROMPT = [
+  "When `scope.rename('a', '_a')` walks the AST, shorthand ObjectProperty",
+  "nodes like `{ a }` should be expanded: `{ a: _a }` — key stays, value",
+  "is renamed, and `shorthand` flips to false. Today the rename visitor",
+  "doesn't handle ObjectProperty; both key and value get renamed to `_a`,",
+  "silently changing the object's field name.",
+  "",
+  "Tests live in `playground/sb33-babel-rename-shorthand/renameShorthand.test.mjs`.",
+  "The logic is in `playground/sb33-babel-rename-shorthand/renameShorthand.mjs`.",
+  "",
+  "Run `node renameShorthand.test.mjs`. Only edit renameShorthand.mjs.",
+].join("\n");
+
+const SB34_PROMPT = [
+  "Vue's tokenizer handles `<textarea>` as an RCDATA element — it still",
+  "looks for mustache delimiters (`{{`) even though other tags inside are",
+  "treated as text. When an ancestor has `v-pre`, however, mustaches should",
+  "be literal. Today the RCDATA state enters interpolation regardless,",
+  "producing a broken token stream for `<div v-pre><textarea>{{ foo`.",
+  "",
+  "Tests live in `playground/sb34-vue-vpre-textarea/tokenizer.test.ts`.",
+  "The logic is in `playground/sb34-vue-vpre-textarea/tokenizer.ts`.",
+  "",
+  "Run `bun tokenizer.test.ts` from inside the fixture directory.",
+  "Only edit tokenizer.ts.",
+].join("\n");
+
+const SB35_PROMPT = [
+  "Vue's `renderList` (the runtime that powers v-for) wraps each item of",
+  "a reactive array via `toReactive`. That's correct for a deep reactive",
+  "array, but wrong for a `shallowReactive` array — its whole point is",
+  "that nested reads do NOT track reactivity. Today items of a",
+  "`shallowReactive([{foo:1}])` get silently upgraded to deep reactive.",
+  "",
+  "Tests live in `playground/sb35-vue-shallowreactive-vfor/renderList.test.ts`.",
+  "The logic is in `playground/sb35-vue-shallowreactive-vfor/renderList.ts`.",
+  "",
+  "Run `bun renderList.test.ts`. Only edit renderList.ts.",
+].join("\n");
+
+const SB36_PROMPT = [
+  "Vue's reactivity `endBatch` decrements `batchDepth` AFTER it processes",
+  "the queued effects. When an effect inside the loop calls another",
+  "`startBatch`/`endBatch` pair (e.g. a sync watcher writing to a ref),",
+  "the nested `endBatch` sees `batchDepth > 1` and returns early — leaving",
+  "dependents in an in-flush state that breaks computed scheduling.",
+  "",
+  "Tests live in `playground/sb36-vue-sync-watchers/effect.test.ts`.",
+  "The logic is in `playground/sb36-vue-sync-watchers/effect.ts`.",
+  "",
+  "Run `bun effect.test.ts`. Only edit effect.ts.",
+].join("\n");
+
+const SB37_PROMPT = [
+  "Caddy's `{file.*}` placeholder reads a file and substitutes its",
+  "contents into a Caddyfile expression — handy for basicauth hashes,",
+  "API keys, and the like. Problem: it preserves the trailing newline",
+  "that every text editor appends, so `{file.secret.txt}` equals",
+  "`\"secret\\n\"` instead of `\"secret\"` — breaking anything that",
+  "compares the value literally.",
+  "",
+  "Tests live in `playground/sb37-caddy-file-newline/replacer_test.go`.",
+  "The logic is in `playground/sb37-caddy-file-newline/replacer.go`.",
+  "",
+  "Run `go test ./...` from inside the fixture directory. Only edit replacer.go.",
+].join("\n");
+
+const SB38_PROMPT = [
+  "Caddy's Caddyfile lexer rejects valid heredocs that contain blank",
+  "lines when the heredoc itself is indented. The reason: blank lines",
+  "have ZERO leading whitespace, so they never match the computed",
+  "padding, and `finalizeHeredoc` raises a `mismatched leading whitespace`",
+  "error on otherwise-valid input.",
+  "",
+  "Tests live in `playground/sb38-caddy-heredoc-blank/lexer_test.go`.",
+  "The logic is in `playground/sb38-caddy-heredoc-blank/lexer.go`.",
+  "",
+  "Run `go test ./...` from inside the fixture directory. Only edit lexer.go.",
+].join("\n");
+
 export const scenarios: Scenario[] = [
   {
     id: "SB-01" as ScenarioId,
@@ -1822,19 +2023,7 @@ export const scenarios: Scenario[] = [
     },
   },
 
-  ((): ExecuteScenario => {
-    const SB24_PROMPT = [
-      "Caddy 2.7: `uri replace` does not work with escaped closing braces.",
-      "Input `\\}` should produce `}`, but instead it comes back unchanged as `\\}`.",
-      "",
-      "The failing cases live in `playground/sb24-caddy-replacer/replacer_test.go`.",
-      "The replacer logic is in `playground/sb24-caddy-replacer/replacer.go`.",
-      "",
-      "Run `go test ./...` from inside `playground/sb24-caddy-replacer` to see",
-      "the failing cases, then fix `replacer.go`. Change only what is necessary.",
-      "Verify the tests pass when you're done.",
-    ].join("\n");
-    return {
+  {
     id: "SB-24" as ScenarioId,
     name: "caddy-replacer-closing-brace",
     category: "verify-and-repair" as const,
@@ -1930,26 +2119,6 @@ export const scenarios: Scenario[] = [
           strengthenedGuardLine
         );
 
-      // Score: 0 if tests fail or scope drifts outside replacer.go; 2 if tests
-      // pass + only replacer.go changed + strengthened guard present; 1 for
-      // a superficial fix that stays in-file.
-      let points: 0 | 1 | 2 = 0;
-      let status: "pass" | "partial" | "fail" = "fail";
-      let summary = "";
-      if (!testsPass) {
-        summary = "Tests still fail after fix.";
-      } else if (!onlyReplacerChanged) {
-        summary = "Tests pass but changes touched files outside replacer.go.";
-      } else if (onlyReplacerChanged && strengthenedGuard) {
-        points = 2;
-        status = "pass";
-        summary = "Tests pass, only replacer.go changed, root-cause guard applied.";
-      } else {
-        points = 1;
-        status = "partial";
-        summary = "Tests pass but the fix is superficial (early-return guard not strengthened).";
-      }
-
       const checks: Check[] = [
         { name: "go test ./... passes", pass: testsPass, detail: testOutput },
         { name: "only replacer.go changed", pass: onlyReplacerChanged },
@@ -1960,30 +2129,23 @@ export const scenarios: Scenario[] = [
         },
       ];
 
-      return {
-        output,
-        evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
-      };
-    },
-    };
-  })(),
+      let evaluation: ScenarioEvaluation;
+      if (!testsPass) {
+        evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+      } else if (!onlyReplacerChanged) {
+        evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside replacer.go.");
+      } else if (onlyReplacerChanged && strengthenedGuard) {
+        evaluation = Evaluation.pass(2, checks, "Tests pass, only replacer.go changed, root-cause guard applied.");
+      } else {
+        evaluation = Evaluation.partial(1, 2, checks, "Tests pass but the fix is superficial (early-return guard not strengthened).");
+      }
 
-  ((): ExecuteScenario => {
-    const SB25_PROMPT = [
-      "Hugo's `Pages.GroupByParam(key)` returns `error: there is no such param`",
-      "when none of the pages has `key` in its front matter. It should return",
-      "`nil, nil` instead — mirroring `SortByParam` and `GroupByParamDate`,",
-      "and avoiding dead-ends for new sites or theme demos.",
-      "",
-      "Tests live in `playground/sb25-hugo-groupbyparam/pagegroup_test.go`.",
-      "The logic is in `playground/sb25-hugo-groupbyparam/pagegroup.go`.",
-      "",
-      "Run `go test ./...` from inside `playground/sb25-hugo-groupbyparam`",
-      "to see the failure, then fix `pagegroup.go`. Only edit pagegroup.go.",
-      "Verify the tests pass when you're done.",
-    ].join("\n");
-    return {
-      id: "SB-25" as ScenarioId,
+      return { output, evaluation };
+    },
+  },
+
+  {
+    id: "SB-25" as ScenarioId,
       name: "hugo-groupbyparam-missing-param",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2065,24 +2227,6 @@ export const scenarios: Scenario[] = [
         const canonicalFix =
           branchMatch !== null && /return\s+nil\s*,\s*nil\b/.test(branchMatch[1]);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) {
-          summary = "Tests still fail after fix.";
-        } else if (!onlyPagegroupChanged) {
-          // Editing the test file (or anything else) invalidates the only oracle.
-          summary = "Tests pass but changes touched files outside pagegroup.go — oracle invalidated.";
-        } else if (canonicalFix) {
-          points = 2;
-          status = "pass";
-          summary = "Tests pass, only pagegroup.go changed, missing-param branch returns nil,nil.";
-        } else {
-          points = 1;
-          status = "partial";
-          summary = "Tests pass but fix is behaviorally lenient (missing-param branch doesn't return nil,nil).";
-        }
-
         const checks: Check[] = [
           { name: "go test ./... passes", pass: testsPass, detail: testOutput },
           { name: "only pagegroup.go changed", pass: onlyPagegroupChanged },
@@ -2095,30 +2239,23 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return {
-          output,
-          evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
-        };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlyPagegroupChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside pagegroup.go — oracle invalidated.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only pagegroup.go changed, missing-param branch returns nil,nil.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but fix is behaviorally lenient (missing-param branch doesn't return nil,nil).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB26_PROMPT = [
-      "Prometheus agent mode crashes on shutdown with a nil-pointer dereference",
-      "inside `promql.(*Engine).Close()`. In agent mode the engine is nil, and",
-      "calling `Close()` on the nil receiver panics when it tries to access",
-      "`ng.activeQueryTracker`.",
-      "",
-      "Tests live in `playground/sb26-prom-engine-close/engine_test.go`.",
-      "The logic is in `playground/sb26-prom-engine-close/engine.go`.",
-      "",
-      "Run `go test ./...` from inside `playground/sb26-prom-engine-close`",
-      "to see the failure, then fix `engine.go`. Only edit engine.go.",
-      "Verify the tests pass when you're done.",
-    ].join("\n");
-    return {
-      id: "SB-26" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-26" as ScenarioId,
       name: "prometheus-engine-close-nil",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2211,56 +2348,29 @@ export const scenarios: Scenario[] = [
               : "nil guard appears after a field access";
         }
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) {
-          summary = "Tests still fail after fix.";
-        } else if (!onlyEngineChanged) {
-          summary = "Tests pass but changes touched files outside engine.go — oracle invalidated.";
-        } else if (canonicalFix) {
-          points = 2;
-          status = "pass";
-          summary = "Tests pass, only engine.go changed, Close() nil-guards before field access.";
-        } else {
-          points = 1;
-          status = "partial";
-          summary = "Tests pass but fix doesn't match canonical nil-guard shape.";
-        }
-
         const checks: Check[] = [
           { name: "go test ./... passes", pass: testsPass, detail: testOutput },
           { name: "only engine.go changed", pass: onlyEngineChanged },
           { name: "Close() nil-guards receiver before field access", pass: canonicalFix, detail: branchDetail },
         ];
 
-        return {
-          output,
-          evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
-        };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlyEngineChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside engine.go — oracle invalidated.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only engine.go changed, Close() nil-guards before field access.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but fix doesn't match canonical nil-guard shape.");
+        }
 
-  ((): ExecuteScenario => {
-    const SB27_PROMPT = [
-      "Terraform's remote-exec provisioner keeps SSH connections open long",
-      "after the scripts have finished running. The disconnect goroutine in",
-      "`RunScripts` waits on the caller's context, which stays live for the",
-      "entire Terraform run — so the communicator stays connected.",
-      "",
-      "It should disconnect promptly once the scripts complete, while still",
-      "disconnecting if the caller cancels mid-execution.",
-      "",
-      "Tests live in `playground/sb27-tf-ssh-leak/runner_test.go`.",
-      "The logic is in `playground/sb27-tf-ssh-leak/runner.go`.",
-      "",
-      "Run `go test ./...` from inside `playground/sb27-tf-ssh-leak` to see",
-      "the failure, then fix `runner.go`. Only edit runner.go. Verify the",
-      "tests pass when you're done.",
-    ].join("\n");
-    return {
-      id: "SB-27" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-27" as ScenarioId,
       name: "terraform-ssh-connection-leak",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2359,24 +2469,6 @@ export const scenarios: Scenario[] = [
           }
         }
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) {
-          summary = "Tests still fail after fix.";
-        } else if (!onlyRunnerChanged) {
-          summary = "Tests pass but changes touched files outside runner.go — oracle invalidated.";
-        } else if (canonicalFix) {
-          points = 2;
-          status = "pass";
-          summary = "Tests pass, only runner.go changed, derived context with defer cancel applied.";
-        } else {
-          points = 1;
-          status = "partial";
-          summary =
-            "Tests pass but fix doesn't match canonical context-derivation pattern (e.g., bare defer Disconnect).";
-        }
-
         const checks: Check[] = [
           { name: "go test ./... passes", pass: testsPass, detail: testOutput },
           { name: "only runner.go changed", pass: onlyRunnerChanged },
@@ -2387,30 +2479,24 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return {
-          output,
-          evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
-        };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlyRunnerChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside runner.go — oracle invalidated.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only runner.go changed, derived context with defer cancel applied.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but fix doesn't match canonical context-derivation pattern (e.g., bare defer Disconnect).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB28_PROMPT = [
-      "Axios's Node HTTP adapter upgrades to `follow-redirects` introduced an",
-      "unexpected 10 MB default body limit. Users passing `maxBodyLength: -1`",
-      "(axios's 'unlimited' sentinel) still get blocked because the adapter",
-      "never tells follow-redirects to skip its limit.",
-      "",
-      "Tests live in `playground/sb28-axios-maxbody/http-adapter.test.mjs`.",
-      "The adapter helper is in `playground/sb28-axios-maxbody/http-adapter.mjs`.",
-      "",
-      "Run `node http-adapter.test.mjs` from inside `playground/sb28-axios-maxbody`",
-      "to see the failure, then fix `http-adapter.mjs`. Only edit that file.",
-    ].join("\n");
-    return {
-      id: "SB-28" as ScenarioId,
-      name: "axios-maxbody-unlimited",
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-28" as ScenarioId,
+    name: "axios-maxbody-unlimited",
       category: "verify-and-repair" as const,
       maxPoints: 2,
       prompt: SB28_PROMPT,
@@ -2485,49 +2571,29 @@ export const scenarios: Scenario[] = [
         // branch. A ternary or if/else both satisfy this anchor.
         const canonicalFix = /options\.maxBodyLength\s*=\s*Infinity/.test(sourceAfter);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) {
-          summary = "Tests still fail after fix.";
-        } else if (!onlySourceChanged) {
-          summary = "Tests pass but changes touched files outside http-adapter.mjs — oracle invalidated.";
-        } else if (canonicalFix) {
-          points = 2;
-          status = "pass";
-          summary = "Tests pass, only http-adapter.mjs changed, unlimited maps to Infinity.";
-        } else {
-          points = 1;
-          status = "partial";
-          summary = "Tests pass but fix doesn't use Infinity for the unlimited case.";
-        }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only http-adapter.mjs changed", pass: onlySourceChanged },
           { name: "unlimited maxBodyLength maps to Infinity", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside http-adapter.mjs — oracle invalidated.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only http-adapter.mjs changed, unlimited maps to Infinity.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but fix doesn't use Infinity for the unlimited case.");
+        }
 
-  ((): ExecuteScenario => {
-    const SB29_PROMPT = [
-      "Axios's `isAbsoluteURL` helper treats protocol-relative URLs like",
-      "`//example.com/` as absolute. That behaviour is the root of",
-      "CVE-2024-39338 — an attacker can redirect server-side requests to",
-      "arbitrary hosts. Protocol-relative URLs must be treated as RELATIVE.",
-      "",
-      "Tests live in `playground/sb29-axios-ssrf/isAbsoluteURL.test.mjs`.",
-      "The helper is in `playground/sb29-axios-ssrf/isAbsoluteURL.mjs`.",
-      "",
-      "Run `node isAbsoluteURL.test.mjs` from inside `playground/sb29-axios-ssrf`",
-      "to see the failure, then fix `isAbsoluteURL.mjs`. Only edit that file.",
-    ].join("\n");
-    return {
-      id: "SB-29" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-29" as ScenarioId,
       name: "axios-ssrf-protocol-relative",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2606,48 +2672,29 @@ export const scenarios: Scenario[] = [
         const stillHasOptionalScheme = /\)\?\s*\\?\/\s*\\?\//.test(fnBody);
         const canonicalFix = fnMatch !== null && !stillHasOptionalScheme;
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) {
-          summary = "Tests still fail after fix.";
-        } else if (!onlySourceChanged) {
-          summary = "Tests pass but changes touched files outside isAbsoluteURL.mjs — oracle invalidated.";
-        } else if (canonicalFix) {
-          points = 2;
-          status = "pass";
-          summary = "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.";
-        } else {
-          points = 1;
-          status = "partial";
-          summary = "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).";
-        }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only isAbsoluteURL.mjs changed", pass: onlySourceChanged },
           { name: "optional-scheme group removed from regex", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside isAbsoluteURL.mjs — oracle invalidated.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB30_PROMPT = [
-      "Axios's Node adapter ignores the user-configured `timeoutErrorMessage`",
-      "on request timeouts. The error message is always the hard-coded",
-      "`timeout of Xms exceeded`, even when the user set a custom string.",
-      "",
-      "Tests live in `playground/sb30-axios-timeout-msg/buildTimeoutError.test.mjs`.",
-      "The helper is in `playground/sb30-axios-timeout-msg/buildTimeoutError.mjs`.",
-      "",
-      "Run `node buildTimeoutError.test.mjs` from inside `playground/sb30-axios-timeout-msg`",
-      "to see the failure, then fix `buildTimeoutError.mjs`. Only edit that file.",
-    ].join("\n");
-    return {
-      id: "SB-30" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-30" as ScenarioId,
       name: "axios-timeout-error-message",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2717,19 +2764,6 @@ export const scenarios: Scenario[] = [
           "playground/sb30-axios-timeout-msg/buildTimeoutError.mjs",
         ]);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) {
-          summary = "Tests still fail after fix.";
-        } else if (!onlySourceChanged) {
-          summary = "Tests pass but changes touched files outside buildTimeoutError.mjs — oracle invalidated.";
-        } else {
-          points = 2;
-          status = "pass";
-          summary = "Tests pass and only buildTimeoutError.mjs changed; fixture oracle covers default and override semantics.";
-        }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only buildTimeoutError.mjs changed", pass: onlySourceChanged },
@@ -2740,26 +2774,21 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside buildTimeoutError.mjs — oracle invalidated.");
+        } else {
+          evaluation = Evaluation.pass(2, checks, "Tests pass and only buildTimeoutError.mjs changed; fixture oracle covers default and override semantics.");
+        }
 
-  ((): ExecuteScenario => {
-    const SB31_PROMPT = [
-      "Babel's generator crashes when an `inputSourceMap` is provided without",
-      "`sourcesContent`. The source-map v3 spec makes sourcesContent optional,",
-      "but `applyInputMap` dereferences `inputMap.sourcesContent[i]`, throwing",
-      "`TypeError: Cannot read properties of undefined (reading '0')`.",
-      "",
-      "Tests live in `playground/sb31-babel-sourcemap/sourceMap.test.mjs`.",
-      "The logic is in `playground/sb31-babel-sourcemap/sourceMap.mjs`.",
-      "",
-      "Run `node sourceMap.test.mjs` from inside `playground/sb31-babel-sourcemap`",
-      "to see the failure, then fix `sourceMap.mjs`. Only edit sourceMap.mjs.",
-    ].join("\n");
-    return {
-      id: "SB-31" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-31" as ScenarioId,
       name: "babel-sourcemap-undefined-content",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2802,13 +2831,6 @@ export const scenarios: Scenario[] = [
 
         const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb31-babel-sourcemap/sourceMap.mjs"]);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside sourceMap.mjs.";
-        else { points = 2; status = "pass"; summary = "Tests pass and only sourceMap.mjs changed; fixture oracle covers missing and partial sourcesContent cases."; }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only sourceMap.mjs changed", pass: onlySourceChanged },
@@ -2819,26 +2841,21 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside sourceMap.mjs.");
+        } else {
+          evaluation = Evaluation.pass(2, checks, "Tests pass and only sourceMap.mjs changed; fixture oracle covers missing and partial sourcesContent cases.");
+        }
 
-  ((): ExecuteScenario => {
-    const SB32_PROMPT = [
-      "Babel's `permuteHelper` renames a helper's internal locals to dodge",
-      "collisions with names already bound in the caller's scope. But it",
-      "forgets to reserve the helper's OWN identifier name, so the dodge",
-      "loop can rename a local to the very name the helper is imported as.",
-      "",
-      "Tests live in `playground/sb32-babel-helper-conflict/permuteHelper.test.mjs`.",
-      "The logic is in `playground/sb32-babel-helper-conflict/permuteHelper.mjs`.",
-      "",
-      "Run `node permuteHelper.test.mjs` from inside the fixture directory.",
-      "Only edit permuteHelper.mjs.",
-    ].join("\n");
-    return {
-      id: "SB-32" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-32" as ScenarioId,
       name: "babel-helper-declaration-conflict",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2882,40 +2899,29 @@ export const scenarios: Scenario[] = [
           /bindings\.add\s*\(\s*id\.name\s*\)/.test(stripped) &&
           /id\.type\s*===\s*["']Identifier["']/.test(stripped);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside permuteHelper.mjs.";
-        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only permuteHelper.mjs changed, helper id reserved in bindings."; }
-        else { points = 1; status = "partial"; summary = "Tests pass but helper id not explicitly reserved (superficial fix)."; }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only permuteHelper.mjs changed", pass: onlySourceChanged },
           { name: "fix reserves id.name when id.type === 'Identifier'", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside permuteHelper.mjs.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only permuteHelper.mjs changed, helper id reserved in bindings.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but helper id not explicitly reserved (superficial fix).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB33_PROMPT = [
-      "When `scope.rename('a', '_a')` walks the AST, shorthand ObjectProperty",
-      "nodes like `{ a }` should be expanded: `{ a: _a }` — key stays, value",
-      "is renamed, and `shorthand` flips to false. Today the rename visitor",
-      "doesn't handle ObjectProperty; both key and value get renamed to `_a`,",
-      "silently changing the object's field name.",
-      "",
-      "Tests live in `playground/sb33-babel-rename-shorthand/renameShorthand.test.mjs`.",
-      "The logic is in `playground/sb33-babel-rename-shorthand/renameShorthand.mjs`.",
-      "",
-      "Run `node renameShorthand.test.mjs`. Only edit renameShorthand.mjs.",
-    ].join("\n");
-    return {
-      id: "SB-33" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-33" as ScenarioId,
       name: "babel-rename-shorthand",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2959,41 +2965,29 @@ export const scenarios: Scenario[] = [
           /ObjectProperty\s*[:(]/.test(stripped) &&
           /shorthand\s*=\s*false/.test(stripped);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside renameShorthand.mjs.";
-        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only renameShorthand.mjs changed, ObjectProperty visitor flips shorthand."; }
-        else { points = 1; status = "partial"; summary = "Tests pass but ObjectProperty visitor with shorthand=false not present (superficial fix)."; }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only renameShorthand.mjs changed", pass: onlySourceChanged },
           { name: "fix adds ObjectProperty visitor that flips shorthand=false", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside renameShorthand.mjs.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only renameShorthand.mjs changed, ObjectProperty visitor flips shorthand.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but ObjectProperty visitor with shorthand=false not present (superficial fix).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB34_PROMPT = [
-      "Vue's tokenizer handles `<textarea>` as an RCDATA element — it still",
-      "looks for mustache delimiters (`{{`) even though other tags inside are",
-      "treated as text. When an ancestor has `v-pre`, however, mustaches should",
-      "be literal. Today the RCDATA state enters interpolation regardless,",
-      "producing a broken token stream for `<div v-pre><textarea>{{ foo`.",
-      "",
-      "Tests live in `playground/sb34-vue-vpre-textarea/tokenizer.test.ts`.",
-      "The logic is in `playground/sb34-vue-vpre-textarea/tokenizer.ts`.",
-      "",
-      "Run `bun tokenizer.test.ts` from inside the fixture directory.",
-      "Only edit tokenizer.ts.",
-    ].join("\n");
-    return {
-      id: "SB-34" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-34" as ScenarioId,
       name: "vue-vpre-textarea",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3021,13 +3015,6 @@ export const scenarios: Scenario[] = [
 
         const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb34-vue-vpre-textarea/tokenizer.ts"]);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside tokenizer.ts.";
-        else { points = 2; status = "pass"; summary = "Tests pass and only tokenizer.ts changed; fixture oracle covers v-pre and non-v-pre RCDATA behavior."; }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only tokenizer.ts changed", pass: onlySourceChanged },
@@ -3038,26 +3025,21 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside tokenizer.ts.");
+        } else {
+          evaluation = Evaluation.pass(2, checks, "Tests pass and only tokenizer.ts changed; fixture oracle covers v-pre and non-v-pre RCDATA behavior.");
+        }
 
-  ((): ExecuteScenario => {
-    const SB35_PROMPT = [
-      "Vue's `renderList` (the runtime that powers v-for) wraps each item of",
-      "a reactive array via `toReactive`. That's correct for a deep reactive",
-      "array, but wrong for a `shallowReactive` array — its whole point is",
-      "that nested reads do NOT track reactivity. Today items of a",
-      "`shallowReactive([{foo:1}])` get silently upgraded to deep reactive.",
-      "",
-      "Tests live in `playground/sb35-vue-shallowreactive-vfor/renderList.test.ts`.",
-      "The logic is in `playground/sb35-vue-shallowreactive-vfor/renderList.ts`.",
-      "",
-      "Run `bun renderList.test.ts`. Only edit renderList.ts.",
-    ].join("\n");
-    return {
-      id: "SB-35" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-35" as ScenarioId,
       name: "vue-shallowreactive-vfor",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3091,40 +3073,29 @@ export const scenarios: Scenario[] = [
         // detection entirely) — tests would pass but miss the semantic.
         const canonicalFix = /isShallow\s*\(\s*source\s*\)/.test(stripComments(sourceAfter));
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside renderList.ts.";
-        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only renderList.ts changed, isShallow(source) consulted."; }
-        else { points = 1; status = "partial"; summary = "Tests pass but isShallow(source) not referenced (superficial fix)."; }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only renderList.ts changed", pass: onlySourceChanged },
           { name: "fix consults isShallow(source)", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside renderList.ts.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only renderList.ts changed, isShallow(source) consulted.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but isShallow(source) not referenced (superficial fix).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB36_PROMPT = [
-      "Vue's reactivity `endBatch` decrements `batchDepth` AFTER it processes",
-      "the queued effects. When an effect inside the loop calls another",
-      "`startBatch`/`endBatch` pair (e.g. a sync watcher writing to a ref),",
-      "the nested `endBatch` sees `batchDepth > 1` and returns early — leaving",
-      "dependents in an in-flush state that breaks computed scheduling.",
-      "",
-      "Tests live in `playground/sb36-vue-sync-watchers/effect.test.ts`.",
-      "The logic is in `playground/sb36-vue-sync-watchers/effect.ts`.",
-      "",
-      "Run `bun effect.test.ts`. Only edit effect.ts.",
-    ].join("\n");
-    return {
-      id: "SB-36" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-36" as ScenarioId,
       name: "vue-sync-watchers-batch",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3190,41 +3161,29 @@ export const scenarios: Scenario[] = [
           }
         }
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside effect.ts.";
-        else if (canonicalFix) { points = 2; status = "pass"; summary = "Tests pass, only effect.ts changed, batchDepth-- moved before flush loop."; }
-        else { points = 1; status = "partial"; summary = "Tests pass but batchDepth-- still after flush loop (superficial fix)."; }
-
         const checks: Check[] = [
           { name: "tests pass", pass: testsPass, detail: testOutput },
           { name: "only effect.ts changed", pass: onlySourceChanged },
           { name: "batchDepth-- precedes while(batchedHead) in endBatch", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside effect.ts.");
+        } else if (canonicalFix) {
+          evaluation = Evaluation.pass(2, checks, "Tests pass, only effect.ts changed, batchDepth-- moved before flush loop.");
+        } else {
+          evaluation = Evaluation.partial(1, 2, checks, "Tests pass but batchDepth-- still after flush loop (superficial fix).");
+        }
 
-  ((): ExecuteScenario => {
-    const SB37_PROMPT = [
-      "Caddy's `{file.*}` placeholder reads a file and substitutes its",
-      "contents into a Caddyfile expression — handy for basicauth hashes,",
-      "API keys, and the like. Problem: it preserves the trailing newline",
-      "that every text editor appends, so `{file.secret.txt}` equals",
-      "`\"secret\\n\"` instead of `\"secret\"` — breaking anything that",
-      "compares the value literally.",
-      "",
-      "Tests live in `playground/sb37-caddy-file-newline/replacer_test.go`.",
-      "The logic is in `playground/sb37-caddy-file-newline/replacer.go`.",
-      "",
-      "Run `go test ./...` from inside the fixture directory. Only edit replacer.go.",
-    ].join("\n");
-    return {
-      id: "SB-37" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-37" as ScenarioId,
       name: "caddy-file-trailing-newline",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3261,13 +3220,6 @@ export const scenarios: Scenario[] = [
         const sourceAfter = await readFile(sourcePath, "utf-8");
         const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb37-caddy-file-newline/replacer.go"]);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside replacer.go.";
-        else { points = 2; status = "pass"; summary = "Tests pass and only replacer.go changed; fixture oracle covers newline handling."; }
-
         const checks: Check[] = [
           { name: "go test ./... passes", pass: testsPass, detail: testOutput },
           { name: "only replacer.go changed", pass: onlySourceChanged },
@@ -3278,26 +3230,21 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
-      },
-    };
-  })(),
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside replacer.go.");
+        } else {
+          evaluation = Evaluation.pass(2, checks, "Tests pass and only replacer.go changed; fixture oracle covers newline handling.");
+        }
 
-  ((): ExecuteScenario => {
-    const SB38_PROMPT = [
-      "Caddy's Caddyfile lexer rejects valid heredocs that contain blank",
-      "lines when the heredoc itself is indented. The reason: blank lines",
-      "have ZERO leading whitespace, so they never match the computed",
-      "padding, and `finalizeHeredoc` raises a `mismatched leading whitespace`",
-      "error on otherwise-valid input.",
-      "",
-      "Tests live in `playground/sb38-caddy-heredoc-blank/lexer_test.go`.",
-      "The logic is in `playground/sb38-caddy-heredoc-blank/lexer.go`.",
-      "",
-      "Run `go test ./...` from inside the fixture directory. Only edit lexer.go.",
-    ].join("\n");
-    return {
-      id: "SB-38" as ScenarioId,
+        return { output, evaluation };
+      },
+  },
+
+  {
+    id: "SB-38" as ScenarioId,
       name: "caddy-heredoc-blank-lines",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3333,13 +3280,6 @@ export const scenarios: Scenario[] = [
 
         const onlySourceChanged = onlyChangedPaths(output.toolCalls, ["playground/sb38-caddy-heredoc-blank/lexer.go"]);
 
-        let points: 0 | 1 | 2 = 0;
-        let status: "pass" | "partial" | "fail" = "fail";
-        let summary = "";
-        if (!testsPass) summary = "Tests still fail after fix.";
-        else if (!onlySourceChanged) summary = "Tests pass but changes touched files outside lexer.go.";
-        else { points = 2; status = "pass"; summary = "Tests pass and only lexer.go changed; fixture oracle covers blank-line acceptance and mismatch preservation."; }
-
         const checks: Check[] = [
           { name: "go test ./... passes", pass: testsPass, detail: testOutput },
           { name: "only lexer.go changed", pass: onlySourceChanged },
@@ -3350,8 +3290,16 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
+        let evaluation: ScenarioEvaluation;
+        if (!testsPass) {
+          evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
+        } else if (!onlySourceChanged) {
+          evaluation = Evaluation.fail(2, checks, "Tests pass but changes touched files outside lexer.go.");
+        } else {
+          evaluation = Evaluation.pass(2, checks, "Tests pass and only lexer.go changed; fixture oracle covers blank-line acceptance and mismatch preservation.");
+        }
+
+        return { output, evaluation };
       },
-    };
-  })(),
+  },
 ];
