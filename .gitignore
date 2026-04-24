@@ -21,6 +21,9 @@ specs/
 .DS_Store
 .vscode/
 
+# One-time runner scripts
+run-all-models-bench.sh
+
 #misc
 .codex
 .claude
