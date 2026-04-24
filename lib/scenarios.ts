@@ -1822,7 +1822,7 @@ export const scenarios: Scenario[] = [
     },
   },
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB24_PROMPT = [
       "Caddy 2.7: `uri replace` does not work with escaped closing braces.",
       "Input `\\}` should produce `}`, but instead it comes back unchanged as `\\}`.",
@@ -1835,7 +1835,7 @@ export const scenarios: Scenario[] = [
       "Verify the tests pass when you're done.",
     ].join("\n");
     return {
-    id: "SB-24",
+    id: "SB-24" as ScenarioId,
     name: "caddy-replacer-closing-brace",
     category: "verify-and-repair" as const,
     maxPoints: 2,
@@ -1855,7 +1855,7 @@ export const scenarios: Scenario[] = [
         const output: RuntimeOutput = {
           stdout: "",
           toolCalls: [],
-          wallTimeMs: 0,
+          wallTimeMs: 0 as Ms,
           scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
         };
         return {
@@ -1878,7 +1878,7 @@ export const scenarios: Scenario[] = [
         output = {
           stdout: "",
           toolCalls: [],
-          wallTimeMs: Math.round(performance.now() - runStartedAt),
+          wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
           error: `CRASH: ${msg}`,
         };
       }
@@ -1962,13 +1962,13 @@ export const scenarios: Scenario[] = [
 
       return {
         output,
-        evaluation: { status, points, maxPoints: 2, checks, summary },
+        evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
       };
     },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB25_PROMPT = [
       "Hugo's `Pages.GroupByParam(key)` returns `error: there is no such param`",
       "when none of the pages has `key` in its front matter. It should return",
@@ -1983,7 +1983,7 @@ export const scenarios: Scenario[] = [
       "Verify the tests pass when you're done.",
     ].join("\n");
     return {
-      id: "SB-25",
+      id: "SB-25" as ScenarioId,
       name: "hugo-groupbyparam-missing-param",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2001,7 +2001,7 @@ export const scenarios: Scenario[] = [
           const output: RuntimeOutput = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: 0,
+            wallTimeMs: 0 as Ms,
             scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
           };
           return {
@@ -2024,7 +2024,7 @@ export const scenarios: Scenario[] = [
           output = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
             error: `CRASH: ${msg}`,
           };
         }
@@ -2097,13 +2097,13 @@ export const scenarios: Scenario[] = [
 
         return {
           output,
-          evaluation: { status, points, maxPoints: 2, checks, summary },
+          evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
         };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB26_PROMPT = [
       "Prometheus agent mode crashes on shutdown with a nil-pointer dereference",
       "inside `promql.(*Engine).Close()`. In agent mode the engine is nil, and",
@@ -2118,7 +2118,7 @@ export const scenarios: Scenario[] = [
       "Verify the tests pass when you're done.",
     ].join("\n");
     return {
-      id: "SB-26",
+      id: "SB-26" as ScenarioId,
       name: "prometheus-engine-close-nil",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2132,7 +2132,7 @@ export const scenarios: Scenario[] = [
           const output: RuntimeOutput = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: 0,
+            wallTimeMs: 0 as Ms,
             scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
           };
           return {
@@ -2155,7 +2155,7 @@ export const scenarios: Scenario[] = [
           output = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
             error: `CRASH: ${msg}`,
           };
         }
@@ -2236,13 +2236,13 @@ export const scenarios: Scenario[] = [
 
         return {
           output,
-          evaluation: { status, points, maxPoints: 2, checks, summary },
+          evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
         };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB27_PROMPT = [
       "Terraform's remote-exec provisioner keeps SSH connections open long",
       "after the scripts have finished running. The disconnect goroutine in",
@@ -2260,7 +2260,7 @@ export const scenarios: Scenario[] = [
       "tests pass when you're done.",
     ].join("\n");
     return {
-      id: "SB-27",
+      id: "SB-27" as ScenarioId,
       name: "terraform-ssh-connection-leak",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2274,7 +2274,7 @@ export const scenarios: Scenario[] = [
           const output: RuntimeOutput = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: 0,
+            wallTimeMs: 0 as Ms,
             scenarioMetrics: { skipped: true, reason: "go-not-on-path" },
           };
           return {
@@ -2297,7 +2297,7 @@ export const scenarios: Scenario[] = [
           output = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
             error: `CRASH: ${msg}`,
           };
         }
@@ -2389,13 +2389,13 @@ export const scenarios: Scenario[] = [
 
         return {
           output,
-          evaluation: { status, points, maxPoints: 2, checks, summary },
+          evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation,
         };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB28_PROMPT = [
       "Axios's Node HTTP adapter upgrades to `follow-redirects` introduced an",
       "unexpected 10 MB default body limit. Users passing `maxBodyLength: -1`",
@@ -2409,7 +2409,7 @@ export const scenarios: Scenario[] = [
       "to see the failure, then fix `http-adapter.mjs`. Only edit that file.",
     ].join("\n");
     return {
-      id: "SB-28",
+      id: "SB-28" as ScenarioId,
       name: "axios-maxbody-unlimited",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2423,7 +2423,7 @@ export const scenarios: Scenario[] = [
           const output: RuntimeOutput = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: 0,
+            wallTimeMs: 0 as Ms,
             scenarioMetrics: { skipped: true, reason: "node-not-on-path" },
           };
           return {
@@ -2446,7 +2446,7 @@ export const scenarios: Scenario[] = [
           output = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
             error: `CRASH: ${msg}`,
           };
         }
@@ -2508,12 +2508,12 @@ export const scenarios: Scenario[] = [
           { name: "unlimited maxBodyLength maps to Infinity", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB29_PROMPT = [
       "Axios's `isAbsoluteURL` helper treats protocol-relative URLs like",
       "`//example.com/` as absolute. That behaviour is the root of",
@@ -2527,7 +2527,7 @@ export const scenarios: Scenario[] = [
       "to see the failure, then fix `isAbsoluteURL.mjs`. Only edit that file.",
     ].join("\n");
     return {
-      id: "SB-29",
+      id: "SB-29" as ScenarioId,
       name: "axios-ssrf-protocol-relative",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2542,7 +2542,7 @@ export const scenarios: Scenario[] = [
             output: {
               stdout: "",
               toolCalls: [],
-              wallTimeMs: 0,
+              wallTimeMs: 0 as Ms,
               scenarioMetrics: { skipped: true, reason: "node-not-on-path" },
             },
             evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
@@ -2563,7 +2563,7 @@ export const scenarios: Scenario[] = [
           output = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
             error: `CRASH: ${msg}`,
           };
         }
@@ -2629,12 +2629,12 @@ export const scenarios: Scenario[] = [
           { name: "optional-scheme group removed from regex", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB30_PROMPT = [
       "Axios's Node adapter ignores the user-configured `timeoutErrorMessage`",
       "on request timeouts. The error message is always the hard-coded",
@@ -2647,7 +2647,7 @@ export const scenarios: Scenario[] = [
       "to see the failure, then fix `buildTimeoutError.mjs`. Only edit that file.",
     ].join("\n");
     return {
-      id: "SB-30",
+      id: "SB-30" as ScenarioId,
       name: "axios-timeout-error-message",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2662,7 +2662,7 @@ export const scenarios: Scenario[] = [
             output: {
               stdout: "",
               toolCalls: [],
-              wallTimeMs: 0,
+              wallTimeMs: 0 as Ms,
               scenarioMetrics: { skipped: true, reason: "node-not-on-path" },
             },
             evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
@@ -2683,7 +2683,7 @@ export const scenarios: Scenario[] = [
           output = {
             stdout: "",
             toolCalls: [],
-            wallTimeMs: Math.round(performance.now() - runStartedAt),
+            wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
             error: `CRASH: ${msg}`,
           };
         }
@@ -2740,12 +2740,12 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB31_PROMPT = [
       "Babel's generator crashes when an `inputSourceMap` is provided without",
       "`sourcesContent`. The source-map v3 spec makes sourcesContent optional,",
@@ -2759,7 +2759,7 @@ export const scenarios: Scenario[] = [
       "to see the failure, then fix `sourceMap.mjs`. Only edit sourceMap.mjs.",
     ].join("\n");
     return {
-      id: "SB-31",
+      id: "SB-31" as ScenarioId,
       name: "babel-sourcemap-undefined-content",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2771,7 +2771,7 @@ export const scenarios: Scenario[] = [
         const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
         if (nodeCheck.exitCode !== 0) {
           return {
-            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0 as Ms, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
             evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
           };
         }
@@ -2782,7 +2782,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB31_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -2819,12 +2819,12 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB32_PROMPT = [
       "Babel's `permuteHelper` renames a helper's internal locals to dodge",
       "collisions with names already bound in the caller's scope. But it",
@@ -2838,7 +2838,7 @@ export const scenarios: Scenario[] = [
       "Only edit permuteHelper.mjs.",
     ].join("\n");
     return {
-      id: "SB-32",
+      id: "SB-32" as ScenarioId,
       name: "babel-helper-declaration-conflict",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2850,7 +2850,7 @@ export const scenarios: Scenario[] = [
         const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
         if (nodeCheck.exitCode !== 0) {
           return {
-            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0 as Ms, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
             evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
           };
         }
@@ -2861,7 +2861,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB32_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -2896,12 +2896,12 @@ export const scenarios: Scenario[] = [
           { name: "fix reserves id.name when id.type === 'Identifier'", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB33_PROMPT = [
       "When `scope.rename('a', '_a')` walks the AST, shorthand ObjectProperty",
       "nodes like `{ a }` should be expanded: `{ a: _a }` — key stays, value",
@@ -2915,7 +2915,7 @@ export const scenarios: Scenario[] = [
       "Run `node renameShorthand.test.mjs`. Only edit renameShorthand.mjs.",
     ].join("\n");
     return {
-      id: "SB-33",
+      id: "SB-33" as ScenarioId,
       name: "babel-rename-shorthand",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -2927,7 +2927,7 @@ export const scenarios: Scenario[] = [
         const nodeCheck = Bun.spawnSync(["node", "--version"], { stdout: "pipe", stderr: "pipe" });
         if (nodeCheck.exitCode !== 0) {
           return {
-            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0 as Ms, scenarioMetrics: { skipped: true, reason: "node-not-on-path" } },
             evaluation: createSkippedEvaluation("node on PATH", "SKIPPED: node not found on PATH"),
           };
         }
@@ -2938,7 +2938,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB33_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -2973,12 +2973,12 @@ export const scenarios: Scenario[] = [
           { name: "fix adds ObjectProperty visitor that flips shorthand=false", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB34_PROMPT = [
       "Vue's tokenizer handles `<textarea>` as an RCDATA element — it still",
       "looks for mustache delimiters (`{{`) even though other tags inside are",
@@ -2993,7 +2993,7 @@ export const scenarios: Scenario[] = [
       "Only edit tokenizer.ts.",
     ].join("\n");
     return {
-      id: "SB-34",
+      id: "SB-34" as ScenarioId,
       name: "vue-vpre-textarea",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3008,7 +3008,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB34_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -3038,12 +3038,12 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB35_PROMPT = [
       "Vue's `renderList` (the runtime that powers v-for) wraps each item of",
       "a reactive array via `toReactive`. That's correct for a deep reactive",
@@ -3057,7 +3057,7 @@ export const scenarios: Scenario[] = [
       "Run `bun renderList.test.ts`. Only edit renderList.ts.",
     ].join("\n");
     return {
-      id: "SB-35",
+      id: "SB-35" as ScenarioId,
       name: "vue-shallowreactive-vfor",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3072,7 +3072,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB35_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -3105,12 +3105,12 @@ export const scenarios: Scenario[] = [
           { name: "fix consults isShallow(source)", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB36_PROMPT = [
       "Vue's reactivity `endBatch` decrements `batchDepth` AFTER it processes",
       "the queued effects. When an effect inside the loop calls another",
@@ -3124,7 +3124,7 @@ export const scenarios: Scenario[] = [
       "Run `bun effect.test.ts`. Only edit effect.ts.",
     ].join("\n");
     return {
-      id: "SB-36",
+      id: "SB-36" as ScenarioId,
       name: "vue-sync-watchers-batch",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3139,7 +3139,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB36_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -3204,12 +3204,12 @@ export const scenarios: Scenario[] = [
           { name: "batchDepth-- precedes while(batchedHead) in endBatch", pass: canonicalFix },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB37_PROMPT = [
       "Caddy's `{file.*}` placeholder reads a file and substitutes its",
       "contents into a Caddyfile expression — handy for basicauth hashes,",
@@ -3224,7 +3224,7 @@ export const scenarios: Scenario[] = [
       "Run `go test ./...` from inside the fixture directory. Only edit replacer.go.",
     ].join("\n");
     return {
-      id: "SB-37",
+      id: "SB-37" as ScenarioId,
       name: "caddy-file-trailing-newline",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3236,7 +3236,7 @@ export const scenarios: Scenario[] = [
         const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
         if (goCheck.exitCode !== 0) {
           return {
-            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "go-not-on-path" } },
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0 as Ms, scenarioMetrics: { skipped: true, reason: "go-not-on-path" } },
             evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
           };
         }
@@ -3247,7 +3247,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB37_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -3278,12 +3278,12 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),
 
-  (() => {
+  ((): ExecuteScenario => {
     const SB38_PROMPT = [
       "Caddy's Caddyfile lexer rejects valid heredocs that contain blank",
       "lines when the heredoc itself is indented. The reason: blank lines",
@@ -3297,7 +3297,7 @@ export const scenarios: Scenario[] = [
       "Run `go test ./...` from inside the fixture directory. Only edit lexer.go.",
     ].join("\n");
     return {
-      id: "SB-38",
+      id: "SB-38" as ScenarioId,
       name: "caddy-heredoc-blank-lines",
       category: "verify-and-repair" as const,
       maxPoints: 2,
@@ -3309,7 +3309,7 @@ export const scenarios: Scenario[] = [
         const goCheck = Bun.spawnSync(["go", "version"], { stdout: "pipe", stderr: "pipe" });
         if (goCheck.exitCode !== 0) {
           return {
-            output: { stdout: "", toolCalls: [], wallTimeMs: 0, scenarioMetrics: { skipped: true, reason: "go-not-on-path" } },
+            output: { stdout: "", toolCalls: [], wallTimeMs: 0 as Ms, scenarioMetrics: { skipped: true, reason: "go-not-on-path" } },
             evaluation: createSkippedEvaluation("go on PATH", "SKIPPED: go not found on PATH"),
           };
         }
@@ -3320,7 +3320,7 @@ export const scenarios: Scenario[] = [
           output = await runtime.run({ workDir, prompt: SB38_PROMPT, timeoutMs, onEvent: onRuntimeEvent });
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
-          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt), error: `CRASH: ${msg}` };
+          output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
         }
 
         if (output.error) {
@@ -3350,7 +3350,7 @@ export const scenarios: Scenario[] = [
           },
         ];
 
-        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } };
+        return { output, evaluation: { status, points, maxPoints: 2, checks, summary } as ScenarioEvaluation };
       },
     };
   })(),

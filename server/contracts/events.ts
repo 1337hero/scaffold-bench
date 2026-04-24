@@ -41,7 +41,7 @@ export type PersistedEvent =
       toolCallCount: number;
       firstTokenMs?: number;
       turnWallTimes?: number[];
-      turnFirstTokenMs?: number[];
+      turnFirstTokenMs?: Array<number | undefined>;
       evaluation: unknown;
       modelMetrics?: ModelMetrics;
     })
