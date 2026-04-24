@@ -7,15 +7,12 @@
     "bun": ">=1.2.0"
   },
   "scripts": {
-    "bench": "bun bench.ts",
-    "local": "bun bench.ts --runtime local",
     "web": "bun web.ts",
     "dev": "bun scripts/dev.ts",
     "dev:api": "bun web.ts",
     "dev:ui": "cd web-ui && bun run dev",
     "build:ui": "cd web-ui && bun run build",
     "start": "bun run build:ui && bun web.ts",
-    "report": "bun report.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test test/"
   },

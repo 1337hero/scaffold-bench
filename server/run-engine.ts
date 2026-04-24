@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { generateReport } from "../report.ts";
 import { runScenario } from "../lib/orchestrator.ts";
 import { localRuntime } from "../lib/runtimes/local-agent.ts";
 import { scenarios as allScenarios } from "../lib/scenarios.ts";
@@ -285,21 +284,12 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
         },
       });
 
-      const reportOutPath = join(import.meta.dir, "../bench-report.html");
-      let reportPath: string | null = resultsPath;
-      try {
-        await generateReport(join(import.meta.dir, "../results"), reportOutPath);
-        reportPath = reportOutPath;
-      } catch (err) {
-        console.error("Report generation failed:", err);
-      }
-
       const finishEvent: PersistedEvent = {
         type: "run_finished",
         runId,
         totalPoints,
         maxPoints,
-        reportPath,
+        reportPath: resultsPath,
         seq: globalRegistry.nextSeq(runId),
         ts: Date.now(),
       };
@@ -309,7 +299,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
           finished_at: finishEvent.ts,
           total_points: totalPoints,
           max_points: maxPoints,
-          report_path: reportPath,
+          report_path: resultsPath,
         });
         insertEvent({
           run_id: runId,
