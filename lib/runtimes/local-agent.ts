@@ -626,6 +626,8 @@ async function callModel(
   let errorMessage: string | undefined;
   let buffer = "";
   let stderrText = "";
+  let rawBody = "";
+  let sawSseLine = false;
 
   try {
     const stderrPromise = streamToString(proc.stderr).then((s) => {
@@ -634,12 +636,15 @@ async function callModel(
     const decoder = new TextDecoder();
 
     for await (const chunk of proc.stdout) {
-      buffer += decoder.decode(chunk, { stream: true });
+      const text = decoder.decode(chunk, { stream: true });
+      rawBody += text;
+      buffer += text;
       let nl: number;
       while ((nl = buffer.indexOf("\n")) !== -1) {
         const line = buffer.slice(0, nl).trimEnd();
         buffer = buffer.slice(nl + 1);
         if (!line.startsWith("data:")) continue;
+        sawSseLine = true;
         const data = line.slice(5).trim();
         if (data === "" || data === "[DONE]") continue;
 
@@ -687,6 +692,20 @@ async function callModel(
       throw new Error(stderrText.trim() || `curl exited with code ${exitCode}`);
     }
     if (errorMessage) throw new Error(errorMessage);
+    if (!sawSseLine) {
+      const trimmed = rawBody.trim();
+      if (trimmed) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          const msg = parsed?.error?.message ?? parsed?.message ?? trimmed;
+          throw new Error(`non-SSE response from ${DEFAULT_ENDPOINT}: ${String(msg).slice(0, 500)}`);
+        } catch (e) {
+          if (e instanceof Error && e.message.startsWith("non-SSE")) throw e;
+          throw new Error(`non-SSE response from ${DEFAULT_ENDPOINT}: ${trimmed.slice(0, 500)}`);
+        }
+      }
+      throw new Error(`empty response body from ${DEFAULT_ENDPOINT}`);
+    }
 
     const requestFinishedAt = performance.now();
     const toolCalls: OpenAIToolCall[] = [...toolCallsByIndex.entries()]
