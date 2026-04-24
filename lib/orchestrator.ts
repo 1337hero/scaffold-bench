@@ -4,7 +4,9 @@ import { join } from "node:path";
 import type { Runtime, RuntimeEvent } from "./runtimes/types.ts";
 import type { Scenario } from "./scenarios.ts";
 import { PLAYGROUND_SRC } from "./scenarios.ts";
-import type { RuntimeOutput, ScenarioResult } from "./scoring.ts";
+import type { Ms, ScenarioId } from "./schemas/brands.js";
+import { Evaluation } from "./scoring.ts";
+import type { RuntimeOutput, ScenarioEvaluation, ScenarioResult } from "./scoring.ts";
 
 export interface RunOptions {
   runtime: Runtime;
@@ -19,7 +21,7 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
 
   try {
     let output: RuntimeOutput;
-    let evaluation;
+    let evaluation: ScenarioEvaluation;
     const scenarioMaxPoints = opts.scenario.maxPoints ?? 2;
 
     if (opts.scenario.execute) {
@@ -45,20 +47,19 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
         output = {
           stdout: "",
           toolCalls: [],
-          wallTimeMs: Math.round(performance.now() - runStartedAt),
+          wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
           error: `CRASH: ${msg}`,
         };
       }
 
+      // EvaluateScenario branch — the type narrows here so `evaluate` is required.
       evaluation = output.error
-        ? {
-            status: "fail" as const,
-            points: 0 as const,
-            maxPoints: scenarioMaxPoints,
-            checks: [{ name: "completed without runtime error", pass: false, detail: output.error }],
-            summary: `Runtime error: ${output.error}`,
-          }
-        : await opts.scenario.evaluate?.({
+        ? Evaluation.fail(
+            scenarioMaxPoints,
+            [{ name: "completed without runtime error", pass: false, detail: output.error }],
+            `Runtime error: ${output.error}`
+          )
+        : await opts.scenario.evaluate({
             stdout: output.stdout,
             playgroundDir: workDir,
             toolCalls: output.toolCalls,
@@ -69,10 +70,6 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
             modelMetrics: output.modelMetrics,
             scenarioMetrics: output.scenarioMetrics,
           });
-    }
-
-    if (!evaluation) {
-      throw new Error(`Scenario ${opts.scenario.id} is missing an evaluation strategy`);
     }
 
     return {
