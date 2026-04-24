@@ -15,5 +15,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "effect": "^3.21.2"
   }
 }
