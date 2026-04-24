@@ -1,37 +1,7 @@
+import { Schema } from "effect";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-type RunResult = {
-  scenarioId: string;
-  category: string;
-  status: "pass" | "partial" | "fail";
-  points: number;
-  maxPoints: number;
-  toolCallCount: number;
-  wallTimeMs: number;
-  firstTokenMs?: number;
-  checks?: Array<{ name: string; pass: boolean; detail?: string }>;
-};
-
-type RunFile = {
-  timestamp: string;
-  runtime: string;
-  totalPoints: number;
-  maxPoints: number;
-  modelMetrics: {
-    model?: string;
-    requestCount: number;
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    totalRequestTimeMs: number;
-    promptEvalTokens?: number;
-    promptEvalTimeMs?: number;
-    completionEvalTokens?: number;
-    completionEvalTimeMs?: number;
-  };
-  results: RunResult[];
-};
+import { RunFileSchema, type RunFile } from "./lib/schemas/run-file.ts";
 
 type Aggregated = {
   m: string;
@@ -74,7 +44,7 @@ const files = readdirSync(resultsDir)
 
 const groups = new Map<string, RunFile[]>();
 for (const f of files) {
-  const raw = JSON.parse(readFileSync(f.path, "utf8")) as RunFile;
+  const raw = Schema.decodeUnknownSync(RunFileSchema)(JSON.parse(readFileSync(f.path, "utf8")));
   const model = raw.modelMetrics?.model ?? "unknown";
   if (!groups.has(model)) groups.set(model, []);
   groups.get(model)!.push(raw);

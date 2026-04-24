@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { Schema } from "effect";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -7,6 +8,7 @@ import { runScenario } from "./lib/orchestrator.ts";
 import { localRuntime } from "./lib/runtimes/local-agent.ts";
 import type { Runtime } from "./lib/runtimes/types.ts";
 import { scenarios } from "./lib/scenarios.ts";
+import { RunFileSchema } from "./lib/schemas/run-file.ts";
 import {
   completionTokensPerSecond,
   mergeModelMetrics,
@@ -188,40 +190,34 @@ async function main(): Promise<void> {
     const resultsDir = join(import.meta.dir, "results");
     await mkdir(resultsDir, { recursive: true });
     const outPath = join(resultsDir, `${timestamp}-${runtime.name}.json`);
-    await Bun.write(
-      outPath,
-      JSON.stringify(
-        {
-          timestamp: new Date().toISOString(),
-          runtime: runtime.name,
-          totalPoints,
-          maxPoints,
-          modelMetrics,
-          results: results.map((r) => ({
-            scenarioId: r.scenarioId,
-            category: r.category,
-            status: r.evaluation.status,
-            points: r.evaluation.points,
-            maxPoints: r.evaluation.maxPoints,
-            toolCallCount: r.output.toolCalls.length,
-            wallTimeMs: r.output.wallTimeMs,
-            firstTokenMs: r.output.firstTokenMs,
-            turnWallTimes: r.output.turnWallTimes,
-            turnFirstTokenMs: r.output.turnFirstTokenMs,
-            error: r.output.error,
-            modelMetrics: r.output.modelMetrics,
-            scenarioMetrics: r.output.scenarioMetrics,
-            checks: r.evaluation.checks,
-            ...(r.evaluation.status !== "pass" && {
-              transcript: r.output.stdout,
-              toolCalls: r.output.toolCalls,
-            }),
-          })),
-        },
-        null,
-        2
-      )
-    );
+    const runFile = {
+      timestamp: new Date().toISOString(),
+      runtime: runtime.name,
+      totalPoints,
+      maxPoints,
+      modelMetrics,
+      results: results.map((r) => ({
+        scenarioId: r.scenarioId,
+        category: r.category,
+        status: r.evaluation.status,
+        points: r.evaluation.points,
+        maxPoints: r.evaluation.maxPoints,
+        toolCallCount: r.output.toolCalls.length,
+        wallTimeMs: r.output.wallTimeMs,
+        firstTokenMs: r.output.firstTokenMs,
+        turnWallTimes: r.output.turnWallTimes,
+        turnFirstTokenMs: r.output.turnFirstTokenMs,
+        error: r.output.error,
+        modelMetrics: r.output.modelMetrics,
+        scenarioMetrics: r.output.scenarioMetrics,
+        checks: r.evaluation.checks,
+        ...(r.evaluation.status !== "pass" && {
+          transcript: r.output.stdout,
+          toolCalls: r.output.toolCalls,
+        }),
+      })),
+    };
+    await Bun.write(outPath, JSON.stringify(Schema.encodeSync(RunFileSchema)(runFile), null, 2));
 
     if (ui) {
       ui.renderFinal({
