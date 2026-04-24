@@ -1,15 +1,26 @@
 import type { RuntimeEvent } from "./runtimes/types.ts";
 import {
+  TOOL_NAMES,
+  computeCategoryRollups,
+  computeElapsed,
+  computeMisses,
+  computeRunTotals,
+  computeScenarioMetrics,
+  computeStatusBreakdown,
+  countStatus,
+  findActiveIndex,
+  selectFinalMetrics,
+  selectMergedMetrics,
+  totalToolCalls,
+} from "./aggregates.ts";
+import {
   completionTokensPerSecond,
-  mergeModelMetrics,
   promptTokensPerSecond,
-  sumScenarioMaxPoints,
 } from "./scoring.ts";
 import type {
   Category,
   ModelMetrics,
   ScenarioResult,
-  ScenarioStatus,
   ToolCall,
 } from "./scoring.ts";
 
@@ -39,7 +50,7 @@ type DashboardRenderState = {
   runtimeName: string;
   scenarios: BenchScenarioView[];
   startedAt: number;
-  activeIndex: number;
+  activeIndex: number | undefined;
   final: boolean;
   resultsPath?: string;
   totalPoints?: number;
@@ -99,7 +110,7 @@ export class BenchDashboard {
 
   attach(): void {
     process.stdout.write("\x1b[?25l");
-    this.interval = setInterval(() => this.tick(this.findActiveIndex()), 250);
+    this.interval = setInterval(() => this.tick(findActiveIndex(this.scenarios)), 250);
     this.sigintHandler = () => {
       this.dispose();
       process.exit(130);
@@ -144,9 +155,9 @@ export class BenchDashboard {
     view.result = result;
     view.toolCalls = result.output.toolCalls;
     view.liveMetrics = result.output.modelMetrics ?? view.liveMetrics;
-    view.misses = result.evaluation.checks
-      .filter((check) => !check.pass)
-      .map((check) => `${check.name}${check.detail ? ` - ${check.detail.slice(0, 120)}` : ""}`);
+    view.misses = computeMisses([view]).map(
+      (row) => `${row.checkName}${row.detail ? ` - ${row.detail.slice(0, 120)}` : ""}`
+    );
 
     if (view.streamBuffer.trim()) {
       pushLog(view, "assistant", "assistant", view.streamBuffer.trim());
@@ -177,7 +188,7 @@ export class BenchDashboard {
     this.tick(index);
   }
 
-  tick(activeIndex: number): void {
+  tick(activeIndex: number | undefined): void {
     this.render({
       runtimeName: this.runtimeName,
       scenarios: this.scenarios,
@@ -222,10 +233,6 @@ export class BenchDashboard {
     process.stdout.write("\n\x1b[?25h");
   }
 
-  private findActiveIndex(): number {
-    return this.scenarios.findIndex((scenario) => scenario.stage === "running");
-  }
-
   private render(state: DashboardRenderState): void {
     const frame = renderDashboard(state, process.stdout.columns ?? 120, process.stdout.rows ?? 32);
     if (frame === this.lastFrame) return;
@@ -249,25 +256,16 @@ const TEXT = "\x1b[38;2;226;232;240m";
 function renderDashboard(state: DashboardRenderState, width: number, height: number): string {
   const safeWidth = Math.max(100, width);
   const safeHeight = Math.max(24, height);
-  const activeIndex = state.activeIndex >= 0 ? state.activeIndex : 0;
+  const activeIndex = state.activeIndex ?? 0;
   const active = state.scenarios[Math.min(activeIndex, Math.max(0, state.scenarios.length - 1))];
   const elapsed = Date.now() - state.startedAt;
-  const totalPoints =
-    state.totalPoints ??
-    state.scenarios.reduce((sum, scenario) => sum + (scenario.result?.evaluation.points ?? 0), 0);
-  const maxPoints =
-    state.maxPoints ??
-    sumScenarioMaxPoints(state.scenarios.map((scenario) => scenario.result?.evaluation));
-  const completed = state.scenarios.filter((scenario) => scenario.stage === "done").length;
-  const passCount = state.scenarios.filter(
-    (scenario) => scenario.result?.evaluation.status === "pass"
-  ).length;
-  const partialCount = state.scenarios.filter(
-    (scenario) => scenario.result?.evaluation.status === "partial"
-  ).length;
-  const failCount = state.scenarios.filter(
-    (scenario) => scenario.result?.evaluation.status === "fail"
-  ).length;
+  const runTotals = computeRunTotals(state.scenarios);
+  const totalPoints = state.totalPoints ?? runTotals.totalPoints;
+  const maxPoints = state.maxPoints ?? runTotals.maxPoints;
+  const completed = runTotals.completed;
+  const { pass: passCount, partial: partialCount, fail: failCount } = computeStatusBreakdown(
+    state.scenarios
+  );
 
   const header = renderHeaderRibbon(
     state,
@@ -379,11 +377,9 @@ function renderScenarioList(
       ? `${GOLD}${fitPlain(scenario.name, Math.max(8, width - scenario.id.length - 4))}${RESET}`
       : `${TEXT}${fitPlain(scenario.name, Math.max(8, width - scenario.id.length - 4))}${RESET}`;
     const points = scenario.result ? `${scenario.result.evaluation.points}pt` : "--";
-    const elapsed = scenario.result
-      ? formatDuration(scenario.result.output.wallTimeMs)
-      : scenario.startedAt
-        ? formatDuration((scenario.finishedAt ?? Date.now()) - scenario.startedAt)
-        : "--:--";
+    const elapsed = scenario.result || scenario.startedAt
+      ? formatDuration(computeElapsed(scenario))
+      : "--:--";
 
     lines.push(fitAnsi(`${icon} ${id} ${name}`, width));
     lines.push(
@@ -413,9 +409,7 @@ function renderAgentStream(
   const lines = [
     fitAnsi(`${TEXT}${BOLD}${active.id}${RESET} ${TEXT}${active.name}${RESET}`, width),
     fitAnsi(
-      `${DIM}${active.category}${RESET}  ${DIM}stage${RESET} ${renderStage(active)}  ${DIM}tools${RESET} ${active.toolCalls.length}  ${DIM}elapsed${RESET} ${formatDuration(
-        active.startedAt ? (active.finishedAt ?? Date.now()) - active.startedAt : 0
-      )}`,
+      `${DIM}${active.category}${RESET}  ${DIM}stage${RESET} ${renderStage(active)}  ${DIM}tools${RESET} ${active.toolCalls.length}  ${DIM}elapsed${RESET} ${formatDuration(computeElapsed(active))}`,
       width
     ),
     "",
@@ -463,18 +457,14 @@ function renderMetrics(
 ): string[] {
   const metrics =
     active?.liveMetrics ??
-    state.modelMetrics ??
-    mergeModelMetrics(
-      state.scenarios.map((scenario) => scenario.liveMetrics ?? scenario.result?.output.modelMetrics)
-    );
+    selectFinalMetrics(state) ??
+    selectMergedMetrics(state.scenarios);
   const promptTps = metrics ? promptTokensPerSecond(metrics) : undefined;
   const completionTps = metrics ? completionTokensPerSecond(metrics) : undefined;
-  const bashCalls = active ? active.toolCalls.filter((call) => call.name === "bash").length : 0;
-  const edits = active
-    ? active.toolCalls.filter((call) => call.name === "edit" || call.name === "write").length
-    : 0;
-  const firstTokenMs = active?.result?.output.firstTokenMs;
-  const turnWallTimes = active?.result?.output.turnWallTimes;
+  const scenarioMetrics = active
+    ? computeScenarioMetrics(active)
+    : { toolCount: 0, bashCalls: 0, edits: 0 };
+  const { bashCalls, edits, firstTokenMs, turnWallTimes } = scenarioMetrics;
 
   const lines = [
     fitAnsi(
@@ -549,8 +539,8 @@ function renderChecks(
       `Tool activity (${active.toolCalls.length})`
     ),
     renderCheckLine(
-      active.toolCalls.some((call) => call.name === "bash") ? "pass" : "pending",
-      active.toolCalls.some((call) => call.name === "bash")
+      active.toolCalls.some((call) => call.name === TOOL_NAMES.bash) ? "pass" : "pending",
+      active.toolCalls.some((call) => call.name === TOOL_NAMES.bash)
         ? "Verification commands seen"
         : "Verification pending"
     ),
@@ -596,9 +586,9 @@ function renderChecks(
 
 function renderFinalSummary(state: DashboardRenderState, width: number, height: number): string[] {
   const results = state.scenarios.flatMap((scenario) => (scenario.result ? [scenario.result] : []));
-  const totalPoints = state.totalPoints ?? 0;
-  const maxPoints =
-    state.maxPoints ?? sumScenarioMaxPoints(results.map((result) => result.evaluation));
+  const runTotals = computeRunTotals(state.scenarios);
+  const totalPoints = state.totalPoints ?? runTotals.totalPoints;
+  const maxPoints = state.maxPoints ?? runTotals.maxPoints;
   const lines = [
     fitAnsi(`${DIM}score${RESET} ${GREEN}${BOLD}${totalPoints}/${maxPoints}${RESET}`, width),
     fitAnsi(
@@ -613,20 +603,12 @@ function renderFinalSummary(state: DashboardRenderState, width: number, height: 
     `${TEXT}${BOLD}Categories${RESET}`,
   ];
 
-  for (const category of CATEGORIES) {
-    const rows = results.filter((result) => result.category === category);
-    if (rows.length === 0) continue;
-    const points = rows.reduce((sum, row) => sum + row.evaluation.points, 0);
-    const max = sumScenarioMaxPoints(rows.map((row) => row.evaluation));
+  for (const { category, points, maxPoints: max } of computeCategoryRollups(state.scenarios, CATEGORIES)) {
     lines.push(fitAnsi(`${DIM}${category}${RESET} ${TEXT}${points}/${max}${RESET}`, width));
   }
 
-  const misses = state.scenarios.flatMap((scenario) =>
-    scenario.result
-      ? scenario.result.evaluation.checks
-          .filter((check) => !check.pass)
-          .flatMap((check) => wrapPlain(`${scenario.id}: ${check.name}`, width))
-      : []
+  const misses = computeMisses(state.scenarios).flatMap((row) =>
+    wrapPlain(`${row.scenarioId}: ${row.checkName}`, width)
   );
   if (misses.length > 0) {
     lines.push("", `${TEXT}${BOLD}Misses${RESET}`);
@@ -732,7 +714,7 @@ function applyToolResult(view: BenchScenarioView, call: ToolCall, result: string
     return;
   }
 
-  if (call.name === "bash") {
+  if (call.name === TOOL_NAMES.bash) {
     const parsed = parseBashResult(result);
     if (parsed.stdout) {
       pushLog(view, "stdout", "stdout", parsed.stdout);
@@ -758,14 +740,14 @@ function applyToolResult(view: BenchScenarioView, call: ToolCall, result: string
     return;
   }
 
-  if (call.name === "edit" || call.name === "write") {
+  if (call.name === TOOL_NAMES.edit || call.name === TOOL_NAMES.write) {
     pushLog(view, "stdout", "stdout", result);
     return;
   }
 
-  if (call.name === "grep" || call.name === "glob" || call.name === "ls") {
+  if (call.name === TOOL_NAMES.grep || call.name === TOOL_NAMES.glob || call.name === TOOL_NAMES.ls) {
     const count = result === "no matches" ? 0 : result.split("\n").filter(Boolean).length;
-    const label = call.name === "ls" ? "entries" : "matches";
+    const label = call.name === TOOL_NAMES.ls ? "entries" : "matches";
     pushLog(view, "system", "system", `${call.name}: ${count} ${label}`);
   }
 }
@@ -872,18 +854,6 @@ function renderCheckLine(status: boolean | "pass" | "fail" | "pending", label: s
         ? `${RED}✗${RESET}`
         : `${ZINC}•${RESET}`;
   return `${icon} ${TEXT}${label}${RESET}`;
-}
-
-function countStatus(status: ScenarioStatus, results: ScenarioResult[]): number {
-  return results.filter((result) => result.evaluation.status === status).length;
-}
-
-function totalToolCalls(scenarios: BenchScenarioView[]): number {
-  return scenarios.reduce(
-    (sum, scenario) =>
-      sum + (scenario.result?.output.toolCalls.length ?? scenario.toolCalls.length),
-    0
-  );
 }
 
 function computeColumnWidths(totalWidth: number): {

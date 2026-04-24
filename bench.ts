@@ -13,46 +13,20 @@ import {
   completionTokensPerSecond,
   mergeModelMetrics,
   promptTokensPerSecond,
-  sumScenarioMaxPoints,
 } from "./lib/scoring.ts";
-import type { Category, ScenarioResult, ScenarioStatus } from "./lib/scoring.ts";
+import type { Category, ScenarioResult } from "./lib/scoring.ts";
+import {
+  computeCategoryRollups,
+  computeRunTotals,
+  countStatus,
+  totalToolCalls,
+  totalWallTime,
+  type ScenarioLike,
+} from "./lib/aggregates.ts";
 
 const RUNTIMES: Record<string, Runtime> = {
   local: localRuntime,
 };
-
-const { values } = parseArgs({
-  options: {
-    runtime: { type: "string", short: "r", default: "local" },
-    scenario: { type: "string", short: "s" },
-    timeout: { type: "string", short: "t", default: "600000" },
-  },
-  strict: true,
-});
-
-const runtimeName = String(values.runtime);
-const runtime = RUNTIMES[runtimeName];
-if (!runtime) {
-  console.error(`Unknown runtime: ${runtimeName}. Choices: ${Object.keys(RUNTIMES).join(", ")}`);
-  process.exit(1);
-}
-
-const timeoutMs = Number(values.timeout);
-if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-  console.error(`Invalid --timeout: ${values.timeout}. Must be a positive number (ms).`);
-  process.exit(1);
-}
-const filter = values.scenario ? String(values.scenario) : undefined;
-const activeScenarios = filter
-  ? scenarios.filter((s) => s.name === filter || s.id === filter)
-  : scenarios;
-
-if (activeScenarios.length === 0) {
-  console.error(
-    `No scenarios matched "${filter}". Available: ${scenarios.map((s) => s.name).join(", ")}`
-  );
-  process.exit(1);
-}
 
 const categories: Category[] = [
   "surgical-edit",
@@ -65,11 +39,17 @@ const categories: Category[] = [
   "long-context",
 ];
 
-function countStatus(s: ScenarioStatus, rs: ScenarioResult[]): number {
-  return rs.filter((r) => r.evaluation.status === s).length;
+function resultToLike(r: ScenarioResult): ScenarioLike {
+  return {
+    id: r.scenarioId,
+    category: r.category,
+    stage: "done",
+    toolCalls: r.output.toolCalls,
+    result: r,
+  };
 }
 
-function printPlainSummary(
+export function printPlainSummary(
   results: ScenarioResult[],
   totalPoints: number,
   maxPoints: number,
@@ -103,19 +83,49 @@ function printPlainSummary(
   }
   console.log();
   console.log("  By category:");
-  for (const cat of categories) {
-    const rows = results.filter((r) => r.category === cat);
-    if (rows.length === 0) continue;
-    const pts = rows.reduce((sum, r) => sum + r.evaluation.points, 0);
-    const max = sumScenarioMaxPoints(rows.map((row) => row.evaluation));
-    console.log(`    ${cat.padEnd(22)} ${pts}/${max}`);
+  const likes = results.map(resultToLike);
+  for (const { category, points, maxPoints } of computeCategoryRollups(likes, categories)) {
+    console.log(`    ${category.padEnd(22)} ${points}/${maxPoints}`);
   }
   console.log();
   console.log(`  Results: ${outPath}`);
   console.log("━".repeat(72));
 }
 
-async function main(): Promise<void> {
+if (import.meta.main) {
+  const { values } = parseArgs({
+    options: {
+      runtime: { type: "string", short: "r", default: "local" },
+      scenario: { type: "string", short: "s" },
+      timeout: { type: "string", short: "t", default: "600000" },
+    },
+    strict: true,
+  });
+
+  const runtimeName = String(values.runtime);
+  const runtime = RUNTIMES[runtimeName];
+  if (!runtime) {
+    console.error(`Unknown runtime: ${runtimeName}. Choices: ${Object.keys(RUNTIMES).join(", ")}`);
+    process.exit(1);
+  }
+
+  const timeoutMs = Number(values.timeout);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    console.error(`Invalid --timeout: ${values.timeout}. Must be a positive number (ms).`);
+    process.exit(1);
+  }
+  const filter = values.scenario ? String(values.scenario) : undefined;
+  const activeScenarios = filter
+    ? scenarios.filter((s) => s.name === filter || s.id === filter)
+    : scenarios;
+
+  if (activeScenarios.length === 0) {
+    console.error(
+      `No scenarios matched "${filter}". Available: ${scenarios.map((s) => s.name).join(", ")}`
+    );
+    process.exit(1);
+  }
+
   const results: ScenarioResult[] = [];
   const ui = process.stdout.isTTY
     ? new BenchDashboard(
@@ -180,10 +190,10 @@ async function main(): Promise<void> {
       }
     }
 
-    const totalPoints = results.reduce((sum, r) => sum + r.evaluation.points, 0);
-    const maxPoints = sumScenarioMaxPoints(results.map((result) => result.evaluation));
-    const totalTime = results.reduce((sum, r) => sum + r.output.wallTimeMs, 0);
-    const totalTools = results.reduce((sum, r) => sum + r.output.toolCalls.length, 0);
+    const resultLikes = results.map(resultToLike);
+    const { totalPoints, maxPoints } = computeRunTotals(resultLikes);
+    const totalTime = totalWallTime(results);
+    const totalTools = totalToolCalls(resultLikes);
     const modelMetrics = mergeModelMetrics(results.map((result) => result.output.modelMetrics));
 
     const timestamp = Date.now();
@@ -237,5 +247,3 @@ async function main(): Promise<void> {
     if (ui && !finished) ui.dispose();
   }
 }
-
-await main();
