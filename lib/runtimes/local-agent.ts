@@ -1,8 +1,10 @@
 import { spawn } from "bun";
+import { Either, Schema } from "effect";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { ChatStreamChunkSchema } from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
 import type { Runtime, RuntimeContext, RuntimeSession, RuntimeSessionContext } from "./types.ts";
 
@@ -648,20 +650,41 @@ async function callModel(
         const data = line.slice(5).trim();
         if (data === "" || data === "[DONE]") continue;
 
-        let evt: any;
+        let parsed: unknown;
         try {
-          evt = JSON.parse(data);
+          parsed = JSON.parse(data);
         } catch {
           continue;
         }
+        const result = Schema.decodeUnknownEither(ChatStreamChunkSchema)(parsed);
+        if (Either.isLeft(result)) {
+          console.error("[stream] chunk decode error:", result.left.message);
+          continue;
+        }
+        const evt = result.right;
 
         if (evt.error?.message) errorMessage = evt.error.message;
-        if (evt.usage) usage = parseUsage(evt.usage);
-        if (evt.timings) timings = parseTimings(evt.timings);
+        if (evt.usage) {
+          usage = {
+            prompt_tokens: evt.usage.prompt_tokens,
+            completion_tokens: evt.usage.completion_tokens,
+            total_tokens: evt.usage.total_tokens,
+          };
+        }
+        if (evt.timings) {
+          timings = {
+            prompt_n: evt.timings.prompt_n,
+            prompt_ms: evt.timings.prompt_ms,
+            prompt_per_second: evt.timings.prompt_per_second,
+            predicted_n: evt.timings.predicted_n,
+            predicted_ms: evt.timings.predicted_ms,
+            predicted_per_second: evt.timings.predicted_per_second,
+          };
+        }
 
         const choice = evt.choices?.[0];
         if (!choice) continue;
-        if (choice.finish_reason) finishReason = parseFinishReason(choice.finish_reason);
+        if (choice.finish_reason) finishReason = narrowFinishReason(choice.finish_reason);
 
         const delta = choice.delta;
         if (!delta) continue;
@@ -671,9 +694,9 @@ async function callModel(
           onDelta?.(delta.content);
         }
 
-        if (Array.isArray(delta.tool_calls)) {
+        if (delta.tool_calls) {
           for (const tc of delta.tool_calls) {
-            const idx = typeof tc.index === "number" ? tc.index : 0;
+            const idx = tc.index;
             const existing = toolCallsByIndex.get(idx) ?? { id: "", name: "", arguments: "" };
             if (typeof tc.id === "string") existing.id = tc.id;
             if (tc.function?.name) existing.name = tc.function.name;
@@ -838,138 +861,11 @@ function normalizeEndpoint(endpoint: string): string {
     : `${endpoint.replace(/\/+$/, "")}/v1/chat/completions`;
 }
 
-function parseChatResponse(raw: string): ChatResponse {
-  const parsed = parseJson(raw, "model response");
-  if (!isRecord(parsed)) {
-    throw new Error("model response must be a JSON object");
-  }
-
-  const choicesValue = parsed.choices;
-  const errorValue = parsed.error;
-  const usageValue = parsed.usage;
-  const timingsValue = parsed.timings;
-  return {
-    choices: choicesValue === undefined ? undefined : parseChoices(choicesValue),
-    error: errorValue === undefined ? undefined : parseErrorPayload(errorValue),
-    usage: usageValue === undefined ? undefined : parseUsage(usageValue),
-    timings: timingsValue === undefined ? undefined : parseTimings(timingsValue),
-    prompt_eval_count: getOptionalNumber(parsed, "prompt_eval_count"),
-    prompt_eval_duration: getOptionalNumber(parsed, "prompt_eval_duration"),
-    eval_count: getOptionalNumber(parsed, "eval_count"),
-    eval_duration: getOptionalNumber(parsed, "eval_duration"),
-    total_duration: getOptionalNumber(parsed, "total_duration"),
-  };
-}
-
-function parseChoices(value: unknown): ChatResponse["choices"] {
-  if (!Array.isArray(value)) {
-    throw new Error("model response choices must be an array");
-  }
-  return value.map((choice) => {
-    if (!isRecord(choice)) {
-      throw new Error("model response choice must be an object");
-    }
-    return {
-      finish_reason: parseFinishReason(choice.finish_reason),
-      message: choice.message === undefined ? undefined : parseChatMessage(choice.message),
-    };
-  });
-}
-
-function parseErrorPayload(value: unknown): { message?: string } {
-  if (!isRecord(value)) {
-    throw new Error("model response error must be an object");
-  }
-  return { message: getOptionalString(value, "message") };
-}
-
-function parseUsage(value: unknown): NonNullable<ChatResponse["usage"]> {
-  if (!isRecord(value)) {
-    throw new Error("model response usage must be an object");
-  }
-  return {
-    prompt_tokens: getOptionalNumber(value, "prompt_tokens"),
-    completion_tokens: getOptionalNumber(value, "completion_tokens"),
-    total_tokens: getOptionalNumber(value, "total_tokens"),
-  };
-}
-
-function parseTimings(value: unknown): NonNullable<ChatResponse["timings"]> {
-  if (!isRecord(value)) {
-    throw new Error("model response timings must be an object");
-  }
-  return {
-    prompt_n: getOptionalNumber(value, "prompt_n"),
-    prompt_ms: getOptionalNumber(value, "prompt_ms"),
-    prompt_per_second: getOptionalNumber(value, "prompt_per_second"),
-    predicted_n: getOptionalNumber(value, "predicted_n"),
-    predicted_ms: getOptionalNumber(value, "predicted_ms"),
-    predicted_per_second: getOptionalNumber(value, "predicted_per_second"),
-  };
-}
-
-function parseChatMessage(value: unknown): ChatMessage {
-  if (!isRecord(value)) {
-    throw new Error("model message must be an object");
-  }
-
-  const role = value.role;
-  if (role !== "system" && role !== "user" && role !== "assistant" && role !== "tool") {
-    throw new Error(`unsupported message role: ${String(role)}`);
-  }
-
-  const content = value.content;
-  const normalizedContent =
-    content === null || content === undefined
-      ? ""
-      : typeof content === "string"
-        ? content
-        : (() => {
-            throw new Error("model message content must be a string or null");
-          })();
-
-  return {
-    role,
-    content: normalizedContent,
-    ...(getOptionalString(value, "tool_call_id")
-      ? { tool_call_id: getOptionalString(value, "tool_call_id") }
-      : {}),
-    ...(value.tool_calls === undefined ? {} : { tool_calls: parseToolCalls(value.tool_calls) }),
-  };
-}
-
-function parseToolCalls(value: unknown): OpenAIToolCall[] {
-  if (!Array.isArray(value)) {
-    throw new Error("tool_calls must be an array");
-  }
-  return value.map((call) => {
-    if (!isRecord(call)) {
-      throw new Error("tool call must be an object");
-    }
-    const type = call.type;
-    if (type !== "function") {
-      throw new Error(`unsupported tool call type: ${String(type)}`);
-    }
-    const fn = call.function;
-    if (!isRecord(fn)) {
-      throw new Error("tool call function payload must be an object");
-    }
-    return {
-      id: getRequiredString(call, "id"),
-      type,
-      function: {
-        name: getRequiredString(fn, "name"),
-        arguments: getOptionalString(fn, "arguments") ?? "{}",
-      },
-    };
-  });
-}
-
-function parseFinishReason(value: unknown): FinishReason {
-  if (value === undefined || value === "stop") return "stop";
+function narrowFinishReason(value: string): FinishReason {
+  if (value === "stop") return "stop";
   if (value === "tool_calls" || value === "function_call") return "tool_calls";
   if (value === "length" || value === "content_filter") return value;
-  throw new Error(`unsupported finish_reason: ${String(value)}`);
+  throw new Error(`unsupported finish_reason: ${value}`);
 }
 
 function parseJson(raw: string, label: string): unknown {
