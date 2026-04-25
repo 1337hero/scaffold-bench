@@ -13,7 +13,9 @@ const DIST = new URL("../web-ui/dist", import.meta.url).pathname;
 export function createApp() {
   const app = new Hono();
 
-  app.use("*", cors({ origin: ["http://localhost:5173", "http://127.0.0.1:5173"] }));
+  if (Bun.env.NODE_ENV !== "production") {
+    app.use("*", cors({ origin: ["http://localhost:5173", "http://127.0.0.1:5173"] }));
+  }
 
   app.get("/api/health", (c) => c.json({ ok: true, version: "1.0.0" }));
 
