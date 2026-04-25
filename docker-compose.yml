@@ -1,0 +1,40 @@
+services:
+  scaffold-bench:
+    container_name: scaffold-bench
+    image: scaffold-bench:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # 0.0.0.0 — reachable from other devices on the LAN
+      - "0.0.0.0:4317:4317"
+    environment:
+      - NODE_ENV=production
+      - SCAFFOLD_WEB_PORT=4317
+      - SCAFFOLD_DB_PATH=/app/data/scaffold-bench.db
+      - SHELL=/bin/bash
+      - SCAFFOLD_LOCAL_ENDPOINT=${SCAFFOLD_LOCAL_ENDPOINT:-http://host.docker.internal:8082}
+      - SCAFFOLD_REMOTE_ENDPOINT=${SCAFFOLD_REMOTE_ENDPOINT:-}
+      - SCAFFOLD_REMOTE_API_KEY=${SCAFFOLD_REMOTE_API_KEY:-}
+      - SCAFFOLD_REMOTE_MODELS=${SCAFFOLD_REMOTE_MODELS:-}
+    extra_hosts:
+      # Lets the container reach llama-swap / Ollama on the host.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - bench-data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://localhost:4317/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  bench-data:

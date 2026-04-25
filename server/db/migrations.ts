@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 
-const DB_PATH = join(import.meta.dir, "../../scaffold-bench.db");
+const DB_PATH = Bun.env.SCAFFOLD_DB_PATH ?? join(import.meta.dir, "../../scaffold-bench.db");
 
 let _db: Database | null = null;
 
