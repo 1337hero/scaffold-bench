@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import { Evaluation } from "../scoring.ts";
+import {
+  Evaluation,
+  classifyRuntimeError,
+  runtimeErrorEvaluation,
+} from "../scoring.ts";
 import type { Check, RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
 import type { ExecuteScenario, ScenarioExecutionContext } from "./types.js";
 import { createSkippedEvaluation, onlyChangedFiles, stripComments } from "./helpers.js";
@@ -79,17 +83,17 @@ function createRegressionScenario(config: RegressionScenarioConfig): ExecuteScen
       }
 
       if (output.error) {
+        const classification = classifyRuntimeError(output.error);
         return {
-          output,
-          evaluation: {
-            status: "fail",
-            points: 0,
-            maxPoints: 2,
-            checks: [
-              { name: "completed without runtime error", pass: false, detail: output.error },
-            ],
-            summary: `Runtime error: ${output.error}`,
+          output: {
+            ...output,
+            scenarioMetrics: {
+              ...output.scenarioMetrics,
+              runtimeErrorKind: classification.kind,
+              scoreExempt: classification.scoreExempt,
+            },
           },
+          evaluation: runtimeErrorEvaluation(output.error, 2),
         };
       }
 

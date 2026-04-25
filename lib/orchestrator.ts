@@ -5,7 +5,7 @@ import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.
 import type { Scenario } from "./scenarios.ts";
 import { PLAYGROUND_SRC } from "./scenarios.ts";
 import type { Ms } from "./schemas/brands.js";
-import { Evaluation } from "./scoring.ts";
+import { classifyRuntimeError, runtimeErrorEvaluation } from "./scoring.ts";
 import type { RuntimeOutput, ScenarioEvaluation, ScenarioResult } from "./scoring.ts";
 
 export interface RunOptions {
@@ -90,23 +90,31 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
       }
 
       // EvaluateScenario branch — the type narrows here so `evaluate` is required.
-      evaluation = output.error
-        ? Evaluation.fail(
-            scenarioMaxPoints,
-            [{ name: "completed without runtime error", pass: false, detail: output.error }],
-            `Runtime error: ${output.error}`
-          )
-        : await opts.scenario.evaluate({
-            stdout: output.stdout,
-            playgroundDir: workDir,
-            toolCalls: output.toolCalls,
-            wallTimeMs: output.wallTimeMs,
-            firstTokenMs: output.firstTokenMs,
-            turnWallTimes: output.turnWallTimes,
-            turnFirstTokenMs: output.turnFirstTokenMs,
-            modelMetrics: output.modelMetrics,
-            scenarioMetrics: output.scenarioMetrics,
-          });
+      if (output.error) {
+        const runtimeError = output.error;
+        const classification = classifyRuntimeError(runtimeError);
+        output = {
+          ...output,
+          scenarioMetrics: {
+            ...output.scenarioMetrics,
+            runtimeErrorKind: classification.kind,
+            scoreExempt: classification.scoreExempt,
+          },
+        };
+        evaluation = runtimeErrorEvaluation(runtimeError, scenarioMaxPoints);
+      } else {
+        evaluation = await opts.scenario.evaluate({
+          stdout: output.stdout,
+          playgroundDir: workDir,
+          toolCalls: output.toolCalls,
+          wallTimeMs: output.wallTimeMs,
+          firstTokenMs: output.firstTokenMs,
+          turnWallTimes: output.turnWallTimes,
+          turnFirstTokenMs: output.turnFirstTokenMs,
+          modelMetrics: output.modelMetrics,
+          scenarioMetrics: output.scenarioMetrics,
+        });
+      }
     }
 
     return {

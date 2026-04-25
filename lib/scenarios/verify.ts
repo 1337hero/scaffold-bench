@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { rm } from "node:fs/promises";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import { Evaluation, checksToEvaluation } from "../scoring.ts";
+import {
+  Evaluation,
+  checksToEvaluation,
+  classifyRuntimeError,
+  runtimeErrorEvaluation,
+} from "../scoring.ts";
 import type { Check, RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./types.js";
 import {
@@ -417,6 +422,26 @@ export const verifyScenarios: Scenario[] = [
         await session.close?.();
       }
 
+      if (lastOutput.error) {
+        const classification = classifyRuntimeError(lastOutput.error);
+        if (classification.scoreExempt) {
+          return {
+            output: {
+              ...lastOutput,
+              wallTimeMs: totalWallTimeMs as Ms,
+              turnWallTimes,
+              turnFirstTokenMs,
+              scenarioMetrics: {
+                ...lastOutput.scenarioMetrics,
+                runtimeErrorKind: classification.kind,
+                scoreExempt: classification.scoreExempt,
+              },
+            },
+            evaluation: runtimeErrorEvaluation(lastOutput.error, 5),
+          };
+        }
+      }
+
       while (checks.length < SB22_TURN_PROMPTS.length) {
         const index = checks.length;
         checks.push({
@@ -528,13 +553,17 @@ export const verifyScenarios: Scenario[] = [
       }
 
       if (output.error) {
+        const classification = classifyRuntimeError(output.error);
         return {
-          output,
-          evaluation: Evaluation.fail(
-            3,
-            [{ name: "completed without runtime error", pass: false, detail: output.error }],
-            `Runtime error: ${output.error}`
-          ),
+          output: {
+            ...output,
+            scenarioMetrics: {
+              ...output.scenarioMetrics,
+              runtimeErrorKind: classification.kind,
+              scoreExempt: classification.scoreExempt,
+            },
+          },
+          evaluation: runtimeErrorEvaluation(output.error, 3),
         };
       }
 

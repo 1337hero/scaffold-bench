@@ -61,6 +61,11 @@ export interface RuntimeOutput {
   modelMetrics?: ModelMetrics;
 }
 
+export type RuntimeErrorClassification = {
+  kind: "infra" | "timeout" | "aborted" | "runtime";
+  scoreExempt: boolean;
+};
+
 export interface ScenarioResult {
   scenarioId: ScenarioId;
   category: Category;
@@ -70,6 +75,41 @@ export interface ScenarioResult {
 }
 
 // ── Helpers ──────────────────────────────────────────────────
+
+export function classifyRuntimeError(error: string): RuntimeErrorClassification {
+  const message = error.trim();
+  if (/^TIMEOUT$/i.test(message)) return { kind: "timeout", scoreExempt: false };
+  if (/^ABORTED$/i.test(message)) return { kind: "aborted", scoreExempt: true };
+
+  if (
+    /empty response body from .*\/v1\/chat\/completions/i.test(message) ||
+    /non-SSE response from .*\/v1\/chat\/completions/i.test(message) ||
+    /\b(fetch failed|econnreset|econnrefused|socket hang up|connection reset|connection refused)\b/i.test(
+      message
+    )
+  ) {
+    return { kind: "infra", scoreExempt: true };
+  }
+
+  return { kind: "runtime", scoreExempt: false };
+}
+
+export function runtimeErrorEvaluation(error: string, maxPoints: number): ScenarioEvaluation {
+  const classification = classifyRuntimeError(error);
+  const checks: Check[] = [
+    {
+      name: "completed without runtime error",
+      pass: false,
+      detail: error,
+    },
+  ];
+
+  if (classification.scoreExempt) {
+    return Evaluation.fail(0, checks, `Infrastructure error (excluded from scoring): ${error}`);
+  }
+
+  return Evaluation.fail(maxPoints, checks, `Runtime error: ${error}`);
+}
 
 export function toolCallsByName(calls: ToolCall[], name: string): ToolCall[] {
   return calls.filter((c) => c.name === name);

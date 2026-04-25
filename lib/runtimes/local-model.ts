@@ -60,6 +60,9 @@ export type CallModelConfig = {
   signal?: AbortSignal;
 };
 
+const MAX_TRANSIENT_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 120;
+
 export async function callModel(
   conversation: ChatMessage[],
   deadline: number,
@@ -81,38 +84,57 @@ export async function callModel(
   else config.signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const response = await fetch(config.endpoint, {
-      method: "POST",
-      headers: chatHeaders(config.apiKey),
-      body: JSON.stringify({
-        model: config.model,
-        messages: conversation,
-        stream: true,
-        stream_options: { include_usage: true },
-        tools,
-      }),
-      signal: controller.signal,
-    });
-    const stream = await readChatStream(response, config.endpoint, onDelta);
-    const toolCalls = buildToolCalls(stream.toolCallsByIndex);
-    const message: ChatMessage = {
-      role: "assistant",
-      content: stream.content,
-      ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
-    };
+    let lastError: unknown;
 
-    return {
-      finishReason: toolCalls.length ? "tool_calls" : stream.finishReason,
-      message,
-      metrics: extractModelCallMetrics(
-        { usage: stream.usage, timings: stream.timings },
-        performance.now() - requestStartedAt
-      ),
-    };
-  } catch (error) {
-    if (timedOut || /timed out/i.test(errorMessage(error)))
-      throw new Error("TIMEOUT", { cause: error });
-    throw error;
+    for (let attempt = 0; attempt <= MAX_TRANSIENT_RETRIES; attempt++) {
+      try {
+        const response = await fetch(config.endpoint, {
+          method: "POST",
+          headers: chatHeaders(config.apiKey),
+          body: JSON.stringify({
+            model: config.model,
+            messages: conversation,
+            stream: true,
+            stream_options: { include_usage: true },
+            tools,
+          }),
+          signal: controller.signal,
+        });
+
+        const stream = await readChatStream(response, config.endpoint, onDelta);
+        const toolCalls = buildToolCalls(stream.toolCallsByIndex);
+        const message: ChatMessage = {
+          role: "assistant",
+          content: stream.content,
+          ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+        };
+
+        return {
+          finishReason: toolCalls.length ? "tool_calls" : stream.finishReason,
+          message,
+          metrics: extractModelCallMetrics(
+            { usage: stream.usage, timings: stream.timings },
+            performance.now() - requestStartedAt
+          ),
+        };
+      } catch (error) {
+        lastError = error;
+        if (timedOut || /timed out/i.test(errorMessage(error))) {
+          throw new Error("TIMEOUT", { cause: error });
+        }
+
+        if (attempt >= MAX_TRANSIENT_RETRIES || !isTransientModelError(error, config.endpoint)) {
+          throw error;
+        }
+
+        const timeLeftMs = deadline - performance.now();
+        if (timeLeftMs <= 80) throw error;
+
+        await sleep(Math.min(RETRY_BASE_DELAY_MS * (attempt + 1), Math.max(20, timeLeftMs - 40)));
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   } finally {
     clearTimeout(timer);
     config.signal?.removeEventListener("abort", onAbort);
@@ -289,6 +311,25 @@ export function extractModelCallMetrics(
 
 export function nsDurationToMs(value: number | undefined): Ms | undefined {
   return value === undefined ? undefined : nsToMs(value as Ns);
+}
+
+function isTransientModelError(error: unknown, endpoint: string): boolean {
+  const message = errorMessage(error);
+  if (/^TIMEOUT$/i.test(message)) return false;
+
+  const escapedEndpoint = endpoint.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const endpointPattern = new RegExp(escapedEndpoint, "i");
+
+  if (/empty response body from /i.test(message) && endpointPattern.test(message)) return true;
+  if (/non-SSE response from /i.test(message) && endpointPattern.test(message)) return true;
+
+  return /fetch failed|econnreset|econnrefused|socket hang up|connection reset|connection refused/i.test(
+    message
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(1, Math.round(ms))));
 }
 
 function errorMessage(error: unknown): string {
