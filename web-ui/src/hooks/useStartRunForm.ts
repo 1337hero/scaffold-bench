@@ -8,8 +8,14 @@ interface UseStartRunFormArgs {
 }
 
 export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
-  const scenariosQuery = useQuery({ queryKey: ["scenarios"], queryFn: api.getScenarios });
-  const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
+  const scenariosQuery = useQuery({
+    queryKey: ["scenarios"],
+    queryFn: ({ signal }) => api.getScenarios(signal),
+  });
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: ({ signal }) => api.getModels(signal),
+  });
 
   const scenarios = useMemo(() => scenariosQuery.data ?? [], [scenariosQuery.data]);
   const localModels = modelsQuery.data?.local ?? [];

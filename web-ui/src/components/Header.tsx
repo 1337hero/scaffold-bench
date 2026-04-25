@@ -1,6 +1,14 @@
-import { Terminal, Play, Square, History } from "lucide-react";
+import { Terminal, Play, Square, History, Sparkles } from "lucide-react";
 import type { RunStatus } from "@/types";
 import { formatElapsed } from "@/lib/format";
+
+const STATUS_BADGE_STYLES: Record<RunStatus, string> = {
+  idle: "border-border-main text-text-dim",
+  running: "border-gold text-gold animate-pulse",
+  done: "border-green-main text-green-main",
+  stopped: "border-red-main text-red-main",
+  failed: "border-red-main text-red-main",
+};
 
 interface HeaderProps {
   totalPoints: number;
@@ -10,6 +18,9 @@ interface HeaderProps {
   onStart: () => void;
   onStop: () => void;
   onHistory: () => void;
+  onOneshot: () => void;
+  historyHref: string;
+  oneshotHref: string;
 }
 
 export function Header({
@@ -20,41 +31,14 @@ export function Header({
   onStart,
   onStop,
   onHistory,
+  onOneshot,
+  historyHref,
+  oneshotHref,
 }: HeaderProps) {
   const isRunning = status === "running";
   const canStart = !isRunning;
 
-  const statusBadge = () => {
-    if (status === "running")
-      return (
-        <span className="px-2 py-0.5 text-[10px] uppercase border border-gold text-gold animate-pulse rounded-sm">
-          RUNNING
-        </span>
-      );
-    if (status === "done")
-      return (
-        <span className="px-2 py-0.5 text-[10px] uppercase border border-green-main text-green-main rounded-sm">
-          DONE
-        </span>
-      );
-    if (status === "stopped")
-      return (
-        <span className="px-2 py-0.5 text-[10px] uppercase border border-red-main text-red-main rounded-sm">
-          STOPPED
-        </span>
-      );
-    if (status === "failed")
-      return (
-        <span className="px-2 py-0.5 text-[10px] uppercase border border-red-main text-red-main rounded-sm">
-          FAILED
-        </span>
-      );
-    return (
-      <span className="px-2 py-0.5 text-[10px] uppercase border border-border-main text-text-dim rounded-sm">
-        IDLE
-      </span>
-    );
-  };
+  const badgeStyle = STATUS_BADGE_STYLES[status];
 
   return (
     <header className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4 pb-4 border-b border-border-main flex-none">
@@ -92,7 +76,9 @@ export function Header({
 
         <div className="w-px h-8 bg-border-main" />
 
-        {statusBadge()}
+        <span className={`px-2 py-0.5 text-[10px] uppercase border rounded-sm ${badgeStyle}`}>
+          {status.toUpperCase()}
+        </span>
 
         <div className="w-px h-8 bg-border-main" />
 
@@ -113,13 +99,28 @@ export function Header({
             <Square size={12} />
             Stop
           </button>
-          <button
-            onClick={onHistory}
+          <a
+            href={oneshotHref}
+            onClick={(e) => {
+              e.preventDefault();
+              onOneshot();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider border border-border-main bg-content-bg text-text-dim hover:border-gold hover:text-gold transition-colors rounded-sm"
+          >
+            <Sparkles size={12} />
+            Lab
+          </a>
+          <a
+            href={historyHref}
+            onClick={(e) => {
+              e.preventDefault();
+              onHistory();
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider border border-border-main bg-content-bg text-text-dim hover:border-blue-main hover:text-blue-main transition-colors rounded-sm"
           >
             <History size={12} />
             History
-          </button>
+          </a>
         </div>
       </div>
     </header>

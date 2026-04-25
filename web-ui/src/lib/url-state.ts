@@ -1,8 +1,13 @@
-export type UrlViewState = { name: "dashboard"; replayRunId?: string } | { name: "history" };
+export type UrlViewState =
+  | { name: "dashboard"; replayRunId?: string }
+  | { name: "history" }
+  | { name: "oneshot" };
 
 export function parseUrl(search: string): UrlViewState {
   const params = new URLSearchParams(search);
-  if (params.get("view") === "history") return { name: "history" };
+  const view = params.get("view");
+  if (view === "history") return { name: "history" };
+  if (view === "oneshot") return { name: "oneshot" };
   const replayRunId = params.get("replayRunId") ?? undefined;
   return { name: "dashboard", replayRunId };
 }
@@ -10,6 +15,7 @@ export function parseUrl(search: string): UrlViewState {
 export function serializeUrl(view: UrlViewState): string {
   const params = new URLSearchParams();
   if (view.name === "history") params.set("view", "history");
+  else if (view.name === "oneshot") params.set("view", "oneshot");
   else if (view.replayRunId) params.set("replayRunId", view.replayRunId);
   const qs = params.toString();
   return qs ? `?${qs}` : window.location.pathname;

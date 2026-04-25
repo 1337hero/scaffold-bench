@@ -17,6 +17,12 @@ describe("parseUrl", () => {
   test("view=history wins over replayRunId", () => {
     expect(parseUrl("?view=history&replayRunId=run-42")).toEqual({ name: "history" });
   });
+  test("view=oneshot returns oneshot view", () => {
+    expect(parseUrl("?view=oneshot")).toEqual({ name: "oneshot" });
+  });
+  test("view=oneshot wins over replayRunId", () => {
+    expect(parseUrl("?view=oneshot&replayRunId=run-42")).toEqual({ name: "oneshot" });
+  });
 });
 
 describe("serializeUrl", () => {
@@ -51,6 +57,13 @@ describe("serializeUrl", () => {
   });
   test("parseUrl(serializeUrl(x)) is identity for dashboard with replay", () => {
     const view = { name: "dashboard", replayRunId: "run-7" } as const;
+    expect(parseUrl(serializeUrl(view))).toEqual(view);
+  });
+  test("oneshot view becomes ?view=oneshot", () => {
+    expect(serializeUrl({ name: "oneshot" })).toBe("?view=oneshot");
+  });
+  test("parseUrl(serializeUrl(x)) is identity for oneshot", () => {
+    const view = { name: "oneshot" } as const;
     expect(parseUrl(serializeUrl(view))).toEqual(view);
   });
 });

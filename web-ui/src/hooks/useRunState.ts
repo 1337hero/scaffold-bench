@@ -17,17 +17,5 @@ export function useRunState() {
     rawDispatch({ type: "_reset" });
   }, []);
 
-  const startRun = useCallback((runId: string, scenarioIds: string[]) => {
-    rawDispatch({
-      seq: 0,
-      ts: Date.now(),
-      type: "run_started",
-      runId,
-      scenarioIds,
-      model: null,
-      endpoint: null,
-    });
-  }, []);
-
-  return { state, dispatch, focusScenario, resetRun, startRun };
+  return { state, dispatch, focusScenario, resetRun };
 }

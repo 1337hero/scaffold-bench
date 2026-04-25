@@ -23,6 +23,7 @@ export function ReportHeader({
   onRefresh,
   sourceFilter,
   onSourceFilterChange,
+  backHref,
 }: {
   totals: ReportData["totals"];
   snapshot: string;
@@ -31,6 +32,7 @@ export function ReportHeader({
   onRefresh: () => void;
   sourceFilter: ReportSourceFilter;
   onSourceFilterChange: (filter: ReportSourceFilter) => void;
+  backHref: string;
 }) {
   return (
     <header className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4 pb-4 border-b border-border-main bg-bg-main">
@@ -70,14 +72,17 @@ export function ReportHeader({
         <div className="w-px h-8 bg-border-main" />
 
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onBack}
+          <a
+            href={backHref}
+            onClick={(e) => {
+              e.preventDefault();
+              onBack();
+            }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider border border-border-main bg-content-bg text-text-dim hover:border-blue-main hover:text-blue-main transition-colors rounded-sm"
           >
             <ArrowLeft size={12} />
             Dashboard
-          </button>
+          </a>
           <button
             type="button"
             onClick={onRefresh}

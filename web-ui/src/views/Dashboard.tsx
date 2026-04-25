@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { StatusBar } from "@/components/StatusBar";
 import { ScenarioQueue } from "@/components/ScenarioQueue";
@@ -27,12 +27,15 @@ const HEALTH_REFETCH_MS = 5_000;
 function useApiStatus(): "checking" | "ok" | "error" {
   const health = useQuery({
     queryKey: ["health"],
-    queryFn: async () => {
-      const response = await fetch("/api/health");
+    queryFn: async ({ signal }) => {
+      const response = await fetch("/api/health", { signal });
       if (!response.ok) throw new Error("Health check failed");
       return true;
     },
-    refetchInterval: HEALTH_REFETCH_MS,
+    refetchInterval: () =>
+      typeof document !== "undefined" && document.visibilityState !== "visible"
+        ? false
+        : HEALTH_REFETCH_MS,
     retry: false,
   });
 
@@ -43,13 +46,25 @@ function useApiStatus(): "checking" | "ok" | "error" {
 
 interface DashboardProps {
   onHistory: () => void;
+  onOneshot: () => void;
   onStartRun: () => void;
   activeRunId: string | null;
   initialRunId?: string;
+  historyHref: string;
+  oneshotHref: string;
 }
 
-export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: DashboardProps) {
+export function Dashboard({
+  onHistory,
+  onOneshot,
+  onStartRun,
+  activeRunId,
+  initialRunId,
+  historyHref,
+  oneshotHref,
+}: DashboardProps) {
   const { state, dispatch, focusScenario, resetRun } = useRunState();
+  const queryClient = useQueryClient();
   const apiStatus = useApiStatus();
   const [streamStats, setStreamStats] = useState<StreamDebugStats>({
     eventsPerSec: 0,
@@ -62,7 +77,7 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
   const sseRunId = isReplay ? null : activeRunId;
   const replayRun = useQuery({
     queryKey: ["run", initialRunId, "events"],
-    queryFn: () => api.getRun(initialRunId!, true),
+    queryFn: ({ signal }) => api.getRun(initialRunId!, true, signal),
     enabled: isReplay,
   });
 
@@ -89,6 +104,20 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
 
   const stopMutation = useMutation({
     mutationFn: (runId: string) => api.stopRun(runId),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["active-run"] });
+      const previous = queryClient.getQueryData<{ runId: string | null }>(["active-run"]);
+      queryClient.setQueryData(["active-run"], { runId: null });
+      return { previous };
+    },
+    onError: (_error, _runId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["active-run"], context.previous);
+      }
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["active-run"] });
+    },
   });
 
   const handleStop = () => {
@@ -100,14 +129,14 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
 
   useShortcuts({ s: handleStop });
 
-  const focusedScenario = useMemo(() => getFocusedScenario(state), [state]);
+  const focusedScenario = getFocusedScenario(state);
   const focusedId = state.focusedScenarioId ?? state.activeScenarioId;
   const isLive = state.status === "running" && focusedId === state.activeScenarioId;
   const metrics = focusedScenario?.liveMetrics ?? state.globalMetrics;
-  const callCounts = useMemo(() => getCallCounts(focusedScenario), [focusedScenario]);
-  const categoryRollups = useMemo(() => getCategoryRollups(state), [state]);
-  const displayed = useMemo(() => getDisplayedPoints(state), [state]);
-  const model = useMemo(() => getModel(state, focusedScenario), [state, focusedScenario]);
+  const callCounts = getCallCounts(focusedScenario);
+  const categoryRollups = getCategoryRollups(state);
+  const displayed = getDisplayedPoints(state);
+  const model = getModel(state, focusedScenario);
   const runComplete = isRunComplete(state.status);
 
   return (
@@ -120,6 +149,9 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
         onStart={onStartRun}
         onStop={handleStop}
         onHistory={onHistory}
+        onOneshot={onOneshot}
+        historyHref={historyHref}
+        oneshotHref={oneshotHref}
       />
       {stopMutation.isError ? (
         <div className="text-[11px] text-red-main mt-1">
@@ -130,11 +162,7 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
 
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-4">
         <div className="md:col-span-3 min-h-0">
-          <ScenarioQueue
-            scenarios={state.scenarios}
-            focusedId={focusedId}
-            onFocus={focusScenario}
-          />
+          <ScenarioQueue scenarios={state.scenarios} focusedId={focusedId} onFocus={focusScenario} />
         </div>
 
         <div className="md:col-span-6 min-h-0">

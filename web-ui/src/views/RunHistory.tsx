@@ -18,9 +18,10 @@ const REPORT_REFETCH_MS = 10_000;
 interface RunHistoryProps {
   onReplay: (runId: string) => void;
   onBack: () => void;
+  backHref: string;
 }
 
-export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
+export function RunHistory({ onReplay, onBack, backHref }: RunHistoryProps) {
   const queryClient = useQueryClient();
   const [sourceFilter, setSourceFilter] = useState<ReportSourceFilter>("all");
   const [armed, setArmed] = useState(false);
@@ -31,14 +32,20 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
   }, [armed]);
   const reportQuery = useQuery({
     queryKey: ["report-data"],
-    queryFn: api.getReportData,
-    refetchInterval: REPORT_REFETCH_MS,
+    queryFn: ({ signal }) => api.getReportData(signal),
+    refetchInterval: () =>
+      typeof document !== "undefined" && document.visibilityState !== "visible"
+        ? false
+        : REPORT_REFETCH_MS,
   });
   const runsQuery = useQuery({
     queryKey: ["runs"],
-    queryFn: api.listRuns,
+    queryFn: ({ signal }) => api.listRuns(signal),
     select: (runs) => runs.toReversed(),
-    refetchInterval: REPORT_REFETCH_MS,
+    refetchInterval: () =>
+      typeof document !== "undefined" && document.visibilityState !== "visible"
+        ? false
+        : REPORT_REFETCH_MS,
   });
 
   const report = reportQuery.data;
@@ -47,7 +54,35 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
   const runs = runsQuery.data ?? [];
   const clearRunsMutation = useMutation({
     mutationFn: api.clearRuns,
-    onSuccess: async () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["runs"] });
+      await queryClient.cancelQueries({ queryKey: ["report-data"] });
+
+      const previousRuns = queryClient.getQueryData(["runs"]);
+      const previousReport = queryClient.getQueryData(["report-data"]);
+
+      queryClient.setQueryData(["runs"], []);
+      queryClient.setQueryData(["report-data"], (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        const report = old as { totals?: { runs?: number; scenarioRuns?: number } };
+        if (!report.totals) return old;
+        return {
+          ...report,
+          totals: { ...report.totals, runs: 0, scenarioRuns: 0 },
+        };
+      });
+
+      return { previousRuns, previousReport };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousRuns !== undefined) {
+        queryClient.setQueryData(["runs"], context.previousRuns);
+      }
+      if (context?.previousReport !== undefined) {
+        queryClient.setQueryData(["report-data"], context.previousReport);
+      }
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: ["report-data"] });
       await queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
@@ -75,6 +110,7 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
         snapshot={report?.snapshot ?? "—"}
         isRefreshing={isRefreshing}
         onBack={onBack}
+        backHref={backHref}
         onRefresh={refresh}
         sourceFilter={sourceFilter}
         onSourceFilterChange={setSourceFilter}
@@ -86,7 +122,7 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
         ) : reportQuery.isError ? (
           <div className="text-red-main text-center py-12">Failed to load report data</div>
         ) : !report || report.models.length === 0 ? (
-          <EmptyReport onBack={onBack} />
+          <EmptyReport onBack={onBack} backHref={backHref} />
         ) : (
           <>
             <AwardsGrid awards={report.awards} />
@@ -178,13 +214,20 @@ function filterModels(
   return models.filter((model) => model.source === sourceFilter);
 }
 
-function EmptyReport({ onBack }: { onBack: () => void }) {
+function EmptyReport({ onBack, backHref }: { onBack: () => void; backHref: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4 text-text-dim">
       <p>No completed benchmark results yet.</p>
-      <button onClick={onBack} className="text-gold hover:underline text-[12px]">
+      <a
+        href={backHref}
+        onClick={(e) => {
+          e.preventDefault();
+          onBack();
+        }}
+        className="text-gold hover:underline text-[12px]"
+      >
         Start a run from the dashboard
-      </button>
+      </a>
     </div>
   );
 }

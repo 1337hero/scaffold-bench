@@ -160,6 +160,100 @@ export type RunSummary = {
   maxPoints: number | null;
 };
 
+export type OneshotRun = {
+  id: string;
+  startedAt: number;
+  finishedAt: number | null;
+  status: string;
+  model: string;
+  endpoint: string;
+  promptIds: string[];
+  error: string | null;
+};
+
+export type OneshotResult = {
+  runId: string;
+  promptId: string;
+  startedAt: number;
+  finishedAt: number;
+  status: string;
+  output: string;
+  finishReason: string;
+  wallTimeMs: number;
+  firstTokenMs: number;
+  promptTokens: number;
+  completionTokens: number;
+  error: string | null;
+};
+
+export type OneshotPrompt = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: "easy" | "medium" | "hard";
+  tags: string[];
+  body: string;
+};
+
+export type OneshotTestSummary = {
+  id: string;
+  title: string;
+  category: string;
+};
+
+export type OneshotLatestResult = {
+  promptId: string;
+  startedAt: number | null;
+  finishedAt: number | null;
+  status: string | null;
+  output: string | null;
+  finishReason: string | null;
+  wallTimeMs: number | null;
+  firstTokenMs: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  error: string | null;
+};
+
+export type OneshotLatestRun = {
+  runId: string;
+  status: string;
+  model: string | null;
+  endpoint: string | null;
+  promptIds: string[];
+  startedAt: number;
+  finishedAt: number | null;
+  error: string | null;
+  results: OneshotLatestResult[];
+};
+
+export type OneshotEvent =
+  | { type: "oneshot_run_started"; runId: string; promptIds: string[]; model: string; seq: number }
+  | {
+      type: "oneshot_test_started";
+      runId: string;
+      promptId: string;
+      index: number;
+      total: number;
+      seq: number;
+    }
+  | { type: "oneshot_delta"; runId: string; promptId: string; content: string; seq: number }
+  | {
+      type: "oneshot_test_finished";
+      runId: string;
+      promptId: string;
+      output: string;
+      metrics: { promptTokens: number; completionTokens: number } | null;
+      finishReason: string;
+      wallTimeMs: number;
+      firstTokenMs?: number;
+      error?: string;
+      seq: number;
+    }
+  | { type: "oneshot_run_finished"; runId: string; seq: number }
+  | { type: "oneshot_run_failed"; runId: string; error: string; seq: number };
+
 export type ReportSource = "local" | "api";
 export type ReportSourceFilter = ReportSource | "all";
 
