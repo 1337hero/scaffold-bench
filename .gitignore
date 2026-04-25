@@ -6,6 +6,7 @@ results/*
 !results/.gitkeep
 results/.probe-cache.json
 bench-report.html
+web-ui/dist/
 
 # Environment / secrets
 env/
