@@ -1,8 +1,39 @@
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap");
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Commit Mono";
+  src: url("/fonts/CommitMono-400-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Commit Mono";
+  src: url("/fonts/CommitMono-400-Italic.otf") format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Commit Mono";
+  src: url("/fonts/CommitMono-700-Regular.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Commit Mono";
+  src: url("/fonts/CommitMono-700-Italic.otf") format("opentype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @theme {
-  --font-mono: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  --font-mono: "Commit Mono", "JetBrains Mono", monospace;
   --color-bg-main: #0c0d10;
   --color-gold: #ffbf00;
   --color-gold-dim: #997300;

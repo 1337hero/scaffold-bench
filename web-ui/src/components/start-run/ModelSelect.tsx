@@ -10,7 +10,7 @@ interface ModelSelectProps {
 export function ModelSelect({ value, onChange, localModels, remoteModels }: ModelSelectProps) {
   return (
     <div>
-      <label className="block text-[11px] uppercase tracking-widest text-text-dim mb-1">
+      <label className="block text-[12px] uppercase tracking-widest text-text-dim mb-1">
         Model
       </label>
       <select
