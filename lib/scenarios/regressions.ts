@@ -1,11 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import {
-  Evaluation,
-  classifyRuntimeError,
-  runtimeErrorEvaluation,
-} from "../scoring.ts";
+import { Evaluation, classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { Check, RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
 import type { ExecuteScenario, ScenarioExecutionContext } from "./types.js";
 import { createSkippedEvaluation, onlyChangedFiles, stripComments } from "./helpers.js";

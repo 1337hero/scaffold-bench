@@ -3,7 +3,7 @@ title: Snake Game
 category: game
 ---
 
-Write a single self-contained HTML file (no external dependencies, no frameworks, no build step, no CDN) that implements the classic Snake game. 
+Write a single self-contained HTML file (no external dependencies, no frameworks, no build step, no CDN) that implements the classic Snake game.
 
 Requirements:
 

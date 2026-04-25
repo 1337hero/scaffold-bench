@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { loadOneshotPrompts, type OneshotPrompt } from "../../lib/oneshot/loader.ts";
+import { describe, expect, test } from "bun:test";
+import { loadOneshotPrompts } from "../../lib/oneshot/loader.ts";
 
 describe("loadOneshotPrompts", () => {
   test("returns exactly 5 prompts sorted by filename", () => {

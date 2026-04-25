@@ -16,7 +16,10 @@ interface OneshotMetadataProps {
 export function OneshotMetadata({ model, promptId, metrics }: OneshotMetadataProps) {
   const wallTimeMs = metrics?.wallTimeMs ?? 0;
   const completionTokens = metrics?.completionTokens;
-  const tps = completionTokens != null && wallTimeMs > 0 ? ((completionTokens * 1000) / wallTimeMs).toFixed(1) : null;
+  const tps =
+    completionTokens != null && wallTimeMs > 0
+      ? ((completionTokens * 1000) / wallTimeMs).toFixed(1)
+      : null;
 
   return (
     <div className="p-3 text-xs space-y-2">
@@ -26,7 +29,11 @@ export function OneshotMetadata({ model, promptId, metrics }: OneshotMetadataPro
       <Row label="Wall" value={metrics?.wallTimeMs != null ? `${metrics.wallTimeMs} ms` : "—"} />
       <Row
         label="First token"
-        value={metrics?.firstTokenMs != null && metrics.firstTokenMs > 0 ? `${metrics.firstTokenMs} ms` : "—"}
+        value={
+          metrics?.firstTokenMs != null && metrics.firstTokenMs > 0
+            ? `${metrics.firstTokenMs} ms`
+            : "—"
+        }
       />
       <Row label="Prompt tokens" value={metrics?.promptTokens?.toString() ?? "—"} />
       <Row label="Completion tokens" value={metrics?.completionTokens?.toString() ?? "—"} />

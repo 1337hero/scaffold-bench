@@ -55,7 +55,9 @@ export function OneshotQueue({ prompts, rows, focusedPromptId, onFocus }: Onesho
 
 function StatusPill({ status }: { status: PromptStatus }) {
   return (
-    <span className={`text-[10px] px-2 py-0.5 border rounded-sm uppercase ${STATUS_COLORS[status]}`}>
+    <span
+      className={`text-[10px] px-2 py-0.5 border rounded-sm uppercase ${STATUS_COLORS[status]}`}
+    >
       {status}
     </span>
   );

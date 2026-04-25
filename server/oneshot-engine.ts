@@ -228,7 +228,7 @@ async function runPrompt(params: {
     };
   } catch (error) {
     if (params.signal.aborted) {
-      throw new Error("stopped");
+      throw new Error("stopped", { cause: error });
     }
 
     return {

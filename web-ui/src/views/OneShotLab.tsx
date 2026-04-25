@@ -184,7 +184,10 @@ function hydrateLatestRun(latest: OneshotLatestRun, dispatch: Dispatch<OneshotEv
     }
 
     const isFinished =
-      row.finishedAt != null || row.status === "done" || row.status === "failed" || row.error != null;
+      row.finishedAt != null ||
+      row.status === "done" ||
+      row.status === "failed" ||
+      row.error != null;
     if (!isFinished) continue;
 
     dispatch({

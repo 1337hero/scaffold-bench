@@ -1,8 +1,19 @@
 export type OneshotEventBase = { seq: number; ts: number };
 
 export type OneshotEvent =
-  | (OneshotEventBase & { type: "oneshot_run_started"; runId: string; promptIds: string[]; model: string })
-  | (OneshotEventBase & { type: "oneshot_test_started"; runId: string; promptId: string; index: number; total: number })
+  | (OneshotEventBase & {
+      type: "oneshot_run_started";
+      runId: string;
+      promptIds: string[];
+      model: string;
+    })
+  | (OneshotEventBase & {
+      type: "oneshot_test_started";
+      runId: string;
+      promptId: string;
+      index: number;
+      total: number;
+    })
   | (OneshotEventBase & { type: "oneshot_delta"; runId: string; promptId: string; content: string })
   | (OneshotEventBase & {
       type: "oneshot_test_finished";

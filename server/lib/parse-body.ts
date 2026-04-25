@@ -14,7 +14,8 @@ export async function parseBody<A, I>(schema: Schema.Schema<A, I>, c: Context): 
       ? await c.req.formData().then(formDataToObject)
       : (() => {
           throw new HTTPException(415, {
-            message: "Unsupported content-type. Use application/json or application/x-www-form-urlencoded",
+            message:
+              "Unsupported content-type. Use application/json or application/x-www-form-urlencoded",
           });
         })();
 

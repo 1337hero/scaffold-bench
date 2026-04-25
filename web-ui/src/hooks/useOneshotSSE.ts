@@ -33,22 +33,27 @@ export function useOneshotSSE(
       } catch {}
     };
 
+    const handleOpen = () => {
+      onOpenRef.current?.();
+    };
+
+    const handleError = () => {
+      onErrorRef.current?.();
+    };
+
     for (const type of EVENT_TYPES) {
       source.addEventListener(type, handle as EventListener);
     }
 
-    source.onopen = () => {
-      onOpenRef.current?.();
-    };
-
-    source.onerror = () => {
-      onErrorRef.current?.();
-    };
+    source.addEventListener("open", handleOpen);
+    source.addEventListener("error", handleError);
 
     return () => {
       for (const type of EVENT_TYPES) {
         source.removeEventListener(type, handle as EventListener);
       }
+      source.removeEventListener("open", handleOpen);
+      source.removeEventListener("error", handleError);
       source.close();
     };
   }, [runId]);

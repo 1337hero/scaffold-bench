@@ -14,7 +14,7 @@ export const oneshotRouter = new Hono();
 
 oneshotRouter.get("/tests", (c) => {
   const prompts = loadOneshotPrompts();
-  return c.json(prompts.map(({ prompt, ...rest }) => rest));
+  return c.json(prompts.map(({ prompt: _prompt, ...rest }) => rest));
 });
 
 oneshotRouter.post("/runs", async (c) => {
@@ -61,7 +61,11 @@ oneshotRouter.get("/runs/:id/stream", (c) => {
         if (!event.type.startsWith("oneshot_")) return;
         try {
           if ("seq" in event && typeof event.seq === "number") {
-            await stream.writeSSE({ id: String(event.seq), event: event.type, data: JSON.stringify(event) });
+            await stream.writeSSE({
+              id: String(event.seq),
+              event: event.type,
+              data: JSON.stringify(event),
+            });
           } else {
             await stream.writeSSE({ event: event.type, data: JSON.stringify(event) });
           }

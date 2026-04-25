@@ -108,13 +108,18 @@ export function upsertOneshotResult(
 
 export function getLatestOneshotRun(dbRef?: Database): OneshotRunRow | null {
   const d = db(dbRef);
-  return d.query<OneshotRunRow, []>("SELECT * FROM oneshot_runs ORDER BY started_at DESC LIMIT 1").get();
+  return d
+    .query<OneshotRunRow, []>("SELECT * FROM oneshot_runs ORDER BY started_at DESC LIMIT 1")
+    .get();
 }
 
 export function getOneshotResults(runId: string, dbRef?: Database): OneshotResultRow[] {
   const d = db(dbRef);
   return d
-    .query<OneshotResultRow, [string]>("SELECT * FROM oneshot_results WHERE run_id = ? ORDER BY prompt_id ASC")
+    .query<
+      OneshotResultRow,
+      [string]
+    >("SELECT * FROM oneshot_results WHERE run_id = ? ORDER BY prompt_id ASC")
     .all(runId);
 }
 

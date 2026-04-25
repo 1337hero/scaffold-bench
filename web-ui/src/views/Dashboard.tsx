@@ -162,7 +162,11 @@ export function Dashboard({
 
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-4">
         <div className="md:col-span-3 min-h-0">
-          <ScenarioQueue scenarios={state.scenarios} focusedId={focusedId} onFocus={focusScenario} />
+          <ScenarioQueue
+            scenarios={state.scenarios}
+            focusedId={focusedId}
+            onFocus={focusScenario}
+          />
         </div>
 
         <div className="md:col-span-6 min-h-0">

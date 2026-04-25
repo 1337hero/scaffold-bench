@@ -52,7 +52,8 @@ const runsPayload: RunSummary[] = [
 
 describe("RunHistory user flows", () => {
   const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
 
     if (url.includes("/api/bench-report/data")) return Response.json(reportPayload);
     if (url.includes("/api/runs/clear")) return Response.json({ ok: true });

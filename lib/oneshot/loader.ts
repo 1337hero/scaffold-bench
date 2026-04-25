@@ -37,7 +37,9 @@ function parseFrontmatter(raw: string): { meta: Record<string, string>; body: st
 
 export function loadOneshotPrompts(): OneshotPrompt[] {
   const promptsDir = join(__dirname, "prompts");
-  const files = readdirSync(promptsDir).filter((f) => f.endsWith(".md")).sort();
+  const files = readdirSync(promptsDir)
+    .filter((f) => f.endsWith(".md"))
+    .toSorted();
 
   const prompts: OneshotPrompt[] = [];
   for (const file of files) {

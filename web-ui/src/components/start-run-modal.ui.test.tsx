@@ -4,6 +4,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StartRunModal } from "./StartRunModal";
 
+function dialogShowModal(this: HTMLDialogElement) {
+  this.setAttribute("open", "");
+}
+
+function dialogClose(this: HTMLDialogElement) {
+  this.removeAttribute("open");
+}
+
 function makeClient() {
   return new QueryClient({
     defaultOptions: {
@@ -15,7 +23,8 @@ function makeClient() {
 
 describe("StartRunModal user flow", () => {
   const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
 
     if (url.includes("/api/scenarios")) {
       return Response.json([
@@ -48,12 +57,8 @@ describe("StartRunModal user flow", () => {
     globalThis.fetch = fetchMock as typeof fetch;
     fetchMock.mockClear();
 
-    HTMLDialogElement.prototype.showModal ??= function showModal() {
-      this.setAttribute("open", "");
-    };
-    HTMLDialogElement.prototype.close ??= function close() {
-      this.removeAttribute("open");
-    };
+    HTMLDialogElement.prototype.showModal ??= dialogShowModal;
+    HTMLDialogElement.prototype.close ??= dialogClose;
   });
 
   afterEach(() => {

@@ -165,9 +165,7 @@ export function getScenarioEvents(
     .query<
       RunEventRow,
       [string, string, number, number]
-    >(
-      "SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC LIMIT ?"
-    )
+    >("SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC LIMIT ?")
     .all(runId, scenarioId, fromSeq, limit);
 }
 
