@@ -38,9 +38,9 @@ export function StartRunModal({ onClose, onLaunch }: StartRunModalProps) {
       ref={dialogRef}
       onClick={onDialogClick}
       aria-labelledby="start-run-title"
-      className="bg-bg-main border border-border-main w-full max-w-2xl max-h-[85vh] p-0 font-mono text-[13px] text-text-main backdrop:bg-black/70"
+      className="bg-bg-main border border-border-main w-full max-w-2xl h-[85vh] p-0 m-auto font-mono text-[13px] text-text-main backdrop:bg-black/70 flex flex-col"
     >
-      <form onSubmit={form.handleSubmit} className="flex flex-col max-h-[85vh]">
+      <form onSubmit={form.handleSubmit} className="flex flex-col h-full">
         <div className="flex justify-between items-center px-4 py-3 border-b border-border-main bg-border-main">
           <span
             id="start-run-title"
@@ -53,7 +53,7 @@ export function StartRunModal({ onClose, onLaunch }: StartRunModalProps) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-4 min-h-0">
           {form.loading ? (
             <div className="text-text-dim text-center py-8">Loading…</div>
           ) : form.loadError ? (
