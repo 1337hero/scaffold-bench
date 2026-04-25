@@ -20,9 +20,7 @@ export function InventoryPanel({ items }: InventoryPanelProps) {
   const [filteredItems, setFilteredItems] = useState(items);
 
   useEffect(() => {
-    setFilteredItems(
-      items.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
-    );
+    setFilteredItems(items.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())));
   }, [items, query]);
 
   return (

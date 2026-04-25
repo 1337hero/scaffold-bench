@@ -2,7 +2,7 @@ import { spawn } from "bun";
 import { Schema } from "effect";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type {
   BashArgs,
   EditArgs,
@@ -82,7 +82,7 @@ Rules:
   },
   bash: {
     description:
-      "Run a shell command with cwd set to the scenario working directory. Prefer this for fast codebase search and verification; prefer one focused search command over multiple tool calls (examples: `ugrep -n \"pattern\" .`, `bfs . -type f`, `rg -n \"pattern\" .`, `find . -type f`).",
+      'Run a shell command with cwd set to the scenario working directory. Prefer this for fast codebase search and verification; prefer one focused search command over multiple tool calls (examples: `ugrep -n "pattern" .`, `bfs . -type f`, `rg -n "pattern" .`, `find . -type f`).',
     parameters: toJsonSchema(BashArgsSchema),
     run: (args, cwd, signal) =>
       runBash(Schema.decodeUnknownSync(BashArgsSchema)(args), cwd, signal),
@@ -126,8 +126,7 @@ export async function runEdit(args: EditArgs, cwd: string): Promise<string> {
   const content = await readFile(filePath, "utf-8");
   const matches = content.split(oldStr).length - 1;
   if (matches === 0) throw new Error(`old_str not found in ${path}`);
-  if (matches > 1)
-    throw new Error(`old_str appears ${matches} times in ${path}; must be unique`);
+  if (matches > 1) throw new Error(`old_str appears ${matches} times in ${path}; must be unique`);
 
   await writeFile(filePath, content.replace(oldStr, newStr), "utf-8");
   return "ok";
@@ -208,7 +207,7 @@ export async function executeToolBatch(
     return results;
   }
 
-  const results: ToolResult[] = new Array(pendingCalls.length);
+  const results: ToolResult[] = Array.from({ length: pendingCalls.length });
   for (let i = 0; i < pendingCalls.length; ) {
     if (!isParallelSafeTool(pendingCalls[i].call.function.name)) {
       results[i] = await executeTool(pendingCalls[i].call, cwd, hooks);
@@ -245,7 +244,7 @@ export async function executeSafeBatchParallel(
   cwd: string,
   hooks?: ToolExecutionHooks
 ): Promise<ToolResult[]> {
-  const results: ToolResult[] = new Array(batch.length);
+  const results: ToolResult[] = Array.from({ length: batch.length });
   let nextIndex = 0;
   let active = 0;
   let activeBash = 0;

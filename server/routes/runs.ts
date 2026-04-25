@@ -5,6 +5,7 @@ import { CreateRunRequestSchema } from "../contracts/api.ts";
 import { startRun } from "../run-engine.ts";
 import { globalRegistry, RunInProgressError } from "../run-registry.ts";
 import { globalBus } from "../event-bus.ts";
+import { getRemoteApiKey, resolveModel } from "../models/discovery.ts";
 import type { PersistedEvent } from "../contracts/events.ts";
 import {
   listRuns,
@@ -24,12 +25,21 @@ runsRouter.get("/active", (c) => {
 runsRouter.post("/", async (c) => {
   const body = await parseBody(CreateRunRequestSchema, c);
 
+  if (!body.modelId) {
+    return c.json({ error: "modelId is required" }, 400);
+  }
+  const resolved = resolveModel(body.modelId);
+  if (!resolved) {
+    return c.json({ error: `unknown model: ${body.modelId}` }, 400);
+  }
+  const apiKey = resolved.source === "remote" ? getRemoteApiKey() : undefined;
+
   try {
     const { runId } = await startRun({
       scenarioIds: [...body.scenarioIds],
-      modelId: body.modelId,
-      endpoint: body.endpoint,
-      apiKey: body.apiKey,
+      modelId: resolved.id,
+      endpoint: resolved.endpoint,
+      apiKey,
       systemPrompt: body.systemPrompt,
       toolExecution: body.toolExecution,
       timeoutMs: body.timeoutMs,

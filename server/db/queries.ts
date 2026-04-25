@@ -124,14 +124,7 @@ export function insertEvent(event: RunEventRow): void {
   const db = getDb();
   db.run(
     `INSERT INTO run_events (run_id, scenario_id, seq, ts, type, payload_json) VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      event.run_id,
-      event.scenario_id,
-      event.seq,
-      event.ts,
-      event.type,
-      event.payload_json,
-    ]
+    [event.run_id, event.scenario_id, event.seq, event.ts, event.type, event.payload_json]
   );
 }
 
@@ -152,25 +145,23 @@ export function getScenarioRuns(runId: string): ScenarioRunRow[] {
     .all(runId);
 }
 
-export function getScenarioEvents(
-  runId: string,
-  scenarioId: string,
-  fromSeq = 0
-): RunEventRow[] {
+export function getScenarioEvents(runId: string, scenarioId: string, fromSeq = 0): RunEventRow[] {
   const db = getDb();
   return db
-    .query<RunEventRow, [string, string, number]>(
-      "SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC"
-    )
+    .query<
+      RunEventRow,
+      [string, string, number]
+    >("SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC")
     .all(runId, scenarioId, fromSeq);
 }
 
 export function getRunEvents(runId: string, fromSeq = 0): RunEventRow[] {
   const db = getDb();
   return db
-    .query<RunEventRow, [string, number]>(
-      "SELECT * FROM run_events WHERE run_id = ? AND seq >= ? ORDER BY seq ASC"
-    )
+    .query<
+      RunEventRow,
+      [string, number]
+    >("SELECT * FROM run_events WHERE run_id = ? AND seq >= ? ORDER BY seq ASC")
     .all(runId, fromSeq);
 }
 

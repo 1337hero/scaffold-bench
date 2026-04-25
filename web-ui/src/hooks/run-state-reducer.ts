@@ -13,10 +13,7 @@ export const INITIAL_REDUCER_STATE: ReducerState = {
   _nextLogId: 1,
 };
 
-export type Action =
-  | PersistedEvent
-  | { type: "_focus"; id: string }
-  | { type: "_reset" };
+export type Action = PersistedEvent | { type: "_focus"; id: string } | { type: "_reset" };
 
 function formatTime(ts: number): string {
   return new Date(ts).toISOString().substring(11, 19);
@@ -24,7 +21,12 @@ function formatTime(ts: number): string {
 
 function toolLabel(name: string): string {
   if (["bash", "execute_bash", "run_bash", "computer"].includes(name)) return "cmd";
-  if (["edit", "write", "str_replace_editor", "str_replace", "create_file", "write_file"].includes(name)) return "edit";
+  if (
+    ["edit", "write", "str_replace_editor", "str_replace", "create_file", "write_file"].includes(
+      name
+    )
+  )
+    return "edit";
   return "tool";
 }
 
@@ -182,9 +184,10 @@ export function reducer(state: ReducerState, action: Action): ReducerState {
       const label = toolLabel(event.call.name);
       let text = event.call.name;
       try {
-        const args = typeof event.call.args === "string"
-          ? JSON.parse(event.call.args) as Record<string, unknown>
-          : event.call.args as Record<string, unknown>;
+        const args =
+          typeof event.call.args === "string"
+            ? (JSON.parse(event.call.args) as Record<string, unknown>)
+            : (event.call.args as Record<string, unknown>);
         if (label === "cmd" && args["command"]) text = `$ ${args["command"]}`;
         else if (label === "edit" && args["path"]) text = `${event.call.name} ${args["path"]}`;
         else text = `${event.call.name}(${JSON.stringify(args).slice(0, 80)})`;
@@ -210,11 +213,7 @@ export function reducer(state: ReducerState, action: Action): ReducerState {
           toolCallCount: (s.toolCallCount ?? 0) + 1,
           bashCallCount: label === "cmd" ? (s.bashCallCount ?? 0) + 1 : s.bashCallCount,
           editCallCount: label === "edit" ? (s.editCallCount ?? 0) + 1 : s.editCallCount,
-          logs: [
-            ...s.logs,
-            ...(flushEntry ? [flushEntry] : []),
-            toolEntry,
-          ],
+          logs: [...s.logs, ...(flushEntry ? [flushEntry] : []), toolEntry],
         };
       });
       return {

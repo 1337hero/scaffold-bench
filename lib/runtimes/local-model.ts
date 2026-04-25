@@ -110,7 +110,8 @@ export async function callModel(
       ),
     };
   } catch (error) {
-    if (timedOut || /timed out/i.test(errorMessage(error))) throw new Error("TIMEOUT");
+    if (timedOut || /timed out/i.test(errorMessage(error)))
+      throw new Error("TIMEOUT", { cause: error });
     throw error;
   } finally {
     clearTimeout(timer);
@@ -205,7 +206,9 @@ export async function readChatStream(
   return stream;
 }
 
-export function parseStreamChunk(data: string): Schema.Schema.Type<typeof ChatStreamChunkSchema> | undefined {
+export function parseStreamChunk(
+  data: string
+): Schema.Schema.Type<typeof ChatStreamChunkSchema> | undefined {
   try {
     const result = Schema.decodeUnknownEither(ChatStreamChunkSchema)(JSON.parse(data));
     if (Either.isRight(result)) return result.right;
@@ -229,7 +232,7 @@ export function nonSseError(endpoint: string, body: string): Error {
 
 export function buildToolCalls(toolCallsByIndex: Map<number, ToolCallParts>): OpenAIToolCall[] {
   return [...toolCallsByIndex.entries()]
-    .sort(([a], [b]) => a - b)
+    .toSorted(([a], [b]) => a - b)
     .map(([, tc]) => ({
       id: tc.id || `call_${Math.random().toString(36).slice(2, 10)}`,
       type: "function",
@@ -258,8 +261,7 @@ export function extractModelCallMetrics(
   const completionEvalTokens = response.timings?.predicted_n ?? response.eval_count;
   const promptTokens = response.usage?.prompt_tokens ?? promptEvalTokens ?? 0;
   const completionTokens = response.usage?.completion_tokens ?? completionEvalTokens ?? 0;
-  const totalTokens =
-    response.usage?.total_tokens ?? promptTokens + completionTokens;
+  const totalTokens = response.usage?.total_tokens ?? promptTokens + completionTokens;
   const promptEvalTimeMs =
     response.timings?.prompt_ms ?? nsDurationToMs(response.prompt_eval_duration);
   const completionEvalTimeMs =
@@ -276,8 +278,7 @@ export function extractModelCallMetrics(
           promptEvalTimeMs: promptEvalTimeMs as Ms,
         }
       : {}),
-    ...(completionEvalTimeMs !== undefined
-      && completionEvalTokens !== undefined
+    ...(completionEvalTimeMs !== undefined && completionEvalTokens !== undefined
       ? {
           completionEvalTokens: completionEvalTokens as TokenCount,
           completionEvalTimeMs: completionEvalTimeMs as Ms,

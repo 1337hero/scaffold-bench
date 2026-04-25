@@ -71,10 +71,7 @@ export function renderList<T, R>(
   // !isShallow(source)` that gates the wrap.
   const out: R[] = new Array(source.length);
   for (let i = 0; i < source.length; i++) {
-    out[i] = render(
-      sourceIsReactiveArray ? toReactive(source[i]) : source[i],
-      i
-    );
+    out[i] = render(sourceIsReactiveArray ? toReactive(source[i]) : source[i], i);
   }
   return out;
 }

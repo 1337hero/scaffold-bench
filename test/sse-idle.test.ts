@@ -7,9 +7,7 @@ describe("SSE connection stays alive during long model runs", () => {
     // Any gap >10s between real events (e.g. during model inference or slow tool calls)
     // kills the stream. The web.ts entrypoint must set idleTimeout to a value
     // larger than the heartbeat interval (we use 0 = no timeout, the correct choice for SSE).
-    const src = await Bun.file(
-      new URL("../web.ts", import.meta.url).pathname
-    ).text();
+    const src = await Bun.file(new URL("../scripts/web.ts", import.meta.url).pathname).text();
     expect(src).toMatch(/idleTimeout\s*:\s*0/);
   });
 

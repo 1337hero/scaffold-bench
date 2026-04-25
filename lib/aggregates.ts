@@ -1,7 +1,4 @@
-import {
-  mergeModelMetrics,
-  sumScenarioMaxPoints,
-} from "./scoring.ts";
+import { mergeModelMetrics, sumScenarioMaxPoints } from "./scoring.ts";
 import type {
   Category,
   ModelMetrics,
@@ -37,10 +34,7 @@ export function computeRunTotals(scenarios: readonly ScenarioLike[]): {
   completed: number;
   total: number;
 } {
-  const totalPoints = scenarios.reduce(
-    (sum, s) => sum + (s.result?.evaluation.points ?? 0),
-    0
-  );
+  const totalPoints = scenarios.reduce((sum, s) => sum + (s.result?.evaluation.points ?? 0), 0);
   const maxPoints = sumScenarioMaxPoints(scenarios.map((s) => s.result?.evaluation));
   const completed = scenarios.filter((s) => s.stage === "done").length;
   return { totalPoints, maxPoints, completed, total: scenarios.length };
@@ -63,10 +57,7 @@ export function computeStatusBreakdown(scenarios: readonly ScenarioLike[]): {
   return { pass, partial, fail };
 }
 
-export function countStatus(
-  status: ScenarioStatus,
-  results: readonly ScenarioResult[]
-): number {
+export function countStatus(status: ScenarioStatus, results: readonly ScenarioResult[]): number {
   return results.filter((r) => r.evaluation.status === status).length;
 }
 
@@ -119,25 +110,19 @@ export function findActiveIndex(scenarios: readonly ScenarioLike[]): number | un
   return idx === -1 ? undefined : idx;
 }
 
-export function selectActiveMetrics(
-  scenarios: readonly ScenarioLike[]
-): ModelMetrics | undefined {
+export function selectActiveMetrics(scenarios: readonly ScenarioLike[]): ModelMetrics | undefined {
   const active = scenarios.find((s) => s.stage === "running");
   return active?.liveMetrics;
 }
 
-export function selectFinalMetrics(
-  state: { modelMetrics?: ModelMetrics }
-): ModelMetrics | undefined {
+export function selectFinalMetrics(state: {
+  modelMetrics?: ModelMetrics;
+}): ModelMetrics | undefined {
   return state.modelMetrics;
 }
 
-export function selectMergedMetrics(
-  scenarios: readonly ScenarioLike[]
-): ModelMetrics | undefined {
-  return mergeModelMetrics(
-    scenarios.map((s) => s.liveMetrics ?? s.result?.output.modelMetrics)
-  );
+export function selectMergedMetrics(scenarios: readonly ScenarioLike[]): ModelMetrics | undefined {
+  return mergeModelMetrics(scenarios.map((s) => s.liveMetrics ?? s.result?.output.modelMetrics));
 }
 
 export function selectDisplayMetrics(
@@ -145,9 +130,7 @@ export function selectDisplayMetrics(
   state: { modelMetrics?: ModelMetrics }
 ): ModelMetrics | undefined {
   return (
-    selectActiveMetrics(scenarios) ??
-    selectFinalMetrics(state) ??
-    selectMergedMetrics(scenarios)
+    selectActiveMetrics(scenarios) ?? selectFinalMetrics(state) ?? selectMergedMetrics(scenarios)
   );
 }
 

@@ -78,7 +78,7 @@ export function useSSE(
       }
       if (pendingDeltas.size === 0) return;
 
-      const batched = [...pendingDeltas.values()].sort((a, b) => a.seq - b.seq);
+      const batched = [...pendingDeltas.values()].toSorted((a, b) => a.seq - b.seq);
       pendingDeltas.clear();
       for (const delta of batched) {
         dispatchEvent({
@@ -134,10 +134,16 @@ export function useSSE(
     };
 
     const EVENT_TYPES: PersistedEvent["type"][] = [
-      "run_started", "run_finished", "run_stopped", "run_failed",
-      "scenario_started", "scenario_finished",
-      "assistant", "assistant_delta",
-      "tool_call", "tool_result",
+      "run_started",
+      "run_finished",
+      "run_stopped",
+      "run_failed",
+      "scenario_started",
+      "scenario_finished",
+      "assistant",
+      "assistant_delta",
+      "tool_call",
+      "tool_result",
       "model_metrics",
     ];
 
@@ -145,13 +151,13 @@ export function useSSE(
       es.addEventListener(type, handleMessage);
     }
 
-    es.onmessage = handleMessage;
-    es.onopen = () => {
+    es.addEventListener("message", handleMessage);
+    es.addEventListener("open", () => {
       connectionState = "open";
-    };
-    es.onerror = () => {
+    });
+    es.addEventListener("error", () => {
       connectionState = "error";
-    };
+    });
 
     return () => {
       connectionState = "closed";

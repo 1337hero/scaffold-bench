@@ -1,6 +1,6 @@
 import type { ScenarioState, ScenarioStatus } from "@/types";
 import { formatElapsed } from "@/lib/format";
-import { TuiBox } from "./TuiBox";
+import { Panel } from "./Panel";
 
 interface ScenarioQueueProps {
   scenarios: ScenarioState[];
@@ -29,11 +29,7 @@ export function ScenarioQueue({ scenarios, focusedId, onFocus }: ScenarioQueuePr
   ).length;
 
   return (
-    <TuiBox
-      title="Queue"
-      rightTag={`${completed} / ${scenarios.length}`}
-      className="h-full"
-    >
+    <Panel title="Queue" rightTag={`${completed} / ${scenarios.length}`} className="h-full">
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {scenarios.length === 0 ? (
           <div className="p-4 text-text-dim text-[12px] text-center">No scenarios</div>
@@ -53,8 +49,8 @@ export function ScenarioQueue({ scenarios, focusedId, onFocus }: ScenarioQueuePr
                   isRunning
                     ? "bg-gold-bg border-l-gold"
                     : isFocused
-                    ? "border-l-blue-main bg-prompt-bg"
-                    : "border-l-transparent hover:bg-prompt-bg",
+                      ? "border-l-blue-main bg-prompt-bg"
+                      : "border-l-transparent hover:bg-prompt-bg",
                 ].join(" ")}
               >
                 {/* Line 1: icon + id + name */}
@@ -62,7 +58,9 @@ export function ScenarioQueue({ scenarios, focusedId, onFocus }: ScenarioQueuePr
                   <span className="w-3 text-center flex-shrink-0 text-[13px]">
                     <StatusIcon status={s.status} />
                   </span>
-                  <span className={`font-bold flex-shrink-0 ${isRunning ? "text-gold" : "text-text-dim"}`}>
+                  <span
+                    className={`font-bold flex-shrink-0 ${isRunning ? "text-gold" : "text-text-dim"}`}
+                  >
                     {s.id}
                   </span>
                   <span className="text-text-main truncate">{s.name}</span>
@@ -81,17 +79,13 @@ export function ScenarioQueue({ scenarios, focusedId, onFocus }: ScenarioQueuePr
                     {s.points !== undefined ? `${s.points}` : "0"}
                     <span className="text-text-dim">/{s.maxPoints}pt</span>
                   </span>
-                  {elapsed > 0 ? (
-                    <span>{formatElapsed(elapsed)}</span>
-                  ) : (
-                    <span>--:--</span>
-                  )}
+                  {elapsed > 0 ? <span>{formatElapsed(elapsed)}</span> : <span>--:--</span>}
                 </div>
               </button>
             );
           })
         )}
       </div>
-    </TuiBox>
+    </Panel>
   );
 }

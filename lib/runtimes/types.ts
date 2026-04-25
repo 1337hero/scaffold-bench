@@ -71,5 +71,5 @@ export interface Runtime {
   // Advertise the active model's context window in tokens, if knowable.
   // Used by scenarios (e.g. SB-23) to gracefully skip when the prompt
   // exceeds what the model can ingest.
-  getContextWindow?(): Promise<number | undefined>;
+  getContextWindow?(ctx?: RuntimeSessionContext): Promise<number | undefined>;
 }

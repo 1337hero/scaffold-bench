@@ -1,5 +1,5 @@
 import type { ModelMetrics } from "@/types";
-import { TuiBox } from "./TuiBox";
+import { Panel } from "./Panel";
 import { Cpu, Zap } from "lucide-react";
 
 interface MetricsPanelProps {
@@ -32,15 +32,13 @@ export function MetricsPanel({
   turnWallTimes,
   turnFirstTokenMs,
 }: MetricsPanelProps) {
-  const promptTps = metrics
-    ? fmtRate(metrics.promptEvalTokens, metrics.promptEvalTimeMs)
-    : "—";
+  const promptTps = metrics ? fmtRate(metrics.promptEvalTokens, metrics.promptEvalTimeMs) : "—";
   const genTps = metrics
     ? fmtRate(metrics.completionEvalTokens, metrics.completionEvalTimeMs)
     : "—";
 
   return (
-    <TuiBox title="Metrics" className="flex-none">
+    <Panel title="Metrics" className="flex-none">
       <div className="p-3 flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
           <div className="flex flex-col">
@@ -95,6 +93,6 @@ export function MetricsPanel({
           <span>turn first token: {compactSeconds(turnFirstTokenMs)}</span>
         </div>
       </div>
-    </TuiBox>
+    </Panel>
   );
 }

@@ -23,7 +23,11 @@ function getEmptyMessage() {
 
 export function OrdersPanel() {
   const queryClient = useQueryClient();
-  const { data: orders = [], isLoading, error } = useQuery({
+  const {
+    data: orders = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["orders"],
     queryFn: loadOrders,
   });

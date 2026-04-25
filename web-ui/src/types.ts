@@ -1,17 +1,65 @@
 export type PersistedEventBase = { seq: number; ts: number };
 
 export type PersistedEvent =
-  | (PersistedEventBase & { type: "run_started"; runId: string; scenarioIds: string[]; model: string | null; endpoint: string | null })
-  | (PersistedEventBase & { type: "run_finished"; runId: string; totalPoints: number; maxPoints: number; reportPath: string | null })
+  | (PersistedEventBase & {
+      type: "run_started";
+      runId: string;
+      scenarioIds: string[];
+      model: string | null;
+      endpoint: string | null;
+    })
+  | (PersistedEventBase & {
+      type: "run_finished";
+      runId: string;
+      totalPoints: number;
+      maxPoints: number;
+      reportPath: string | null;
+    })
   | (PersistedEventBase & { type: "run_stopped"; runId: string; reason?: string })
   | (PersistedEventBase & { type: "run_failed"; runId: string; error: string })
-  | (PersistedEventBase & { type: "scenario_started"; runId: string; scenarioId: string; name?: string; category: string; maxPoints: number })
-  | (PersistedEventBase & { type: "scenario_finished"; runId: string; scenarioId: string; status: "pass" | "partial" | "fail" | "stopped"; points: number; wallTimeMs: number; toolCallCount: number; firstTokenMs?: number; turnWallTimes?: number[]; turnFirstTokenMs?: number[]; evaluation: ScenarioEvaluation; modelMetrics?: ModelMetrics })
+  | (PersistedEventBase & {
+      type: "scenario_started";
+      runId: string;
+      scenarioId: string;
+      name?: string;
+      category: string;
+      maxPoints: number;
+    })
+  | (PersistedEventBase & {
+      type: "scenario_finished";
+      runId: string;
+      scenarioId: string;
+      status: "pass" | "partial" | "fail" | "stopped";
+      points: number;
+      wallTimeMs: number;
+      toolCallCount: number;
+      firstTokenMs?: number;
+      turnWallTimes?: number[];
+      turnFirstTokenMs?: number[];
+      evaluation: ScenarioEvaluation;
+      modelMetrics?: ModelMetrics;
+    })
   | (PersistedEventBase & { type: "assistant"; runId: string; scenarioId: string; content: string })
-  | (PersistedEventBase & { type: "assistant_delta"; runId: string; scenarioId: string; content: string })
+  | (PersistedEventBase & {
+      type: "assistant_delta";
+      runId: string;
+      scenarioId: string;
+      content: string;
+    })
   | (PersistedEventBase & { type: "tool_call"; runId: string; scenarioId: string; call: ToolCall })
-  | (PersistedEventBase & { type: "tool_result"; runId: string; scenarioId: string; call: ToolCall; result: string })
-  | (PersistedEventBase & { type: "model_metrics"; runId: string; scenarioId: string; metrics: ModelMetrics });
+  | (PersistedEventBase & {
+      type: "tool_result";
+      runId: string;
+      scenarioId: string;
+      call: ToolCall;
+      result: string;
+    })
+  | (PersistedEventBase & {
+      type: "model_metrics";
+      runId: string;
+      scenarioId: string;
+      metrics: ModelMetrics;
+    });
 
 export type ToolCall = { name: string; args: string; turn: number; result?: unknown };
 
@@ -87,8 +135,19 @@ export type RunState = {
   model?: string | null;
 };
 
-export type ScenarioInfo = { id: string; name: string; category: string; maxPoints: number; prompt: string };
-export type Model = { id: string; source: "local" | "remote"; endpoint?: string; requiresApiKey?: boolean };
+export type ScenarioInfo = {
+  id: string;
+  name: string;
+  category: string;
+  maxPoints: number;
+  prompt: string;
+};
+export type Model = {
+  id: string;
+  source: "local" | "remote";
+  endpoint: string;
+  requiresApiKey?: boolean;
+};
 
 export type RunSummary = {
   id: string;

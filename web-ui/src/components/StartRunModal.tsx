@@ -42,7 +42,12 @@ export function StartRunModal({ onClose, onLaunch }: StartRunModalProps) {
     >
       <form onSubmit={form.handleSubmit} className="flex flex-col max-h-[85vh]">
         <div className="flex justify-between items-center px-4 py-3 border-b border-border-main bg-border-main">
-          <span id="start-run-title" className="text-gold font-bold uppercase tracking-wider text-[11px]">Start Run</span>
+          <span
+            id="start-run-title"
+            className="text-gold font-bold uppercase tracking-wider text-[11px]"
+          >
+            Start Run
+          </span>
           <button type="button" onClick={onClose} className="text-text-dim hover:text-text-main">
             <X size={16} />
           </button>
@@ -55,18 +60,18 @@ export function StartRunModal({ onClose, onLaunch }: StartRunModalProps) {
             <div className="text-red-main text-center py-8">Failed to load scenarios or models</div>
           ) : (
             <>
+              <ModelSelect
+                value={form.selectedModel}
+                onChange={form.setSelectedModel}
+                localModels={form.localModels}
+                remoteModels={form.remoteModels}
+              />
               <ScenarioPicker
                 scenariosByCategory={form.scenariosByCategory}
                 selectedIds={form.selectedIds}
                 onToggle={form.toggleScenario}
                 onSelectAll={form.selectAll}
                 onClearGroup={form.clearGroup}
-              />
-              <ModelSelect
-                value={form.selectedModel}
-                onChange={form.setSelectedModel}
-                localModels={form.localModels}
-                remoteModels={form.remoteModels}
               />
               <AdvancedOptionsPanel
                 systemPrompt={form.systemPrompt}

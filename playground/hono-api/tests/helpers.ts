@@ -16,9 +16,10 @@ export async function seedUser(
 ): Promise<number> {
   const hash = await Bun.password.hash(password);
   const row = db
-    .query<{ id: number }, [string, string, string]>(
-      "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?) RETURNING id"
-    )
+    .query<
+      { id: number },
+      [string, string, string]
+    >("INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?) RETURNING id")
     .get(email, hash, role);
   return row!.id;
 }

@@ -38,7 +38,7 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
   const runsQuery = useQuery({
     queryKey: ["runs"],
     queryFn: api.listRuns,
-    select: (runs) => [...runs].reverse(),
+    select: (runs) => runs.toReversed(),
     refetchInterval: REPORT_REFETCH_MS,
   });
 
@@ -72,7 +72,7 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
   return (
     <div className="min-h-screen bg-bg-main text-text-main font-mono p-4 md:px-6 md:pt-6 text-[13px] leading-[1.4]">
       <ReportHeader
-        totals={report?.totals ?? { models: 0, runs: 0, local: 0, api: 0, scenarioRuns: 0}}
+        totals={report?.totals ?? { models: 0, runs: 0, local: 0, api: 0, scenarioRuns: 0 }}
         snapshot={report?.snapshot ?? "—"}
         isRefreshing={isRefreshing}
         onBack={onBack}
@@ -103,7 +103,9 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
               title="Generation speed (completion tok/s)"
               models={sortByMetric(visibleModels, (model) => model.completionTps)}
               value={(model) => model.completionTps}
-              format={(value, model) => `${model.completionTpsApprox ? "~" : ""}${value.toFixed(1)}`}
+              format={(value, model) =>
+                `${model.completionTpsApprox ? "~" : ""}${value.toFixed(1)}`
+              }
               color="#3498DB"
             />
             <MetricBars
@@ -157,18 +159,23 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
           {clearRunsMutation.isPending
             ? "DELETING…"
             : armed
-            ? "CLICK AGAIN TO CONFIRM"
-            : "DELETE ALL LOGS"}
+              ? "CLICK AGAIN TO CONFIRM"
+              : "DELETE ALL LOGS"}
         </button>
         {clearRunsMutation.isError && (
-          <div className="text-red-main text-[11px]">Failed to clear run logs. Stop active runs and retry.</div>
+          <div className="text-red-main text-[11px]">
+            Failed to clear run logs. Stop active runs and retry.
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function filterModels(models: ReportModelAggregate[], sourceFilter: ReportSourceFilter): ReportModelAggregate[] {
+function filterModels(
+  models: ReportModelAggregate[],
+  sourceFilter: ReportSourceFilter
+): ReportModelAggregate[] {
   if (sourceFilter === "all") return models;
   return models.filter((model) => model.source === sourceFilter);
 }

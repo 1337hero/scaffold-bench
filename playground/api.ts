@@ -74,4 +74,3 @@ async function deleteUser(id: string) {
 
 export { createUser, deleteUser, getUser, getUsers, request };
 export type { ApiConfig, ApiResponse };
-

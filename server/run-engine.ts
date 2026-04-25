@@ -5,16 +5,19 @@ import { runScenario } from "../lib/orchestrator.ts";
 import { localRuntime } from "../lib/runtimes/local-agent.ts";
 import { scenarios as allScenarios } from "../lib/scenarios.ts";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
-import {
-  computeRunTotals,
-  type ScenarioLike,
-} from "../lib/aggregates.ts";
+import { computeRunTotals, type ScenarioLike } from "../lib/aggregates.ts";
 import { mergeModelMetrics } from "../lib/scoring.ts";
 import type { ScenarioResult } from "../lib/scoring.ts";
 import type { RuntimeEvent, ToolExecutionMode } from "../lib/runtimes/types.ts";
 import { runtimeEventToPersisted } from "./contracts/events.ts";
 import type { PersistedEvent } from "./contracts/events.ts";
-import { insertRun, updateRun, upsertScenarioRun, insertEvent, withTransaction } from "./db/queries.ts";
+import {
+  insertRun,
+  updateRun,
+  upsertScenarioRun,
+  insertEvent,
+  withTransaction,
+} from "./db/queries.ts";
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
 
@@ -174,10 +177,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       }),
     })),
   };
-  await Bun.write(
-    resultsPath,
-    JSON.stringify(Schema.encodeSync(RunFileSchema)(runFile), null, 2)
-  );
+  await Bun.write(resultsPath, JSON.stringify(Schema.encodeSync(RunFileSchema)(runFile), null, 2));
 
   return { results, totalPoints, maxPoints, resultsPath };
 }

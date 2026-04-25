@@ -44,9 +44,11 @@ export function getModel(state: RunState, focused: ScenarioState | undefined): s
   return state.model ?? metrics?.model ?? null;
 }
 
-export function getCallCounts(
-  focused: ScenarioState | undefined
-): { tool: number; bash: number; edit: number } {
+export function getCallCounts(focused: ScenarioState | undefined): {
+  tool: number;
+  bash: number;
+  edit: number;
+} {
   if (!focused) return { tool: 0, bash: 0, edit: 0 };
   return {
     tool: focused.toolCallCount ?? 0,

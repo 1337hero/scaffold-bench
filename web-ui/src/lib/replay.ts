@@ -10,7 +10,7 @@ export type StoredRunEvent = {
 export function normalizeStoredRunEvents(events: StoredRunEvent[]): PersistedEvent[] {
   return events
     .map(({ seq, ts, payload }) => ({ ...payload, seq, ts }))
-    .sort((a, b) => a.seq - b.seq);
+    .toSorted((a, b) => a.seq - b.seq);
 }
 
 type AssistantDeltaEvent = Extract<PersistedEvent, { type: "assistant_delta" }>;

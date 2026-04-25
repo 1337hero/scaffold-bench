@@ -13,9 +13,10 @@ sessionsRoutes.post("/sessions", async (c) => {
   const body = await c.req.json<{ email: string; password: string }>();
   const db = c.get("db") as DB;
   const user = db
-    .query<{ id: number; password_hash: string }, [string]>(
-      "SELECT id, password_hash FROM users WHERE email = ?"
-    )
+    .query<
+      { id: number; password_hash: string },
+      [string]
+    >("SELECT id, password_hash FROM users WHERE email = ?")
     .get(body.email);
 
   if (!user || !(await Bun.password.verify(body.password, user.password_hash))) {

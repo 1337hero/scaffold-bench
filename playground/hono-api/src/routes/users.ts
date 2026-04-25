@@ -14,9 +14,10 @@ usersRoutes.post("/users", async (c) => {
   const hash = await Bun.password.hash(body.password);
   try {
     const result = db
-      .query<{ id: number }, [string, string]>(
-        "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id"
-      )
+      .query<
+        { id: number },
+        [string, string]
+      >("INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id")
       .get(body.email, hash);
     return c.json({ id: result!.id, email: body.email }, 201);
   } catch (err: any) {
@@ -31,9 +32,10 @@ usersRoutes.get("/users/:id", (c) => {
   const id = Number(c.req.param("id"));
   const db = c.get("db") as DB;
   const row = db
-    .query<{ id: number; email: string; role: string }, [number]>(
-      "SELECT id, email, role FROM users WHERE id = ?"
-    )
+    .query<
+      { id: number; email: string; role: string },
+      [number]
+    >("SELECT id, email, role FROM users WHERE id = ?")
     .get(id);
   if (!row) throw new AppError("not found", 404, "not_found");
   return c.json(row);

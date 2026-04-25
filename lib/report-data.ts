@@ -185,18 +185,18 @@ export function buildReportData(): ReportData {
 
   const models = [...accByModel.entries()]
     .map(([model, acc]) => finalizeModel(model, acc))
-    .sort((a, b) => b.scorePct - a.scorePct);
+    .toSorted((a, b) => b.scorePct - a.scorePct);
 
   const scored = models.filter((model) => model.avgScenarioSeconds > 0);
-  const bestAligned = [...scored].sort(
+  const bestAligned = scored.toSorted(
     (a, b) => b.scorePct / b.avgScenarioSeconds - a.scorePct / a.avgScenarioSeconds
   )[0];
-  const fastestGeneration = [...models]
+  const fastestGeneration = models
     .filter((model) => model.completionTps !== null)
-    .sort((a, b) => (b.completionTps ?? 0) - (a.completionTps ?? 0))[0];
-  const fastestPrompt = [...models]
+    .toSorted((a, b) => (b.completionTps ?? 0) - (a.completionTps ?? 0))[0];
+  const fastestPrompt = models
     .filter((model) => model.promptTps !== null)
-    .sort((a, b) => (b.promptTps ?? 0) - (a.promptTps ?? 0))[0];
+    .toSorted((a, b) => (b.promptTps ?? 0) - (a.promptTps ?? 0))[0];
 
   return {
     models,
@@ -304,7 +304,8 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     maxAvg: acc.maxPoints / runCount,
     totalWallSeconds: acc.totalWallMs / 1000,
     avgScenarioSeconds: acc.scenarioRuns > 0 ? acc.scenarioWallMs / acc.scenarioRuns / 1000 : 0,
-    avgFirstTokenSeconds: acc.firstTokenCount > 0 ? acc.firstTokenSumMs / acc.firstTokenCount / 1000 : null,
+    avgFirstTokenSeconds:
+      acc.firstTokenCount > 0 ? acc.firstTokenSumMs / acc.firstTokenCount / 1000 : null,
     completionTps: completion.value,
     completionTpsApprox: completion.approx,
     promptTps: prompt.value,
@@ -337,17 +338,20 @@ function promptTps(acc: ModelAccumulator): { value: number | null; approx: boole
   return { value: null, approx: false };
 }
 
-function categoryScores(aggregates: Record<string, CategoryAggregate>): Record<string, ReportCategoryScore> {
+function categoryScores(
+  aggregates: Record<string, CategoryAggregate>
+): Record<string, ReportCategoryScore> {
   const scores: Record<string, ReportCategoryScore> = {};
   for (const category of REPORT_CATEGORIES) {
     const aggregate = aggregates[category];
-    scores[category] = aggregate && aggregate.maxPoints > 0
-      ? {
-          points: aggregate.points,
-          maxPoints: aggregate.maxPoints,
-          pct: (aggregate.points / aggregate.maxPoints) * 100,
-        }
-      : { points: aggregate?.points ?? 0, maxPoints: 0, pct: null };
+    scores[category] =
+      aggregate && aggregate.maxPoints > 0
+        ? {
+            points: aggregate.points,
+            maxPoints: aggregate.maxPoints,
+            pct: (aggregate.points / aggregate.maxPoints) * 100,
+          }
+        : { points: aggregate?.points ?? 0, maxPoints: 0, pct: null };
   }
   return scores;
 }

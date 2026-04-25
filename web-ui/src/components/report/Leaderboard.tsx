@@ -30,14 +30,30 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
             {models.map((model, index) => (
               <tr key={model.model} className="border-b border-border-main hover:bg-prompt-bg">
                 <td className="py-2 px-2 text-text-dim">{index + 1}</td>
-                <td className="py-2 px-2 text-text-main font-bold max-w-[260px] truncate">{model.model}</td>
-                <td className="py-2 px-2"><SourceBadge source={model.source} /></td>
-                <td className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.scorePct)}`}>{model.scorePct.toFixed(1)}%</td>
-                <td className="py-2 px-2 text-right text-text-dim">{model.pointsAvg.toFixed(1)} / {model.maxAvg.toFixed(0)}</td>
-                <td className="py-2 px-2 text-right text-text-dim">{formatTps(model.completionTps, model.completionTpsApprox, 1)}</td>
-                <td className="py-2 px-2 text-right text-text-dim">{formatTps(model.promptTps, model.promptTpsApprox, 0)}</td>
-                <td className="py-2 px-2 text-right text-text-dim">{model.avgScenarioSeconds.toFixed(1)}s</td>
-                <td className="py-2 px-2 text-right text-text-dim">{formatSeconds(model.avgFirstTokenSeconds, 2)}</td>
+                <td className="py-2 px-2 text-text-main font-bold max-w-[260px] truncate">
+                  {model.model}
+                </td>
+                <td className="py-2 px-2">
+                  <SourceBadge source={model.source} />
+                </td>
+                <td className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.scorePct)}`}>
+                  {model.scorePct.toFixed(1)}%
+                </td>
+                <td className="py-2 px-2 text-right text-text-dim">
+                  {model.pointsAvg.toFixed(1)} / {model.maxAvg.toFixed(0)}
+                </td>
+                <td className="py-2 px-2 text-right text-text-dim">
+                  {formatTps(model.completionTps, model.completionTpsApprox, 1)}
+                </td>
+                <td className="py-2 px-2 text-right text-text-dim">
+                  {formatTps(model.promptTps, model.promptTpsApprox, 0)}
+                </td>
+                <td className="py-2 px-2 text-right text-text-dim">
+                  {model.avgScenarioSeconds.toFixed(1)}s
+                </td>
+                <td className="py-2 px-2 text-right text-text-dim">
+                  {formatSeconds(model.avgFirstTokenSeconds, 2)}
+                </td>
                 <td className="py-2 px-2 text-right text-text-dim">{model.toolCallsTotal}</td>
                 <td className="py-2 px-2 text-right text-text-dim">{model.requests}</td>
                 <td className="py-2 px-2 text-right text-text-dim">{model.runs}</td>
@@ -57,5 +73,7 @@ export function RunStatusBadge({ status }: { status: string }) {
     failed: "border-red-main text-red-main",
   };
   const color = colors[status] ?? "border-border-main text-text-dim";
-  return <span className={`px-2 py-0.5 text-[10px] uppercase border rounded-sm ${color}`}>{status}</span>;
+  return (
+    <span className={`px-2 py-0.5 text-[10px] uppercase border rounded-sm ${color}`}>{status}</span>
+  );
 }

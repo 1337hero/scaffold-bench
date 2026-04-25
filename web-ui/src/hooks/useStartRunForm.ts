@@ -11,16 +11,13 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
   const scenariosQuery = useQuery({ queryKey: ["scenarios"], queryFn: api.getScenarios });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: api.getModels });
 
-  const scenarios = scenariosQuery.data ?? [];
+  const scenarios = useMemo(() => scenariosQuery.data ?? [], [scenariosQuery.data]);
   const localModels = modelsQuery.data?.local ?? [];
   const remoteModels = modelsQuery.data?.remote ?? [];
   const loading = scenariosQuery.isLoading || modelsQuery.isLoading;
   const loadError = scenariosQuery.isError || modelsQuery.isError;
 
-  const defaultSelectedIds = useMemo(
-    () => new Set(scenarios.map((s) => s.id)),
-    [scenarios]
-  );
+  const defaultSelectedIds = useMemo(() => new Set(scenarios.map((s) => s.id)), [scenarios]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => defaultSelectedIds);
   const [userEdited, setUserEdited] = useState(false);
@@ -50,7 +47,7 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
       const e = err as Error & { activeRunId?: string };
       const message = e.activeRunId
         ? `A run is already in progress (${e.activeRunId})`
-        : e.message ?? "Failed to start run";
+        : (e.message ?? "Failed to start run");
       setError(message);
     },
   });
@@ -95,13 +92,9 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
       return;
     }
     setError(null);
-    const selectedModelConfig = [...localModels, ...remoteModels].find(
-      (model) => model.id === selectedModel
-    );
     createRunMutation.mutate({
       scenarioIds: [...selectedIds],
       modelId: selectedModel || undefined,
-      endpoint: selectedModelConfig?.endpoint,
       systemPrompt: systemPrompt || undefined,
       toolExecution,
       timeoutMs: timeoutSecs * 1000,

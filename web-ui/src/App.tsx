@@ -26,7 +26,7 @@ export default function App() {
   const activeRunQuery = useQuery({
     queryKey: ["active-run"],
     queryFn: api.activeRun,
-    refetchInterval: (query) => query.state.data?.runId ? false : ACTIVE_RUN_REFETCH_MS,
+    refetchInterval: (query) => (query.state.data?.runId ? false : ACTIVE_RUN_REFETCH_MS),
   });
 
   const activeRunId = activeRunQuery.data?.runId ?? null;
@@ -50,8 +50,12 @@ export default function App() {
   const handleReplay = (runId: string) => navigate({ name: "dashboard", replayRunId: runId });
 
   useShortcuts({
-    r: () => { if (!isModalOpen) setIsModalOpen(true); },
-    h: () => { if (!isModalOpen && view.name !== "history") navigate({ name: "history" }); },
+    r: () => {
+      if (!isModalOpen) setIsModalOpen(true);
+    },
+    h: () => {
+      if (!isModalOpen && view.name !== "history") navigate({ name: "history" });
+    },
     Escape: () => {
       if (isModalOpen) setIsModalOpen(false);
       else if (view.name !== "dashboard") navigate({ name: "dashboard" });
@@ -71,12 +75,7 @@ export default function App() {
         <RunHistory onReplay={handleReplay} onBack={goDashboard} />
       )}
 
-      {isModalOpen && (
-        <StartRunModal
-          onClose={closeModal}
-          onLaunch={handleLaunch}
-        />
-      )}
+      {isModalOpen && <StartRunModal onClose={closeModal} onLaunch={handleLaunch} />}
     </>
   );
 }

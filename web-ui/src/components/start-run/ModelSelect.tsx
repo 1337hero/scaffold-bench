@@ -10,7 +10,9 @@ interface ModelSelectProps {
 export function ModelSelect({ value, onChange, localModels, remoteModels }: ModelSelectProps) {
   return (
     <div>
-      <label className="block text-[11px] uppercase tracking-widest text-text-dim mb-1">Model</label>
+      <label className="block text-[11px] uppercase tracking-widest text-text-dim mb-1">
+        Model
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -19,14 +21,18 @@ export function ModelSelect({ value, onChange, localModels, remoteModels }: Mode
         {localModels.length > 0 && (
           <optgroup label="Local">
             {localModels.map((m) => (
-              <option key={m.id} value={m.id}>{m.id}</option>
+              <option key={m.id} value={m.id}>
+                {m.id}
+              </option>
             ))}
           </optgroup>
         )}
         {remoteModels.length > 0 && (
           <optgroup label="Remote">
             {remoteModels.map((m) => (
-              <option key={m.id} value={m.id}>{m.id} (remote)</option>
+              <option key={m.id} value={m.id}>
+                {m.id} (remote)
+              </option>
             ))}
           </optgroup>
         )}

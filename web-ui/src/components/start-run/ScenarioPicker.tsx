@@ -27,7 +27,9 @@ export function ScenarioPicker({
           return (
             <div key={category}>
               <div className="flex items-center justify-between px-3 py-1.5 bg-border-main/40">
-                <span className="text-[10px] uppercase tracking-widest text-text-dim">{category}</span>
+                <span className="text-[10px] uppercase tracking-widest text-text-dim">
+                  {category}
+                </span>
                 <div className="flex gap-2">
                   <button
                     type="button"

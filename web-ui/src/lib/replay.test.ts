@@ -17,7 +17,14 @@ describe("replay event utilities", () => {
         seq: 1,
         ts: 10,
         type: "scenario_started",
-        payload: { seq: 99, ts: 99, type: "scenario_started", ...base, category: "cat", maxPoints: 2 },
+        payload: {
+          seq: 99,
+          ts: 99,
+          type: "scenario_started",
+          ...base,
+          category: "cat",
+          maxPoints: 2,
+        },
       },
     ]);
 
@@ -42,12 +49,19 @@ describe("replay event utilities", () => {
   test("does not coalesce deltas across scenarios", () => {
     const input: PersistedEvent[] = [
       { seq: 1, ts: 10, type: "assistant_delta", ...base, content: "a" },
-      { seq: 2, ts: 20, type: "assistant_delta", runId: "run-1", scenarioId: "SB-02", content: "b" },
+      {
+        seq: 2,
+        ts: 20,
+        type: "assistant_delta",
+        runId: "run-1",
+        scenarioId: "SB-02",
+        content: "b",
+      },
     ];
 
     const out = coalesceReplayDeltas(input);
 
     expect(out).toHaveLength(2);
-    expect(out.map((e) => e.type === "assistant_delta" ? e.content : "")).toEqual(["a", "b"]);
+    expect(out.map((e) => (e.type === "assistant_delta" ? e.content : ""))).toEqual(["a", "b"]);
   });
 });

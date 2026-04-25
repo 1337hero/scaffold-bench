@@ -100,23 +100,14 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
 
   useShortcuts({ s: handleStop });
 
-  const focusedScenario = useMemo(
-    () => getFocusedScenario(state),
-    [state.focusedScenarioId, state.activeScenarioId, state.scenarios]
-  );
+  const focusedScenario = useMemo(() => getFocusedScenario(state), [state]);
   const focusedId = state.focusedScenarioId ?? state.activeScenarioId;
   const isLive = state.status === "running" && focusedId === state.activeScenarioId;
   const metrics = focusedScenario?.liveMetrics ?? state.globalMetrics;
   const callCounts = useMemo(() => getCallCounts(focusedScenario), [focusedScenario]);
-  const categoryRollups = useMemo(() => getCategoryRollups(state), [state.scenarios]);
-  const displayed = useMemo(
-    () => getDisplayedPoints(state),
-    [state.status, state.scenarios, state.totalPoints, state.maxPoints]
-  );
-  const model = useMemo(
-    () => getModel(state, focusedScenario),
-    [state.model, state.globalMetrics, focusedScenario]
-  );
+  const categoryRollups = useMemo(() => getCategoryRollups(state), [state]);
+  const displayed = useMemo(() => getDisplayedPoints(state), [state]);
+  const model = useMemo(() => getModel(state, focusedScenario), [state, focusedScenario]);
   const runComplete = isRunComplete(state.status);
 
   return (
@@ -132,7 +123,8 @@ export function Dashboard({ onHistory, onStartRun, activeRunId, initialRunId }: 
       />
       {stopMutation.isError ? (
         <div className="text-[11px] text-red-main mt-1">
-          Stop failed: {stopMutation.error instanceof Error ? stopMutation.error.message : "unknown"}
+          Stop failed:{" "}
+          {stopMutation.error instanceof Error ? stopMutation.error.message : "unknown"}
         </div>
       ) : null}
 

@@ -64,6 +64,7 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
         workDir,
         timeoutMs: opts.timeoutMs,
         onRuntimeEvent: opts.onRuntimeEvent,
+        runtimeOverrides: opts.runtimeOverrides,
       }));
     } else {
       const runStartedAt = performance.now();
@@ -76,7 +77,7 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
           timeoutMs: opts.timeoutMs,
           onEvent: opts.onRuntimeEvent,
           signal: opts.signal,
-          ...(opts.runtimeOverrides ?? {}),
+          ...opts.runtimeOverrides,
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);

@@ -8,7 +8,11 @@ async function loadReports(): Promise<Report[]> {
 }
 
 export function ReportsPage() {
-  const { data: reports = [], isLoading, error } = useQuery({
+  const {
+    data: reports = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["reports"],
     queryFn: loadReports,
   });

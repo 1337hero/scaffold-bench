@@ -10,9 +10,10 @@ itemsRoutes.use("*", requireUser);
 itemsRoutes.get("/items", (c) => {
   const db = c.get("db") as DB;
   const items = db
-    .query<{ id: number; owner_id: number; name: string; created_at: number }, []>(
-      "SELECT id, owner_id, name, created_at FROM items WHERE deleted_at IS NULL ORDER BY id DESC"
-    )
+    .query<
+      { id: number; owner_id: number; name: string; created_at: number },
+      []
+    >("SELECT id, owner_id, name, created_at FROM items WHERE deleted_at IS NULL ORDER BY id DESC")
     .all();
 
   const withOwners = items.map((item) => {
@@ -31,9 +32,10 @@ itemsRoutes.post("/items", async (c) => {
   const user = c.get("user") as { id: number };
   const db = c.get("db") as DB;
   const result = db
-    .query<{ id: number }, [number, string]>(
-      "INSERT INTO items (owner_id, name) VALUES (?, ?) RETURNING id"
-    )
+    .query<
+      { id: number },
+      [number, string]
+    >("INSERT INTO items (owner_id, name) VALUES (?, ?) RETURNING id")
     .get(user.id, body.name);
   return c.json({ id: result!.id, name: body.name }, 201);
 });

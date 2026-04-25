@@ -4,7 +4,13 @@ import { scoreBarColor } from "@/lib/score-color";
 import { SectionTitle } from "./SectionTitle";
 import { RunStatusBadge } from "./Leaderboard";
 
-export function RecentRunsTable({ runs, onReplay }: { runs: RunSummary[]; onReplay: (runId: string) => void }) {
+export function RecentRunsTable({
+  runs,
+  onReplay,
+}: {
+  runs: RunSummary[];
+  onReplay: (runId: string) => void;
+}) {
   return (
     <section className="mt-8">
       <SectionTitle>Recent Runs</SectionTitle>
@@ -24,16 +30,33 @@ export function RecentRunsTable({ runs, onReplay }: { runs: RunSummary[]; onRepl
           </thead>
           <tbody>
             {runs.map((run, index) => (
-              <tr key={run.id} className="border-b border-border-main hover:bg-prompt-bg transition-colors">
+              <tr
+                key={run.id}
+                className="border-b border-border-main hover:bg-prompt-bg transition-colors"
+              >
                 <td className="py-2.5 px-3 text-text-dim">{runs.length - index}</td>
-                <td className="py-2.5 px-3"><RunStatusBadge status={run.status} /></td>
-                <td className="py-2.5 px-3 text-text-main max-w-[180px] truncate">{run.model ?? <span className="text-text-dim">—</span>}</td>
+                <td className="py-2.5 px-3">
+                  <RunStatusBadge status={run.status} />
+                </td>
+                <td className="py-2.5 px-3 text-text-main max-w-[180px] truncate">
+                  {run.model ?? <span className="text-text-dim">—</span>}
+                </td>
                 <td className="py-2.5 px-3 text-text-dim">{run.scenarioIds.length}</td>
-                <td className="py-2.5 px-3"><RunScore points={run.totalPoints} maxPoints={run.maxPoints} /></td>
-                <td className="py-2.5 px-3 text-text-dim">{formatDuration(run.startedAt, run.finishedAt)}</td>
+                <td className="py-2.5 px-3">
+                  <RunScore points={run.totalPoints} maxPoints={run.maxPoints} />
+                </td>
+                <td className="py-2.5 px-3 text-text-dim">
+                  {formatDuration(run.startedAt, run.finishedAt)}
+                </td>
                 <td className="py-2.5 px-3 text-text-dim">{formatRelative(run.startedAt)}</td>
                 <td className="py-2.5 px-3">
-                  <button type="button" onClick={() => onReplay(run.id)} className="text-gold hover:underline">Open</button>
+                  <button
+                    type="button"
+                    onClick={() => onReplay(run.id)}
+                    className="text-gold hover:underline"
+                  >
+                    Open
+                  </button>
                 </td>
               </tr>
             ))}
@@ -45,7 +68,8 @@ export function RecentRunsTable({ runs, onReplay }: { runs: RunSummary[]; onRepl
 }
 
 function RunScore({ points, maxPoints }: { points: number | null; maxPoints: number | null }) {
-  if (points === null || maxPoints === null || maxPoints === 0) return <span className="text-text-dim">—</span>;
+  if (points === null || maxPoints === null || maxPoints === 0)
+    return <span className="text-text-dim">—</span>;
   const pct = Math.round((points / maxPoints) * 100);
   return (
     <div className="flex items-center gap-2">

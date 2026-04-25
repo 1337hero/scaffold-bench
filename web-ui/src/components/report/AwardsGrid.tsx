@@ -5,10 +5,30 @@ export function AwardsGrid({ awards }: { awards: ReportData["awards"] }) {
   return (
     <section className="mt-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-        <AwardCard label="🏆 Best Overall" model={awards.bestOverall} tone="text-gold" detail={bestOverallDetail} />
-        <AwardCard label="🎯 Best Aligned" model={awards.bestAligned} tone="text-green-main" detail={alignedDetail} />
-        <AwardCard label="⚡ Fastest Generation" model={awards.fastestGeneration} tone="text-blue-main" detail={fastestGenerationDetail} />
-        <AwardCard label="📨 Fastest Prompt Eval" model={awards.fastestPrompt} tone="text-gold" detail={fastestPromptDetail} />
+        <AwardCard
+          label="🏆 Best Overall"
+          model={awards.bestOverall}
+          tone="text-gold"
+          detail={bestOverallDetail}
+        />
+        <AwardCard
+          label="🎯 Best Aligned"
+          model={awards.bestAligned}
+          tone="text-green-main"
+          detail={alignedDetail}
+        />
+        <AwardCard
+          label="⚡ Fastest Generation"
+          model={awards.fastestGeneration}
+          tone="text-blue-main"
+          detail={fastestGenerationDetail}
+        />
+        <AwardCard
+          label="📨 Fastest Prompt Eval"
+          model={awards.fastestPrompt}
+          tone="text-gold"
+          detail={fastestPromptDetail}
+        />
       </div>
     </section>
   );

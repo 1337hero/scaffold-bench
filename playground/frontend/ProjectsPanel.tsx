@@ -13,7 +13,11 @@ async function loadProjects(): Promise<Project[]> {
 
 export function ProjectsPanel() {
   const queryClient = useQueryClient();
-  const { data: projects = [], isLoading, error } = useQuery({
+  const {
+    data: projects = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["projects"],
     queryFn: loadProjects,
   });

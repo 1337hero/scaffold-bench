@@ -1,47 +1,23 @@
 import { Either, Schema } from "effect";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readEnv } from "../config/env.ts";
 import type { Ms, TokenCount, ToolResult } from "../schemas/index.js";
-import { EnvSchema, PropsSchema, RootConfigSchema } from "../schemas/index.js";
+import { PropsSchema } from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
-import type {
-  Runtime,
-  RuntimeContext,
-  RuntimeSession,
-  RuntimeSessionContext,
-} from "./types.ts";
+import type { Runtime, RuntimeContext, RuntimeSession, RuntimeSessionContext } from "./types.ts";
 import type { ChatMessage, ModelCallMetrics, OpenAIToolCall } from "./local-model.ts";
 import { callModel, normalizeEndpoint } from "./local-model.ts";
 import type { PendingToolExecution } from "./local-tools.ts";
 import { DEFAULT_TOOL_EXECUTION_MODE, executeToolBatch, openAiTools } from "./local-tools.ts";
 
 const PROJECT_ROOT = join(import.meta.dir, "..", "..");
-const ROOT_CONFIG_PATH = join(PROJECT_ROOT, "scaffold.config.json");
 const SYSTEM_PROMPT_PATH = join(PROJECT_ROOT, "system-prompt.md");
-const rootConfig = readRootConfig();
-const env = Schema.decodeUnknownSync(EnvSchema)({
-  SCAFFOLD_ENDPOINT: Bun.env.SCAFFOLD_ENDPOINT,
-  SCAFFOLD_MODEL: Bun.env.SCAFFOLD_MODEL,
-  SCAFFOLD_API_KEY: Bun.env.SCAFFOLD_API_KEY,
-});
-const DEFAULT_ENDPOINT = normalizeEndpoint(
-  env.SCAFFOLD_ENDPOINT ?? rootConfig.endpoint ?? "http://127.0.0.1:8082"
-);
-const DEFAULT_MODEL = env.SCAFFOLD_MODEL ?? rootConfig.model;
-if (!DEFAULT_MODEL) {
-  throw new Error(
-    "No model configured. Set SCAFFOLD_MODEL env var or add a `model` entry to scaffold.config.json."
-  );
-}
-const ACTIVE_MODEL = DEFAULT_MODEL;
-const API_KEY = env.SCAFFOLD_API_KEY;
 const MAX_TOOL_ITERATIONS = 20;
 
 const systemPrompt = readSystemPrompt();
 if (!systemPrompt) {
-  throw new Error(
-    `Missing system prompt at ${SYSTEM_PROMPT_PATH}. This file is required.`
-  );
+  throw new Error(`Missing system prompt at ${SYSTEM_PROMPT_PATH}. This file is required.`);
 }
 const ACTIVE_SYSTEM_PROMPT = systemPrompt;
 
@@ -72,11 +48,7 @@ function createRunState(systemPrompt: string, model: string): RunState {
   };
 }
 
-function applyLocalEvent(
-  event: LocalEvent,
-  state: RunState,
-  ctx: RuntimeSessionContext
-): void {
+function applyLocalEvent(event: LocalEvent, state: RunState, ctx: RuntimeSessionContext): void {
   switch (event.type) {
     case "assistant_delta": {
       if (state.firstTokenMs === undefined && event.content.trim().length > 0) {
@@ -150,9 +122,12 @@ export const localRuntime: Runtime = {
     return createLocalSession(ctx);
   },
 
-  async getContextWindow(): Promise<number | undefined> {
-    const base = DEFAULT_ENDPOINT.replace(/\/v1\/chat\/completions$/, "");
-    const probeUrl = `${base}/upstream/${encodeURIComponent(ACTIVE_MODEL)}/props`;
+  async getContextWindow(ctx?: RuntimeSessionContext): Promise<number | undefined> {
+    const endpoint = normalizeEndpoint(ctx?.endpoint ?? readEnv().localEndpoint);
+    const model = ctx?.model;
+    if (!model) return undefined;
+    const base = endpoint.replace(/\/v1\/chat\/completions$/, "");
+    const probeUrl = `${base}/upstream/${encodeURIComponent(model)}/props`;
     const extract = (data: unknown): number | undefined => {
       const result = Schema.decodeUnknownEither(PropsSchema)(data);
       if (Either.isLeft(result)) return undefined;
@@ -172,7 +147,7 @@ export const localRuntime: Runtime = {
     try {
       let res = await probe();
       if (!res || res.status === 404) {
-        await warmupModel();
+        await warmupModel(endpoint, model, ctx?.apiKey);
         res = await probe();
       }
       if (!res || !res.ok) return undefined;
@@ -184,9 +159,13 @@ export const localRuntime: Runtime = {
 };
 
 async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSession> {
-  const effectiveEndpoint = ctx.endpoint ? normalizeEndpoint(ctx.endpoint) : DEFAULT_ENDPOINT;
-  const effectiveModel = ctx.model ?? ACTIVE_MODEL;
-  const effectiveApiKey = ctx.apiKey ?? API_KEY;
+  const env = readEnv();
+  const effectiveEndpoint = normalizeEndpoint(ctx.endpoint ?? env.localEndpoint);
+  const effectiveModel = ctx.model;
+  if (!effectiveModel) {
+    throw new Error("No model specified. Pass `model` in the runtime context.");
+  }
+  const effectiveApiKey = ctx.apiKey;
   const effectiveSystemPrompt = ctx.systemPrompt ?? ACTIVE_SYSTEM_PROMPT;
   const signal = ctx.signal;
 
@@ -246,7 +225,12 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
 
         for (let i = 0; i < pendingCalls.length; i++) {
           applyLocalEvent(
-            { type: "tool_result", call: pendingCalls[i].call, toolCall: pendingCalls[i].toolCall, result: results[i] },
+            {
+              type: "tool_result",
+              call: pendingCalls[i].call,
+              toolCall: pendingCalls[i].toolCall,
+              result: results[i],
+            },
             state,
             ctx
           );
@@ -281,32 +265,19 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function readRootConfig(): { endpoint?: string; model?: string } {
-  if (!existsSync(ROOT_CONFIG_PATH)) return {};
-
-  const raw = readFileSync(ROOT_CONFIG_PATH, "utf-8");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    throw new Error(`invalid root config JSON: ${errorMessage(error)}`);
-  }
-  return Schema.decodeUnknownSync(RootConfigSchema)(parsed);
-}
-
 function readSystemPrompt(): string | undefined {
   if (!existsSync(SYSTEM_PROMPT_PATH)) return undefined;
   return readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
 }
 
-async function warmupModel(): Promise<void> {
+async function warmupModel(endpoint: string, model: string, apiKey?: string): Promise<void> {
   const headers: Record<string, string> = { "content-type": "application/json" };
-  if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
-  await fetch(DEFAULT_ENDPOINT, {
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+  await fetch(endpoint, {
     method: "POST",
     headers,
     body: JSON.stringify({
-      model: ACTIVE_MODEL,
+      model,
       messages: [{ role: "user", content: "." }],
       max_tokens: 1,
       stream: false,
@@ -334,17 +305,15 @@ function applyModelCallMetrics(target: ModelMetrics, metrics: ModelCallMetrics):
   target.totalRequestTimeMs = (target.totalRequestTimeMs + metrics.totalRequestTimeMs) as Ms;
 
   if (metrics.promptEvalTokens !== undefined && metrics.promptEvalTimeMs !== undefined) {
-    target.promptEvalTokens = ((target.promptEvalTokens ?? 0) + metrics.promptEvalTokens) as TokenCount;
+    target.promptEvalTokens = ((target.promptEvalTokens ?? 0) +
+      metrics.promptEvalTokens) as TokenCount;
     target.promptEvalTimeMs = ((target.promptEvalTimeMs ?? 0) + metrics.promptEvalTimeMs) as Ms;
   }
 
-  if (
-    metrics.completionEvalTokens !== undefined &&
-    metrics.completionEvalTimeMs !== undefined
-  ) {
-    target.completionEvalTokens =
-      ((target.completionEvalTokens ?? 0) + metrics.completionEvalTokens) as TokenCount;
-    target.completionEvalTimeMs =
-      ((target.completionEvalTimeMs ?? 0) + metrics.completionEvalTimeMs) as Ms;
+  if (metrics.completionEvalTokens !== undefined && metrics.completionEvalTimeMs !== undefined) {
+    target.completionEvalTokens = ((target.completionEvalTokens ?? 0) +
+      metrics.completionEvalTokens) as TokenCount;
+    target.completionEvalTimeMs = ((target.completionEvalTimeMs ?? 0) +
+      metrics.completionEvalTimeMs) as Ms;
   }
 }

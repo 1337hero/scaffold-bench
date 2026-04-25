@@ -13,9 +13,7 @@
 // Fix (from vuejs/core#11915): gate the interpolation-open transition
 // on `!this.inVPre`. Inside v-pre, RCDATA content is kept verbatim.
 
-export type Token =
-  | { type: "text"; value: string }
-  | { type: "interpolation"; value: string };
+export type Token = { type: "text"; value: string } | { type: "interpolation"; value: string };
 
 export class Tokenizer {
   inVPre = false;

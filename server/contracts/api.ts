@@ -3,8 +3,6 @@ import { Schema } from "effect";
 export const CreateRunRequestSchema = Schema.Struct({
   scenarioIds: Schema.Array(Schema.String),
   modelId: Schema.optional(Schema.String),
-  endpoint: Schema.optional(Schema.String),
-  apiKey: Schema.optional(Schema.String),
   systemPrompt: Schema.optional(Schema.String),
   toolExecution: Schema.optional(Schema.Literal("sequential", "parallel")),
   timeoutMs: Schema.optional(Schema.Number),
@@ -38,7 +36,7 @@ export type RunSummary = Schema.Schema.Type<typeof RunSummarySchema>;
 export const ModelSchema = Schema.Struct({
   id: Schema.String,
   source: Schema.Literal("local", "remote"),
-  endpoint: Schema.optional(Schema.String),
+  endpoint: Schema.String,
   requiresApiKey: Schema.optional(Schema.Boolean),
 });
 export type Model = Schema.Schema.Type<typeof ModelSchema>;

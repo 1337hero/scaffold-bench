@@ -20,23 +20,41 @@ export function QualitySpeedScatter({ models }: { models: ReportModelAggregate[]
               <g key={index}>
                 <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="#242831" />
                 <line y1={pad.top} y2={height - pad.bottom} x1={x} x2={x} stroke="#242831" />
-                <text x={8} y={y + 4} fill="#626772" fontSize="10">{100 - index * 20}%</text>
-                <text x={x - 8} y={height - 16} fill="#626772" fontSize="10">{Math.round((xMax * index) / 5)}</text>
+                <text x={8} y={y + 4} fill="#626772" fontSize="10">
+                  {100 - index * 20}%
+                </text>
+                <text x={x - 8} y={height - 16} fill="#626772" fontSize="10">
+                  {Math.round((xMax * index) / 5)}
+                </text>
               </g>
             );
           })}
           {plotted.map((model) => {
-            const x = pad.left + ((model.completionTps ?? 0) / xMax) * (width - pad.left - pad.right);
+            const x =
+              pad.left + ((model.completionTps ?? 0) / xMax) * (width - pad.left - pad.right);
             const y = pad.top + (1 - model.scorePct / 100) * (height - pad.top - pad.bottom);
             return (
               <g key={model.model}>
-                <circle cx={x} cy={y} r="5" fill={`hsl(${model.scorePct * 1.2}, 70%, 55%)`} stroke={model.source === "api" ? "#b38bff" : "#0C0D10"} strokeWidth="2" />
-                <text x={x} y={y - 10} fill="#E2E4E9" fontSize="10" textAnchor="middle">{model.model}</text>
+                <circle
+                  cx={x}
+                  cy={y}
+                  r="5"
+                  fill={`hsl(${model.scorePct * 1.2}, 70%, 55%)`}
+                  stroke={model.source === "api" ? "#b38bff" : "#0C0D10"}
+                  strokeWidth="2"
+                />
+                <text x={x} y={y - 10} fill="#E2E4E9" fontSize="10" textAnchor="middle">
+                  {model.model}
+                </text>
               </g>
             );
           })}
-          <text x={pad.left} y={16} fill="#626772" fontSize="10">quality · % score</text>
-          <text x={width - 130} y={height - 8} fill="#626772" fontSize="10">generation tok/s</text>
+          <text x={pad.left} y={16} fill="#626772" fontSize="10">
+            quality · % score
+          </text>
+          <text x={width - 130} y={height - 8} fill="#626772" fontSize="10">
+            generation tok/s
+          </text>
         </svg>
       </div>
     </section>

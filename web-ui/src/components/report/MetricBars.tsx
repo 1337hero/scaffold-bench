@@ -33,7 +33,13 @@ export function MetricBars({
             const metric = value(model) ?? 0;
             const pct = barPct(metric, min, max, lowerIsBetter);
             return (
-              <MetricBarRow key={model.model} model={model} pct={pct} value={format(metric, model)} color={color} />
+              <MetricBarRow
+                key={model.model}
+                model={model}
+                pct={pct}
+                value={format(metric, model)}
+                color={color}
+              />
             );
           })}
         </div>
@@ -42,7 +48,17 @@ export function MetricBars({
   );
 }
 
-function MetricBarRow({ model, pct, value, color }: { model: ReportModelAggregate; pct: number; value: string; color: string }) {
+function MetricBarRow({
+  model,
+  pct,
+  value,
+  color,
+}: {
+  model: ReportModelAggregate;
+  pct: number;
+  value: string;
+  color: string;
+}) {
   return (
     <>
       <div className="flex items-center gap-2 min-w-0 pr-3">

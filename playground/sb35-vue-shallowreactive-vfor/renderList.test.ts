@@ -1,10 +1,5 @@
 import { strict as assert } from "node:assert";
-import {
-  isReactive,
-  reactive,
-  renderList,
-  shallowReactive,
-} from "./renderList.ts";
+import { isReactive, reactive, renderList, shallowReactive } from "./renderList.ts";
 
 // Case 1 — deep reactive array: items MUST be wrapped. isReactive true.
 {
@@ -31,8 +26,14 @@ import {
 
 // Case 4 — null/undefined source yields empty array.
 {
-  assert.deepEqual(renderList(null, () => 1), []);
-  assert.deepEqual(renderList(undefined, () => 1), []);
+  assert.deepEqual(
+    renderList(null, () => 1),
+    []
+  );
+  assert.deepEqual(
+    renderList(undefined, () => 1),
+    []
+  );
 }
 
 console.log("sb35 ok");

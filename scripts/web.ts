@@ -1,6 +1,6 @@
-import { runMigrations, closeDb } from "./server/db/migrations.ts";
-import { createApp } from "./server/index.ts";
-import { globalRegistry } from "./server/run-registry.ts";
+import { runMigrations, closeDb } from "../server/db/migrations.ts";
+import { createApp } from "../server/index.ts";
+import { globalRegistry } from "../server/run-registry.ts";
 
 const PORT = Number(Bun.env.SCAFFOLD_WEB_PORT ?? 4317);
 

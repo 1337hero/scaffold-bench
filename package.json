@@ -7,17 +7,19 @@
     "bun": ">=1.2.0"
   },
   "scripts": {
-    "web": "bun web.ts",
     "dev": "bun scripts/dev.ts",
-    "dev:api": "bun web.ts",
-    "dev:ui": "cd web-ui && bun run dev",
-    "build:ui": "cd web-ui && bun run build",
-    "start": "bun run build:ui && bun web.ts",
+    "bench:all": "bun scripts/run-all-models.ts",
+    "build": "cd web-ui && bun run build",
+    "start": "test -d web-ui/dist || bun run build && bun scripts/web.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint --report-unused-disable-directives",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "bun test test/"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "oxlint": "^1.61.0",
+    "prettier": "^3.8.3",
     "typescript": "5.9.3"
   },
   "dependencies": {

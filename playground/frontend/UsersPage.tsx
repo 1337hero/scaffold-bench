@@ -14,7 +14,11 @@ async function loadUsers(): Promise<User[]> {
 }
 
 export function UsersPage() {
-  const { data: users = [], isLoading, error } = useQuery({
+  const {
+    data: users = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["users"],
     queryFn: loadUsers,
   });

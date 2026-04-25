@@ -2,9 +2,14 @@ import type { ReportData, ReportSource, ReportSourceFilter } from "@/types";
 import { ArrowLeft, RefreshCw, Terminal } from "lucide-react";
 
 export function SourceBadge({ source }: { source: ReportSource }) {
-  const color = source === "api" ? "text-purple-300 border-purple-400/40 bg-purple-400/10" : "text-green-main border-green-main/40 bg-green-main/10";
+  const color =
+    source === "api"
+      ? "text-purple-300 border-purple-400/40 bg-purple-400/10"
+      : "text-green-main border-green-main/40 bg-green-main/10";
   return (
-    <span className={`inline-block rounded-sm border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${color}`}>
+    <span
+      className={`inline-block rounded-sm border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${color}`}
+    >
       {source}
     </span>
   );
@@ -37,8 +42,13 @@ export function ReportHeader({
           <h1 className="text-lg font-bold tracking-tight text-text-main leading-none">
             SCAFFOLD<span className="text-gold">BENCH</span>
           </h1>
-          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-0.5">LLM COMPARISON REPORTS [v{__APP_VERSION__}]</p>
-          <p className="text-[10px] text-text-dim mt-1">{totals.models} models · {totals.runs} runs · {totals.local} local · {totals.api} api · {totals.scenarioRuns} scenario runs</p>
+          <p className="text-[10px] text-text-dim uppercase tracking-widest mt-0.5">
+            LLM COMPARISON REPORTS [v{__APP_VERSION__}]
+          </p>
+          <p className="text-[10px] text-text-dim mt-1">
+            {totals.models} models · {totals.runs} runs · {totals.local} local · {totals.api} api ·{" "}
+            {totals.scenarioRuns} scenario runs
+          </p>
         </div>
       </div>
 
@@ -51,7 +61,9 @@ export function ReportHeader({
         <div className="w-px h-8 bg-border-main" />
 
         <div className="flex items-center gap-3">
-          <span className="px-2 py-0.5 text-[10px] uppercase border border-blue-main text-blue-main rounded-sm">REPORTS</span>
+          <span className="px-2 py-0.5 text-[10px] uppercase border border-blue-main text-blue-main rounded-sm">
+            REPORTS
+          </span>
           <SourceFilter value={sourceFilter} onChange={onSourceFilterChange} />
         </div>
 
@@ -80,7 +92,13 @@ export function ReportHeader({
   );
 }
 
-export function SourceFilter({ value, onChange }: { value: ReportSourceFilter; onChange: (value: ReportSourceFilter) => void }) {
+export function SourceFilter({
+  value,
+  onChange,
+}: {
+  value: ReportSourceFilter;
+  onChange: (value: ReportSourceFilter) => void;
+}) {
   const filters: ReportSourceFilter[] = ["all", "local", "api"];
   return (
     <div className="inline-flex gap-2">
@@ -90,7 +108,9 @@ export function SourceFilter({ value, onChange }: { value: ReportSourceFilter; o
           type="button"
           onClick={() => onChange(filter)}
           className={`border rounded-sm px-3 py-1 text-[10px] uppercase tracking-widest ${
-            value === filter ? "border-gold text-text-main bg-border-main" : "border-border-main text-text-dim hover:text-text-main"
+            value === filter
+              ? "border-gold text-text-main bg-border-main"
+              : "border-border-main text-text-dim hover:text-text-main"
           }`}
         >
           {filter}

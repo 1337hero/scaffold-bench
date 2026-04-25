@@ -24,10 +24,12 @@ export function runMigrations(): void {
     )
   `);
 
-  const applied = db
-    .query<{ name: string }, []>("SELECT name FROM schema_migrations")
-    .all()
-    .map((r) => r.name);
+  const applied = new Set(
+    db
+      .query<{ name: string }, []>("SELECT name FROM schema_migrations")
+      .all()
+      .map((r) => r.name)
+  );
 
   const migrations: Array<{ name: string; sql: string }> = [
     {
@@ -37,7 +39,7 @@ export function runMigrations(): void {
   ];
 
   for (const migration of migrations) {
-    if (applied.includes(migration.name)) continue;
+    if (applied.has(migration.name)) continue;
     db.exec(migration.sql);
     db.run("INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)", [
       migration.name,

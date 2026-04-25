@@ -57,7 +57,12 @@ export const FIXTURE_RESULTS: ScenarioResult[] = [
       summary: "partial checks",
       checks: [
         { name: "identified issue", pass: true },
-        { name: "proposed fix", pass: false, detail: "missed the null-branch case that triggers on empty arrays when inputs skip validation entirely" },
+        {
+          name: "proposed fix",
+          pass: false,
+          detail:
+            "missed the null-branch case that triggers on empty arrays when inputs skip validation entirely",
+        },
       ],
     },
     output: {

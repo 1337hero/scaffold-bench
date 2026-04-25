@@ -125,7 +125,12 @@ describe("totalToolCalls", () => {
   });
   test("falls back to live toolCalls when no result", () => {
     const v: ScenarioLike[] = [
-      { id: "x", category: "audit", stage: "running", toolCalls: [{ name: "bash", args: "", turn: 1 }] },
+      {
+        id: "x",
+        category: "audit",
+        stage: "running",
+        toolCalls: [{ name: "bash", args: "", turn: 1 }],
+      },
     ];
     expect(totalToolCalls(v)).toBe(1);
   });
@@ -228,9 +233,7 @@ describe("selectDisplayMetrics", () => {
     ];
     expect(selectDisplayMetrics(running, { modelMetrics: final })).toBe(active);
 
-    const doneOnly: ScenarioLike[] = [
-      { id: "a", category: "audit", stage: "done", toolCalls: [] },
-    ];
+    const doneOnly: ScenarioLike[] = [{ id: "a", category: "audit", stage: "done", toolCalls: [] }];
     expect(selectDisplayMetrics(doneOnly, { modelMetrics: final })).toBe(final);
     expect(selectDisplayMetrics(doneOnly, {})).toBeUndefined();
   });
@@ -258,15 +261,22 @@ describe("computeElapsed", () => {
   });
   test("uses finishedAt - startedAt when no result", () => {
     const v: ScenarioLike = {
-      id: "x", category: "audit", stage: "done",
-      startedAt: 1000, finishedAt: 3500, toolCalls: [],
+      id: "x",
+      category: "audit",
+      stage: "done",
+      startedAt: 1000,
+      finishedAt: 3500,
+      toolCalls: [],
     };
     expect(computeElapsed(v)).toBe(2500);
   });
   test("uses Date.now fallback when still running", () => {
     const v: ScenarioLike = {
-      id: "x", category: "audit", stage: "running",
-      startedAt: Date.now() - 50, toolCalls: [],
+      id: "x",
+      category: "audit",
+      stage: "running",
+      startedAt: Date.now() - 50,
+      toolCalls: [],
     };
     const e = computeElapsed(v);
     expect(e).toBeGreaterThanOrEqual(0);

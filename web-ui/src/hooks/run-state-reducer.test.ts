@@ -67,7 +67,15 @@ describe("run-state-reducer run lifecycle", () => {
   test("scenario_started preserves manual focus on a different scenario", () => {
     let s = applyAll([runStarted, scenarioStarted]);
     s = reducer(s, { type: "_focus", id: "SB-02" });
-    const next: PersistedEvent = { ...scenarioStarted, seq: 3, ts: 1200, scenarioId: "SB-02", name: "Second", category: "cat-b", maxPoints: 5 };
+    const next: PersistedEvent = {
+      ...scenarioStarted,
+      seq: 3,
+      ts: 1200,
+      scenarioId: "SB-02",
+      name: "Second",
+      category: "cat-b",
+      maxPoints: 5,
+    };
     const after = reducer(s, next);
     expect(after.activeScenarioId).toBe("SB-02");
     expect(after.focusedScenarioId).toBe("SB-02");
@@ -76,7 +84,15 @@ describe("run-state-reducer run lifecycle", () => {
   test("scenario_started keeps manual focus when user focused another scenario", () => {
     let s = applyAll([runStarted, scenarioStarted]);
     s = reducer(s, { type: "_focus", id: "SB-02" });
-    const next: PersistedEvent = { seq: 3, ts: 1200, type: "scenario_started", runId, scenarioId, category: "cat-a", maxPoints: 10 };
+    const next: PersistedEvent = {
+      seq: 3,
+      ts: 1200,
+      type: "scenario_started",
+      runId,
+      scenarioId,
+      category: "cat-a",
+      maxPoints: 10,
+    };
     const after = reducer(s, next);
     expect(after.activeScenarioId).toBe(scenarioId);
     expect(after.focusedScenarioId).toBe("SB-02");
@@ -84,16 +100,35 @@ describe("run-state-reducer run lifecycle", () => {
 
   test("run_finished/run_stopped/run_failed set status", () => {
     const s = applyAll([runStarted]);
-    expect(reducer(s, { seq: 9, ts: 2000, type: "run_finished", runId, totalPoints: 5, maxPoints: 10, reportPath: null }).status).toBe("done");
+    expect(
+      reducer(s, {
+        seq: 9,
+        ts: 2000,
+        type: "run_finished",
+        runId,
+        totalPoints: 5,
+        maxPoints: 10,
+        reportPath: null,
+      }).status
+    ).toBe("done");
     expect(reducer(s, { seq: 9, ts: 2000, type: "run_stopped", runId }).status).toBe("stopped");
-    expect(reducer(s, { seq: 9, ts: 2000, type: "run_failed", runId, error: "x" }).status).toBe("failed");
+    expect(reducer(s, { seq: 9, ts: 2000, type: "run_failed", runId, error: "x" }).status).toBe(
+      "failed"
+    );
   });
 });
 
 describe("run-state-reducer scenario events", () => {
   test("assistant_delta buffers text and sets firstTokenMs on first non-empty delta", () => {
     let s = applyAll([runStarted, scenarioStarted]);
-    s = reducer(s, { seq: 3, ts: 1100, type: "assistant_delta", runId, scenarioId, content: "   " });
+    s = reducer(s, {
+      seq: 3,
+      ts: 1100,
+      type: "assistant_delta",
+      runId,
+      scenarioId,
+      content: "   ",
+    });
     expect(s.scenarios[0].firstTokenMs).toBeUndefined();
     expect(s.scenarios[0].streamBuffer).toBe("   ");
     s = reducer(s, { seq: 4, ts: 1300, type: "assistant_delta", runId, scenarioId, content: "hi" });
@@ -103,7 +138,14 @@ describe("run-state-reducer scenario events", () => {
 
   test("assistant flushes streamBuffer (not event.content) when buffer present", () => {
     let s = applyAll([runStarted, scenarioStarted]);
-    s = reducer(s, { seq: 3, ts: 1200, type: "assistant_delta", runId, scenarioId, content: "buffered" });
+    s = reducer(s, {
+      seq: 3,
+      ts: 1200,
+      type: "assistant_delta",
+      runId,
+      scenarioId,
+      content: "buffered",
+    });
     s = reducer(s, { seq: 4, ts: 1300, type: "assistant", runId, scenarioId, content: "ignored" });
     expect(s.scenarios[0].streamBuffer).toBe("");
     expect(s.scenarios[0].logs).toHaveLength(1);
@@ -112,7 +154,14 @@ describe("run-state-reducer scenario events", () => {
 
   test("scenario_finished flushes buffer into a final assistant entry and updates evaluation", () => {
     let s = applyAll([runStarted, scenarioStarted]);
-    s = reducer(s, { seq: 3, ts: 1200, type: "assistant_delta", runId, scenarioId, content: "final" });
+    s = reducer(s, {
+      seq: 3,
+      ts: 1200,
+      type: "assistant_delta",
+      runId,
+      scenarioId,
+      content: "final",
+    });
     s = reducer(s, {
       seq: 4,
       ts: 1400,
@@ -136,7 +185,14 @@ describe("run-state-reducer scenario events", () => {
 
   test("tool_call with bash args flushes buffer, adds cmd entry, bumps counts", () => {
     let s = applyAll([runStarted, scenarioStarted]);
-    s = reducer(s, { seq: 3, ts: 1200, type: "assistant_delta", runId, scenarioId, content: "thinking" });
+    s = reducer(s, {
+      seq: 3,
+      ts: 1200,
+      type: "assistant_delta",
+      runId,
+      scenarioId,
+      content: "thinking",
+    });
     s = reducer(s, {
       seq: 4,
       ts: 1300,
@@ -173,15 +229,37 @@ describe("run-state-reducer scenario events", () => {
   test("tool_result maps error prefix to stderr, else stdout", () => {
     let s = applyAll([runStarted, scenarioStarted]);
     const call = { name: "bash", args: "{}", turn: 0 };
-    s = reducer(s, { seq: 3, ts: 1300, type: "tool_result", runId, scenarioId, call, result: "ok output" });
-    s = reducer(s, { seq: 4, ts: 1400, type: "tool_result", runId, scenarioId, call, result: "Error: boom" });
+    s = reducer(s, {
+      seq: 3,
+      ts: 1300,
+      type: "tool_result",
+      runId,
+      scenarioId,
+      call,
+      result: "ok output",
+    });
+    s = reducer(s, {
+      seq: 4,
+      ts: 1400,
+      type: "tool_result",
+      runId,
+      scenarioId,
+      call,
+      result: "Error: boom",
+    });
     const logs = s.scenarios[0].logs;
     expect(logs[0].kind).toBe("stdout");
     expect(logs[1].kind).toBe("stderr");
   });
 
   test("model_metrics populates globalMetrics and scenario liveMetrics", () => {
-    const metrics: ModelMetrics = { requestCount: 2, promptTokens: 10, completionTokens: 5, totalTokens: 15, totalRequestTimeMs: 500 };
+    const metrics: ModelMetrics = {
+      requestCount: 2,
+      promptTokens: 10,
+      completionTokens: 5,
+      totalTokens: 15,
+      totalRequestTimeMs: 500,
+    };
     let s = applyAll([runStarted, scenarioStarted]);
     s = reducer(s, { seq: 3, ts: 1300, type: "model_metrics", runId, scenarioId, metrics });
     expect(s.globalMetrics).toEqual(metrics);
@@ -212,7 +290,7 @@ describe("run-state-reducer log id counter", () => {
       result: "done",
     });
     const ids = s.scenarios[0].logs.map((l) => l.id);
-    expect(ids).toEqual([...ids].sort((a, b) => a - b));
+    expect(ids).toEqual(ids.toSorted((a, b) => a - b));
     expect(new Set(ids).size).toBe(ids.length);
   });
 

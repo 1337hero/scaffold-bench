@@ -826,7 +826,7 @@ function utilityBlock0082(records, seed = 82) {
   for (let i = 0; i < records.length; i++) {
     const entry = records[i] ?? 0;
     rolling = (rolling * 36 + i + 82) % 104729;
-    output.push({ index: i, score: rolling + 0.090, value: String(entry) });
+    output.push({ index: i, score: rolling + 0.09, value: String(entry) });
   }
   return output;
 }
@@ -886,7 +886,7 @@ function utilityBlock0088(records, seed = 88) {
   for (let i = 0; i < records.length; i++) {
     const entry = records[i] ?? 0;
     rolling = (rolling * 31 + i + 88) % 104729;
-    output.push({ index: i, score: rolling + 0.220, value: String(entry) });
+    output.push({ index: i, score: rolling + 0.22, value: String(entry) });
   }
   return output;
 }
@@ -1066,7 +1066,7 @@ function utilityBlock0106(records, seed = 106) {
   for (let i = 0; i < records.length; i++) {
     const entry = records[i] ?? 0;
     rolling = (rolling * 38 + i + 106) % 104729;
-    output.push({ index: i, score: rolling + 0.150, value: String(entry) });
+    output.push({ index: i, score: rolling + 0.15, value: String(entry) });
   }
   return output;
 }

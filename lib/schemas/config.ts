@@ -8,21 +8,11 @@ export const PropsSchema = Schema.Struct({
 });
 export type Props = Schema.Schema.Type<typeof PropsSchema>;
 
-export const RootConfigSchema = Schema.Struct({
-  endpoint: Schema.optional(Schema.String),
-  model: Schema.optional(Schema.String),
-  remoteModels: Schema.optional(Schema.Array(Schema.Struct({
-    id: Schema.String,
-    endpoint: Schema.String,
-    requiresApiKey: Schema.optional(Schema.Boolean),
-  }))),
-});
-
 export const EnvSchema = Schema.Struct({
-  SCAFFOLD_ENDPOINT: Schema.optional(Schema.String),
-  SCAFFOLD_MODEL: Schema.optional(Schema.String),
-  SCAFFOLD_API_KEY: Schema.optional(Schema.String),
+  SCAFFOLD_LOCAL_ENDPOINT: Schema.optional(Schema.String),
+  SCAFFOLD_REMOTE_ENDPOINT: Schema.optional(Schema.String),
+  SCAFFOLD_REMOTE_API_KEY: Schema.optional(Schema.String),
+  SCAFFOLD_REMOTE_MODELS: Schema.optional(Schema.String),
 });
 
-export type RootConfig = Schema.Schema.Type<typeof RootConfigSchema>;
 export type Env = Schema.Schema.Type<typeof EnvSchema>;

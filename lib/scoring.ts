@@ -87,13 +87,9 @@ export function hasCall(
   return calls.some((c) => c.name === name && (predicate ? predicate(c) : true));
 }
 
-function normalizeResult(
-  result: ToolCall["result"]
-): { ok: boolean; text: string } | undefined {
+function normalizeResult(result: ToolCall["result"]): { ok: boolean; text: string } | undefined {
   if (result === undefined) return undefined;
-  return result.ok
-    ? { ok: true, text: result.value }
-    : { ok: false, text: result.message };
+  return result.ok ? { ok: true, text: result.value } : { ok: false, text: result.message };
 }
 
 export function toolFailed(call: ToolCall): boolean {
@@ -184,7 +180,9 @@ export function sumScenarioMaxPoints(
   return evaluations.reduce((sum, evaluation) => sum + (evaluation?.maxPoints ?? 0), 0);
 }
 
-export function mergeModelMetrics(metrics: Array<ModelMetrics | undefined>): ModelMetrics | undefined {
+export function mergeModelMetrics(
+  metrics: Array<ModelMetrics | undefined>
+): ModelMetrics | undefined {
   const defined = metrics.filter((metric): metric is ModelMetrics => metric !== undefined);
   if (defined.length === 0) return undefined;
 
@@ -213,14 +211,17 @@ export function mergeModelMetrics(metrics: Array<ModelMetrics | undefined>): Mod
     model: models.length === 1 ? models[0] : undefined,
     requestCount: defined.reduce((sum, metric) => sum + metric.requestCount, 0),
     promptTokens: defined.reduce((sum, metric) => sum + metric.promptTokens, 0) as TokenCount,
-    completionTokens: defined.reduce((sum, metric) => sum + metric.completionTokens, 0) as TokenCount,
-    totalTokens: defined.reduce((sum, metric) => sum + metric.totalTokens, 0) as TokenCount,
-    totalRequestTimeMs: defined.reduce(
-      (sum, metric) => sum + metric.totalRequestTimeMs,
+    completionTokens: defined.reduce(
+      (sum, metric) => sum + metric.completionTokens,
       0
-    ) as Ms,
+    ) as TokenCount,
+    totalTokens: defined.reduce((sum, metric) => sum + metric.totalTokens, 0) as TokenCount,
+    totalRequestTimeMs: defined.reduce((sum, metric) => sum + metric.totalRequestTimeMs, 0) as Ms,
     ...(hasPromptTiming
-      ? { promptEvalTokens: promptEvalTokens as TokenCount, promptEvalTimeMs: promptEvalTimeMs as Ms }
+      ? {
+          promptEvalTokens: promptEvalTokens as TokenCount,
+          promptEvalTimeMs: promptEvalTimeMs as Ms,
+        }
       : {}),
     ...(hasCompletionTiming
       ? {

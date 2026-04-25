@@ -29,7 +29,9 @@ const procs: Subprocess[] = [];
 
 function shutdown(code = 0) {
   for (const p of procs) {
-    try { p.kill(); } catch {}
+    try {
+      p.kill();
+    } catch {}
   }
   process.exit(code);
 }
@@ -37,7 +39,7 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-const api = spawn(["bun", "web.ts"], {
+const api = spawn(["bun", "scripts/web.ts"], {
   cwd: import.meta.dir + "/..",
   stdout: "pipe",
   stderr: "pipe",

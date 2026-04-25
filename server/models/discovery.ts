@@ -1,25 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { Schema } from "effect";
-import { RootConfigSchema } from "../../lib/schemas/config.ts";
+import { readEnv } from "../../lib/config/env.ts";
 
 export interface Model {
   id: string;
   source: "local" | "remote";
-  endpoint?: string;
+  endpoint: string;
   requiresApiKey?: boolean;
-}
-
-const ROOT_CONFIG_PATH = join(import.meta.dir, "../../scaffold.config.json");
-
-function readConfig(): Schema.Schema.Type<typeof RootConfigSchema> {
-  if (!existsSync(ROOT_CONFIG_PATH)) return {};
-  try {
-    const raw = JSON.parse(readFileSync(ROOT_CONFIG_PATH, "utf-8"));
-    return Schema.decodeUnknownSync(RootConfigSchema)(raw);
-  } catch {
-    return {};
-  }
 }
 
 export async function probeLocalModels(endpoint: string): Promise<Model[]> {
@@ -29,7 +14,7 @@ export async function probeLocalModels(endpoint: string): Promise<Model[]> {
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return [];
-    const data = await res.json() as unknown;
+    const data = (await res.json()) as unknown;
     if (
       typeof data !== "object" ||
       data === null ||
@@ -47,30 +32,47 @@ export async function probeLocalModels(endpoint: string): Promise<Model[]> {
 }
 
 export function getRemoteModels(): Model[] {
-  const config = readConfig();
-  if (!config.remoteModels) return [];
-  return config.remoteModels.map((m) => ({
-    id: m.id,
+  const { remote } = readEnv();
+  if (!remote) return [];
+  return remote.models.map((id) => ({
+    id,
     source: "remote" as const,
-    endpoint: m.endpoint,
-    requiresApiKey: m.requiresApiKey,
+    endpoint: remote.endpoint,
+    requiresApiKey: Boolean(remote.apiKey),
   }));
 }
 
-export async function listModels(endpoint?: string): Promise<{ local: Model[]; remote: Model[] }> {
-  const config = readConfig();
-  const effectiveEndpoint = endpoint ?? config.endpoint ?? "http://127.0.0.1:8082";
+function dedupeById(models: Model[]): Model[] {
+  const seen = new Set<string>();
+  return models.filter((m) => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
+}
+
+export async function listModels(): Promise<{ local: Model[]; remote: Model[] }> {
+  const { localEndpoint } = readEnv();
   const [local, remote] = await Promise.all([
-    probeLocalModels(effectiveEndpoint),
+    probeLocalModels(localEndpoint),
     Promise.resolve(getRemoteModels()),
   ]);
-  const dedupeById = (models: Model[]) => {
-    const seen = new Set<string>();
-    return models.filter((m) => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
-  };
   return { local: dedupeById(local), remote: dedupeById(remote) };
+}
+
+export function resolveModel(modelId: string): Model | undefined {
+  const { localEndpoint, remote } = readEnv();
+  if (remote && remote.models.includes(modelId)) {
+    return {
+      id: modelId,
+      source: "remote",
+      endpoint: remote.endpoint,
+      requiresApiKey: Boolean(remote.apiKey),
+    };
+  }
+  return { id: modelId, source: "local", endpoint: localEndpoint };
+}
+
+export function getRemoteApiKey(): string | undefined {
+  return readEnv().remote?.apiKey;
 }
