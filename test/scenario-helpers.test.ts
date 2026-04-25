@@ -10,10 +10,7 @@ import {
 } from "../lib/scenarios/helpers.ts";
 
 async function makeTempDir(): Promise<string> {
-  const dir = join(
-    tmpdir(),
-    `sb-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  );
+  const dir = join(tmpdir(), `sb-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   await mkdir(dir, { recursive: true });
   return dir;
 }

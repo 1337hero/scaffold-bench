@@ -7,16 +7,11 @@ import {
   ReadArgsSchema,
   WriteArgsSchema,
 } from "../schemas/index.js";
-import type {
-  Check,
-  ScenarioEvaluation,
-  ToolCall,
-} from "../scoring.ts";
+import type { Check, ScenarioEvaluation, ToolCall } from "../scoring.ts";
 import { Evaluation, bashPassed } from "../scoring.ts";
 
 export const PLAYGROUND_SRC = join(import.meta.dir, "..", "..", "playground");
-export const TS_COMPILE_COMMAND =
-  "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
+export const TS_COMPILE_COMMAND = "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
 export const SB22_LOOP_PATH = "playground/sb22-loop.js";
 export const SB23_LONGCONTEXT_PATH = "playground/sb23-longcontext.js";
 
@@ -99,9 +94,7 @@ export function searchBeforeEdit(calls: ToolCall[]): boolean {
   if (changeTurn === undefined) return false;
   return calls.some(
     (call) =>
-      (call.name === "grep" ||
-        call.name === "glob" ||
-        isSearchLikeBashCall(call)) &&
+      (call.name === "grep" || call.name === "glob" || isSearchLikeBashCall(call)) &&
       call.turn < changeTurn
   );
 }
@@ -134,8 +127,7 @@ export function failedVerificationBeforeChange(
   return (
     changeTurn !== undefined &&
     calls.some(
-      (call) =>
-        call.turn < changeTurn && !bashPassed(call) && bashCommandMatches(call, matcher)
+      (call) => call.turn < changeTurn && !bashPassed(call) && bashCommandMatches(call, matcher)
     )
   );
 }
@@ -148,8 +140,7 @@ export function passedVerificationAfterChange(
   return (
     changeTurn !== undefined &&
     calls.some(
-      (call) =>
-        call.turn > changeTurn && bashPassed(call) && bashCommandMatches(call, matcher)
+      (call) => call.turn > changeTurn && bashPassed(call) && bashCommandMatches(call, matcher)
     )
   );
 }
@@ -161,8 +152,7 @@ export function firstFailedVerificationAfterChange(
 ): ToolCall | undefined {
   if (changeTurn === undefined) return undefined;
   return calls.find(
-    (call) =>
-      call.turn > changeTurn && !bashPassed(call) && bashCommandMatches(call, matcher)
+    (call) => call.turn > changeTurn && !bashPassed(call) && bashCommandMatches(call, matcher)
   );
 }
 

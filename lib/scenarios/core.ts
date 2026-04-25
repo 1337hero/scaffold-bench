@@ -1,12 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import {
-  checksToEvaluation,
-  extractFunction,
-  extractGoFunc,
-  hasCall,
-} from "../scoring.ts";
+import { checksToEvaluation, extractFunction, extractGoFunc, hasCall } from "../scoring.ts";
 import type { Scenario } from "./types.js";
 import {
   PLAYGROUND_SRC,

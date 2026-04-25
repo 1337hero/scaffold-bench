@@ -4,11 +4,7 @@ import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { Evaluation } from "../scoring.ts";
 import type { Check, RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
 import type { ExecuteScenario, ScenarioExecutionContext } from "./types.js";
-import {
-  createSkippedEvaluation,
-  onlyChangedFiles,
-  stripComments,
-} from "./helpers.js";
+import { createSkippedEvaluation, onlyChangedFiles, stripComments } from "./helpers.js";
 
 type RegressionScenarioConfig = {
   id: ScenarioId;
@@ -150,8 +146,7 @@ function createRegressionScenario(config: RegressionScenarioConfig): ExecuteScen
           1,
           2,
           checks,
-          config.partialSummary ??
-            "Tests pass but fix doesn't match the canonical pattern."
+          config.partialSummary ?? "Tests pass but fix doesn't match the canonical pattern."
         );
       }
 
@@ -264,8 +259,7 @@ export const regressionScenarios: ExecuteScenario[] = [
     testCommand: ["go", "test", "./..."],
     preflightCommand: ["go", "version"],
     passSummary: "Tests pass, only replacer.go changed, root-cause guard applied.",
-    partialSummary:
-      "Tests pass but the fix is superficial (early-return guard not strengthened).",
+    partialSummary: "Tests pass but the fix is superficial (early-return guard not strengthened).",
     canonicalCheck({ sourceAfter }) {
       const strengthenedGuardLine = sourceAfter
         .split("\n")
@@ -288,7 +282,7 @@ export const regressionScenarios: ExecuteScenario[] = [
   }),
 
   createRegressionScenario({
-    id: "SB-27" as ScenarioId,
+    id: "SB-25" as ScenarioId,
     name: "terraform-ssh-connection-leak",
     prompt: SB27_PROMPT,
     fixtureDir: "playground/sb27-tf-ssh-leak",
@@ -330,7 +324,7 @@ export const regressionScenarios: ExecuteScenario[] = [
   }),
 
   createRegressionScenario({
-    id: "SB-29" as ScenarioId,
+    id: "SB-26" as ScenarioId,
     name: "axios-ssrf-protocol-relative",
     prompt: SB29_PROMPT,
     fixtureDir: "playground/sb29-axios-ssrf",
@@ -348,13 +342,15 @@ export const regressionScenarios: ExecuteScenario[] = [
       return {
         name: "optional-scheme group removed from regex",
         pass: canonicalFix,
-        detail: canonicalFix ? "optional scheme removed" : "dangerous optional scheme still present",
+        detail: canonicalFix
+          ? "optional scheme removed"
+          : "dangerous optional scheme still present",
       };
     },
   }),
 
   createRegressionScenario({
-    id: "SB-31" as ScenarioId,
+    id: "SB-27" as ScenarioId,
     name: "babel-sourcemap-undefined-content",
     prompt: SB31_PROMPT,
     fixtureDir: "playground/sb31-babel-sourcemap",
@@ -366,7 +362,7 @@ export const regressionScenarios: ExecuteScenario[] = [
   }),
 
   createRegressionScenario({
-    id: "SB-33" as ScenarioId,
+    id: "SB-28" as ScenarioId,
     name: "babel-rename-shorthand",
     prompt: SB33_PROMPT,
     fixtureDir: "playground/sb33-babel-rename-shorthand",
@@ -390,7 +386,7 @@ export const regressionScenarios: ExecuteScenario[] = [
   }),
 
   createRegressionScenario({
-    id: "SB-35" as ScenarioId,
+    id: "SB-29" as ScenarioId,
     name: "vue-shallowreactive-vfor",
     prompt: SB35_PROMPT,
     fixtureDir: "playground/sb35-vue-shallowreactive-vfor",
@@ -409,7 +405,7 @@ export const regressionScenarios: ExecuteScenario[] = [
   }),
 
   createRegressionScenario({
-    id: "SB-36" as ScenarioId,
+    id: "SB-30" as ScenarioId,
     name: "vue-sync-watchers-batch",
     prompt: SB36_PROMPT,
     fixtureDir: "playground/sb36-vue-sync-watchers",

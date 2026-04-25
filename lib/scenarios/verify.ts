@@ -541,8 +541,7 @@ export const verifyScenarios: Scenario[] = [
       const { stdout, firstTokenMs, modelMetrics } = output;
       const reportedRange = extractReportedLineRange(stdout);
       const promptEvalDetail =
-        modelMetrics?.promptEvalTokens !== undefined &&
-        modelMetrics?.promptEvalTimeMs !== undefined
+        modelMetrics?.promptEvalTokens !== undefined && modelMetrics?.promptEvalTimeMs !== undefined
           ? `${modelMetrics.promptEvalTokens} tok / ${(modelMetrics.promptEvalTimeMs / 1000).toFixed(2)}s`
           : "unavailable";
 

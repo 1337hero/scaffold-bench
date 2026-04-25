@@ -105,16 +105,16 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | SB-22 | high-frequency-loop                 | responsiveness     | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
 | SB-23 | long-context-retrieval              | long-context       | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
 | SB-24 | caddy-replacer-closing-brace        | verify-and-repair  | Fix Caddy `uri replace` escaping of closing braces in `replacer.go`.                           |
-| SB-27 | terraform-ssh-connection-leak       | verify-and-repair  | Derive a cancellable context in Terraform's `RunScripts` to close SSH promptly.                |
-| SB-29 | axios-ssrf-protocol-relative        | verify-and-repair  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
-| SB-31 | babel-sourcemap-undefined-content   | verify-and-repair  | Guard against missing `sourcesContent` in Babel's source-map handling.                         |
-| SB-33 | babel-rename-shorthand              | verify-and-repair  | Expand shorthand `ObjectProperty` nodes correctly during Babel rename.                         |
-| SB-35 | vue-shallowreactive-vfor            | verify-and-repair  | Consult `isShallow(source)` in Vue's `renderList` to avoid deep-reactive upgrade.              |
-| SB-36 | vue-sync-watchers-batch             | verify-and-repair  | Move `batchDepth--` before the flush loop in Vue's `endBatch`.                                 |
+| SB-25 | terraform-ssh-connection-leak       | verify-and-repair  | Derive a cancellable context in Terraform's `RunScripts` to close SSH promptly.                |
+| SB-26 | axios-ssrf-protocol-relative        | verify-and-repair  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
+| SB-27 | babel-sourcemap-undefined-content   | verify-and-repair  | Guard against missing `sourcesContent` in Babel's source-map handling.                         |
+| SB-28 | babel-rename-shorthand              | verify-and-repair  | Expand shorthand `ObjectProperty` nodes correctly during Babel rename.                         |
+| SB-29 | vue-shallowreactive-vfor            | verify-and-repair  | Consult `isShallow(source)` in Vue's `renderList` to avoid deep-reactive upgrade.              |
+| SB-30 | vue-sync-watchers-batch             | verify-and-repair  | Move `batchDepth--` before the flush loop in Vue's `endBatch`.                                 |
 
 The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`.
 
-Inactive regression fixtures (SB-25, SB-26, SB-28, SB-30, SB-32, SB-34, SB-37, SB-38) remain in `playground/` but are not exported in the active suite.
+Additional historical regression fixtures remain in `playground/` but are not exported in the active suite.
 
 ---
 
@@ -135,7 +135,7 @@ Two scenarios use custom point models:
 - `SB-22` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
 - `SB-23` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
 
-The retained regression scenarios (SB-24, SB-27, SB-29, SB-31, SB-33, SB-35, SB-36) also use the standard 2-point model.
+The retained regression scenarios (SB-24 through SB-30) also use the standard 2-point model.
 
 Results are persisted to SQLite and accessible from the dashboard at **http://localhost:4317**.
 

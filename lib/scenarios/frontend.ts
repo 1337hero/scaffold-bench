@@ -104,10 +104,7 @@ export const frontendScenarios: Scenario[] = [
       const changeTurn = firstChangeTurn(toolCalls);
       const scope = await onlyChangedFiles({
         playgroundDir,
-        allowedPaths: [
-          "playground/frontend/UsersPage.tsx",
-          "playground/frontend/UserTable.tsx",
-        ],
+        allowedPaths: ["playground/frontend/UsersPage.tsx", "playground/frontend/UserTable.tsx"],
       });
 
       const checks = [
