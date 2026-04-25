@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+web-ui/node_modules
+playground/**/node_modules
+
+# Build outputs
+web-ui/dist
+results/*
+!results/.gitkeep
+results/.probe-cache.json
+bench-report.html
+
+# Local database (container uses its own volume)
+scaffold-bench.db
+scaffold-bench.db-*
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Environment / secrets
+.env
+.env.*
+!.env.sample
+!.env.example
+env/
+
+# Editor / OS
+.DS_Store
+.vscode
+.idea
+.codex
+.claude
+
+# Docker (don't copy into image)
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Working docs
+docs
+specs
+*.md
+!README.md
+
+# One-off scripts
+run-all-models-bench.sh
+
+# Logs / tmp
+*.log
+tmp
