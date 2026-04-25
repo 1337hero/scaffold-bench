@@ -8,7 +8,7 @@
 
 ---
 
-Scaffold Bench wraps any OpenAI-compatible LLM (Ollama, llama.cpp, LM Studio, vLLM) in a fixed coding agent with full tool execution. The agent can read, write, edit, bash and runs against 23 real coding tasks.
+Scaffold Bench wraps any OpenAI-compatible LLM (Ollama, llama.cpp, LM Studio, vLLM) in a fixed coding agent with full tool execution. The agent can read, write, edit, bash and runs against 30 real coding tasks.
 
 ---
 
@@ -77,7 +77,7 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | `responsiveness`     | Stay usable in a tight edit loop. Correctness only counts when turns stay under budget. |
 | `long-context`       | Retrieve the right answer from a very large inline context and respond quickly.         |
 
-### Current Scenarios (23 total)
+### Current Scenarios (30 total)
 
 | ID    | Name                                | Category           | Task                                                                                           |
 | ----- | ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
@@ -104,8 +104,17 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | SB-21 | hono-fix-n-plus-1                   | implementation     | Replace per-row owner query in `GET /items` with a single JOIN.                                |
 | SB-22 | high-frequency-loop                 | responsiveness     | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
 | SB-23 | long-context-retrieval              | long-context       | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
+| SB-24 | caddy-replacer-closing-brace        | verify-and-repair  | Fix Caddy `uri replace` escaping of closing braces in `replacer.go`.                           |
+| SB-27 | terraform-ssh-connection-leak       | verify-and-repair  | Derive a cancellable context in Terraform's `RunScripts` to close SSH promptly.                |
+| SB-29 | axios-ssrf-protocol-relative        | verify-and-repair  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
+| SB-31 | babel-sourcemap-undefined-content   | verify-and-repair  | Guard against missing `sourcesContent` in Babel's source-map handling.                         |
+| SB-33 | babel-rename-shorthand              | verify-and-repair  | Expand shorthand `ObjectProperty` nodes correctly during Babel rename.                         |
+| SB-35 | vue-shallowreactive-vfor            | verify-and-repair  | Consult `isShallow(source)` in Vue's `renderList` to avoid deep-reactive upgrade.              |
+| SB-36 | vue-sync-watchers-batch             | verify-and-repair  | Move `batchDepth--` before the flush loop in Vue's `endBatch`.                                 |
 
 The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`.
+
+Inactive regression fixtures (SB-25, SB-26, SB-28, SB-30, SB-32, SB-34, SB-37, SB-38) remain in `playground/` but are not exported in the active suite.
 
 ---
 
@@ -119,10 +128,14 @@ Each scenario defines its own `Check[]` — regex matches, AST-ish function extr
 - ≥ 50% pass → `partial` (1pt)
 - < 50% → `fail` (0pt)
 
+Scope discipline is checked from an actual filesystem diff between the pristine fixture and the model's working copy, so changes made through `bash` (e.g., `sed`) are caught just like `edit` or `write` tool calls.
+
 Two scenarios use custom point models:
 
 - `SB-22` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
 - `SB-23` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
+
+The retained regression scenarios (SB-24, SB-27, SB-29, SB-31, SB-33, SB-35, SB-36) also use the standard 2-point model.
 
 Results are persisted to SQLite and accessible from the dashboard at **http://localhost:4317**.
 
@@ -159,8 +172,9 @@ Results are persisted to SQLite and accessible from the dashboard at **http://lo
 ## Adding a Scenario
 
 1. Drop fixture files in `playground/`
-2. Append to the `scenarios` array in `lib/scenarios.ts`
-3. The `evaluate()` function receives `playgroundDir` (modified copy) and `PLAYGROUND_SRC` (pristine) and returns a `ScenarioEvaluation`
+2. Add the scenario to the appropriate module under `lib/scenarios/` (`core.ts`, `frontend.ts`, `verify.ts`, `hono.ts`, or `regressions.ts`)
+3. Re-export it from `lib/scenarios/index.ts` if it is part of the active suite
+4. The `evaluate()` function receives `playgroundDir` (modified copy) and `PLAYGROUND_SRC` (pristine) and returns a `ScenarioEvaluation`
 
 ```ts
 {
