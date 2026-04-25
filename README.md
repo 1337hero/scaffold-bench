@@ -209,3 +209,7 @@ Implement the `Runtime` interface from `lib/runtimes/types.ts` and register it i
 ## License
 
 MIT
+
+## Credits
+
+- [Commit Mono](https://github.com/eigilnikolajsen/commit-mono) - Commit Mono is an anonymous and neutral programming typeface.
