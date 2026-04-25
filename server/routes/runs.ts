@@ -28,7 +28,7 @@ runsRouter.post("/", async (c) => {
   if (!body.modelId) {
     return c.json({ error: "modelId is required" }, 400);
   }
-  const resolved = resolveModel(body.modelId);
+  const resolved = await resolveModel(body.modelId);
   if (!resolved) {
     return c.json({ error: `unknown model: ${body.modelId}` }, 400);
   }
@@ -70,11 +70,12 @@ runsRouter.get("/", (c) => {
 });
 
 runsRouter.post("/clear", (c) => {
-  if (globalRegistry.activeRunId()) {
-    return c.json({ error: "run_in_progress", activeRunId: globalRegistry.activeRunId() }, 409);
+  const activeRunId = globalRegistry.activeRunId();
+  if (activeRunId) {
+    return c.json({ error: "run_in_progress", activeRunId }, 409);
   }
   clearRunData();
-  return c.json({ ok: true });
+  return c.json({ ok: true, cleared: true });
 });
 
 runsRouter.get("/:id", (c) => {
@@ -84,7 +85,12 @@ runsRouter.get("/:id", (c) => {
 
   const scenarioRuns = getScenarioRuns(id);
   const withEvents = c.req.query("withEvents") === "true";
-  const events = withEvents ? getRunEvents(id) : undefined;
+  const fromSeq = Number.parseInt(c.req.query("fromSeq") ?? "0", 10);
+  const requestedLimit = Number.parseInt(c.req.query("limit") ?? "500", 10);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(requestedLimit, 5_000))
+    : 500;
+  const events = withEvents ? getRunEvents(id, Number.isFinite(fromSeq) ? Math.max(0, fromSeq) : 0, limit) : undefined;
 
   return c.json({
     id: run.id,
@@ -124,8 +130,13 @@ runsRouter.get("/:id", (c) => {
 runsRouter.get("/:id/scenarios/:scenarioId/events", (c) => {
   const runId = c.req.param("id");
   const scenarioId = c.req.param("scenarioId");
-  const fromSeq = parseInt(c.req.query("fromSeq") ?? "0", 10);
-  const events = getScenarioEvents(runId, scenarioId, fromSeq);
+  const fromSeqRaw = Number.parseInt(c.req.query("fromSeq") ?? "0", 10);
+  const fromSeq = Number.isFinite(fromSeqRaw) ? Math.max(0, fromSeqRaw) : 0;
+  const requestedLimit = Number.parseInt(c.req.query("limit") ?? "500", 10);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(requestedLimit, 5_000))
+    : 500;
+  const events = getScenarioEvents(runId, scenarioId, fromSeq, limit);
   return c.json(
     events.map((e) => ({
       seq: e.seq,
@@ -143,13 +154,22 @@ runsRouter.post("/:id/stop", (c) => {
     return c.json({ error: "run not found or not active" }, 404);
   }
   controller.abort();
-  return c.json({ ok: true });
+  return c.json({ ok: true, runId: id, status: "stopping" }, 202);
 });
 
 runsRouter.get("/:id/stream", (c) => {
   const runId = c.req.param("id");
   const scenarioId = c.req.query("scenarioId");
-  const fromSeq = parseInt(c.req.query("fromSeq") ?? "-1", 10);
+  const fromSeqParam = Number.parseInt(c.req.query("fromSeq") ?? "-1", 10);
+  const lastEventIdHeader = c.req.header("last-event-id");
+  const fromLastEventId = lastEventIdHeader
+    ? Number.parseInt(lastEventIdHeader, 10)
+    : Number.NaN;
+  const fromSeq = Number.isFinite(fromLastEventId)
+    ? fromLastEventId + 1
+    : Number.isFinite(fromSeqParam)
+      ? fromSeqParam
+      : -1;
 
   return streamSSE(c, async (stream) => {
     if (fromSeq >= 0) {
@@ -157,7 +177,7 @@ runsRouter.get("/:id/stream", (c) => {
         ? getScenarioEvents(runId, scenarioId, fromSeq)
         : getRunEvents(runId, fromSeq);
       for (const e of historical) {
-        await stream.writeSSE({ event: e.type, data: e.payload_json });
+        await stream.writeSSE({ id: String(e.seq), event: e.type, data: e.payload_json });
       }
     }
 
@@ -173,10 +193,15 @@ runsRouter.get("/:id/stream", (c) => {
         resolve();
       };
 
-      const handler = async (evt: PersistedEvent) => {
+      const handler = async (evt: PersistedEvent | { type: string }) => {
+        if (evt.type.startsWith("oneshot_")) return;
         if (scenarioId && "scenarioId" in evt && evt.scenarioId !== scenarioId) return;
         try {
-          await stream.writeSSE({ event: evt.type, data: JSON.stringify(evt) });
+          if ("seq" in evt && typeof evt.seq === "number") {
+            await stream.writeSSE({ id: String(evt.seq), event: evt.type, data: JSON.stringify(evt) });
+          } else {
+            await stream.writeSSE({ event: evt.type, data: JSON.stringify(evt) });
+          }
         } catch {
           finish();
           return;

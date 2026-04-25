@@ -36,6 +36,10 @@ export function runMigrations(): void {
       name: "001_initial",
       sql: readFileSync(join(import.meta.dir, "schema.sql"), "utf8"),
     },
+    {
+      name: "002_oneshot",
+      sql: readFileSync(join(import.meta.dir, "oneshot-schema.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {

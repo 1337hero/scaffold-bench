@@ -1,12 +1,14 @@
 import type { PersistedEvent } from "./contracts/events.ts";
+import type { OneshotEvent } from "./contracts/oneshot-events.ts";
 
-type Handler = (event: PersistedEvent) => void;
+type BusEvent = PersistedEvent | OneshotEvent;
+type Handler = (event: BusEvent) => void;
 
 export class EventBus {
   private runHandlers = new Map<string, Set<Handler>>();
   private scenarioHandlers = new Map<string, Set<Handler>>();
 
-  publish(event: PersistedEvent): void {
+  publish(event: BusEvent): void {
     const runKey = event.runId;
     this.runHandlers.get(runKey)?.forEach((h) => h(event));
 

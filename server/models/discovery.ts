@@ -38,7 +38,7 @@ export function getRemoteModels(): Model[] {
     id,
     source: "remote" as const,
     endpoint: remote.endpoint,
-    requiresApiKey: Boolean(remote.apiKey),
+    requiresApiKey: !remote.apiKey,
   }));
 }
 
@@ -60,17 +60,23 @@ export async function listModels(): Promise<{ local: Model[]; remote: Model[] }>
   return { local: dedupeById(local), remote: dedupeById(remote) };
 }
 
-export function resolveModel(modelId: string): Model | undefined {
+export async function resolveModel(modelId: string): Promise<Model | undefined> {
   const { localEndpoint, remote } = readEnv();
   if (remote && remote.models.includes(modelId)) {
     return {
       id: modelId,
       source: "remote",
       endpoint: remote.endpoint,
-      requiresApiKey: Boolean(remote.apiKey),
+      requiresApiKey: !remote.apiKey,
     };
   }
-  return { id: modelId, source: "local", endpoint: localEndpoint };
+
+  const localModels = await probeLocalModels(localEndpoint);
+  if (localModels.length === 0) {
+    return { id: modelId, source: "local", endpoint: localEndpoint };
+  }
+
+  return localModels.find((m) => m.id === modelId);
 }
 
 export function getRemoteApiKey(): string | undefined {

@@ -6,6 +6,7 @@ import { modelsRouter } from "./routes/models.ts";
 import { reportRouter } from "./routes/report.ts";
 import { runsRouter } from "./routes/runs.ts";
 import { scenariosRouter } from "./routes/scenarios.ts";
+import { oneshotRouter } from "./routes/oneshot.ts";
 
 const DIST = new URL("../web-ui/dist", import.meta.url).pathname;
 
@@ -20,6 +21,7 @@ export function createApp() {
   app.route("/api/scenarios", scenariosRouter);
   app.route("/api/models", modelsRouter);
   app.route("/api/bench-report", reportRouter);
+  app.route("/api/oneshot", oneshotRouter);
 
   // Serve built frontend — only when dist exists
   app.use("/*", serveStatic({ root: DIST }));

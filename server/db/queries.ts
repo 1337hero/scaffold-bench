@@ -145,24 +145,49 @@ export function getScenarioRuns(runId: string): ScenarioRunRow[] {
     .all(runId);
 }
 
-export function getScenarioEvents(runId: string, scenarioId: string, fromSeq = 0): RunEventRow[] {
+export function getScenarioEvents(
+  runId: string,
+  scenarioId: string,
+  fromSeq = 0,
+  limit?: number
+): RunEventRow[] {
   const db = getDb();
+  if (limit === undefined) {
+    return db
+      .query<
+        RunEventRow,
+        [string, string, number]
+      >("SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC")
+      .all(runId, scenarioId, fromSeq);
+  }
+
   return db
     .query<
       RunEventRow,
-      [string, string, number]
-    >("SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC")
-    .all(runId, scenarioId, fromSeq);
+      [string, string, number, number]
+    >(
+      "SELECT * FROM run_events WHERE run_id = ? AND scenario_id = ? AND seq >= ? ORDER BY seq ASC LIMIT ?"
+    )
+    .all(runId, scenarioId, fromSeq, limit);
 }
 
-export function getRunEvents(runId: string, fromSeq = 0): RunEventRow[] {
+export function getRunEvents(runId: string, fromSeq = 0, limit?: number): RunEventRow[] {
   const db = getDb();
+  if (limit === undefined) {
+    return db
+      .query<
+        RunEventRow,
+        [string, number]
+      >("SELECT * FROM run_events WHERE run_id = ? AND seq >= ? ORDER BY seq ASC")
+      .all(runId, fromSeq);
+  }
+
   return db
     .query<
       RunEventRow,
-      [string, number]
-    >("SELECT * FROM run_events WHERE run_id = ? AND seq >= ? ORDER BY seq ASC")
-    .all(runId, fromSeq);
+      [string, number, number]
+    >("SELECT * FROM run_events WHERE run_id = ? AND seq >= ? ORDER BY seq ASC LIMIT ?")
+    .all(runId, fromSeq, limit);
 }
 
 export function clearRunData(): void {
