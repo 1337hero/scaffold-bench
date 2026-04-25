@@ -6,7 +6,6 @@ import {
   CategoryHeatmap,
   Leaderboard,
   MetricBars,
-  QualitySpeedScatter,
   RecentRunsTable,
   ReportHeader,
   sortByMetric,
@@ -92,6 +91,7 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
           <>
             <AwardsGrid awards={report.awards} />
             <Leaderboard models={scoreModels} />
+            <CategoryHeatmap models={scoreModels} categories={report.categories} />
             <MetricBars
               title="Quality score (% of scored max)"
               models={scoreModels}
@@ -131,8 +131,6 @@ export function RunHistory({ onReplay, onBack }: RunHistoryProps) {
               color="#b38bff"
               lowerIsBetter
             />
-            <QualitySpeedScatter models={scoreModels} />
-            <CategoryHeatmap models={scoreModels} categories={report.categories} />
           </>
         )}
 
