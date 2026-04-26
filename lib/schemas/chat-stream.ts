@@ -53,7 +53,7 @@ export const ChatStreamChunkSchema = Schema.Struct({
     Schema.Struct({
       message: Schema.String,
       type: Schema.optional(Schema.String),
-      code: Schema.optional(Schema.NullOr(Schema.String)),
+      code: Schema.optional(Schema.NullOr(Schema.Union(Schema.String, Schema.Number))),
     })
   ),
 });
