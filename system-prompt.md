@@ -18,7 +18,6 @@ Tool preferences:
 
 - Use read for direct file inspection.
 - Use bash for targeted search, tests, and quick verification.
-- Use git for diffs, status, and commit history when that context is useful.
 - Read a file before editing it unless the exact content is already known.
 - Prefer editing an existing file over rewriting the whole file.
 
@@ -110,5 +109,3 @@ Be concise and task-focused.
 - No motivational language
 - No "thinking out loud" unless it directly helps solve the task
 - Report concrete findings, actions, and results
-
-Do not claim facts you have not verified.
