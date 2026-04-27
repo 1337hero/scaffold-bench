@@ -35,6 +35,7 @@ export interface ScenarioRunRow {
   tool_call_count: number | null;
   model_metrics_json: string | null;
   evaluation_json: string | null;
+  error_kind: "infra" | "timeout" | "aborted" | "runtime" | null;
   error: string | null;
 }
 
@@ -86,8 +87,8 @@ export function upsertScenarioRun(
 ): void {
   const db = getDb();
   db.run(
-    `INSERT INTO scenario_runs (run_id, scenario_id, category, started_at, finished_at, status, points, max_points, wall_time_ms, first_token_ms, tool_call_count, model_metrics_json, evaluation_json, error)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO scenario_runs (run_id, scenario_id, category, started_at, finished_at, status, points, max_points, wall_time_ms, first_token_ms, tool_call_count, model_metrics_json, evaluation_json, error_kind, error)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(run_id, scenario_id) DO UPDATE SET
        category = COALESCE(excluded.category, category),
        started_at = COALESCE(excluded.started_at, started_at),
@@ -100,6 +101,7 @@ export function upsertScenarioRun(
        tool_call_count = COALESCE(excluded.tool_call_count, tool_call_count),
        model_metrics_json = COALESCE(excluded.model_metrics_json, model_metrics_json),
        evaluation_json = COALESCE(excluded.evaluation_json, evaluation_json),
+       error_kind = COALESCE(excluded.error_kind, error_kind),
        error = COALESCE(excluded.error, error)`,
     [
       row.run_id,
@@ -115,6 +117,7 @@ export function upsertScenarioRun(
       row.tool_call_count ?? null,
       row.model_metrics_json ?? null,
       row.evaluation_json ?? null,
+      row.error_kind ?? null,
       row.error ?? null,
     ]
   );

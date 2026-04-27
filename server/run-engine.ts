@@ -6,8 +6,9 @@ import { localRuntime } from "../lib/runtimes/local-agent.ts";
 import { scenarios as allScenarios } from "../lib/scenarios.ts";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
 import { computeRunTotals, type ScenarioLike } from "../lib/aggregates.ts";
-import { mergeModelMetrics } from "../lib/scoring.ts";
+import { classifyRuntimeError, mergeModelMetrics } from "../lib/scoring.ts";
 import type { ScenarioResult } from "../lib/scoring.ts";
+import type { RuntimeErrorKind } from "../lib/scoring.ts";
 import type { RuntimeEvent, ToolExecutionMode } from "../lib/runtimes/types.ts";
 import { runtimeEventToPersisted } from "./contracts/events.ts";
 import type { PersistedEvent } from "./contracts/events.ts";
@@ -42,6 +43,17 @@ function scenarioToLike(r: ScenarioResult): ScenarioLike {
     toolCalls: r.output.toolCalls,
     result: r,
   };
+}
+
+function isRuntimeErrorKind(value: unknown): value is RuntimeErrorKind {
+  return value === "infra" || value === "timeout" || value === "aborted" || value === "runtime";
+}
+
+function scenarioErrorKind(result: ScenarioResult): RuntimeErrorKind | undefined {
+  const fromMetrics = result.output.scenarioMetrics?.runtimeErrorKind;
+  if (isRuntimeErrorKind(fromMetrics)) return fromMetrics;
+  if (!result.output.error) return undefined;
+  return classifyRuntimeError(result.output.error).kind;
 }
 
 export async function runBench(opts: RunBenchOptions): Promise<{
@@ -102,6 +114,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       });
 
       results.push(result);
+      const errorKind = scenarioErrorKind(result);
 
       opts.onEvent?.({
         type: "scenario_finished",
@@ -116,6 +129,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         turnFirstTokenMs: result.output.turnFirstTokenMs,
         evaluation: result.evaluation,
         modelMetrics: result.output.modelMetrics,
+        ...(errorKind ? { errorKind } : {}),
         seq: nextSeq(),
         ts: Date.now(),
       });
@@ -168,6 +182,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       turnWallTimes: r.output.turnWallTimes,
       turnFirstTokenMs: r.output.turnFirstTokenMs,
       error: r.output.error,
+      errorKind: scenarioErrorKind(r),
       modelMetrics: r.output.modelMetrics,
       scenarioMetrics: r.output.scenarioMetrics,
       checks: r.evaluation.checks,
@@ -276,6 +291,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
               tool_call_count: resequenced.toolCallCount,
               first_token_ms: resequenced.firstTokenMs,
               evaluation_json: JSON.stringify(resequenced.evaluation),
+              error_kind: resequenced.errorKind ?? null,
               model_metrics_json: resequenced.modelMetrics
                 ? JSON.stringify(resequenced.modelMetrics)
                 : null,

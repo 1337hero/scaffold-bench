@@ -38,6 +38,7 @@ export type PersistedEvent =
       turnFirstTokenMs?: number[];
       evaluation: ScenarioEvaluation;
       modelMetrics?: ModelMetrics;
+      errorKind?: "infra" | "timeout" | "aborted" | "runtime";
     })
   | (PersistedEventBase & { type: "assistant"; runId: string; scenarioId: string; content: string })
   | (PersistedEventBase & {

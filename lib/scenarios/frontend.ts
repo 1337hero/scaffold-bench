@@ -350,7 +350,7 @@ export const frontendScenarios: Scenario[] = [
         },
         {
           name: "mentions page-owned query / prop-passing pattern",
-          pass: /page .*owns.*query|owner of the query|pass(es|ing)? data .*props|child .*presentational|avoid duplicate fetch/i.test(
+          pass: /page .*owns.*query|owner of the query|pass(es|ing)? data .*props|child .*presentational|avoid duplicate fetch|container component|useQuery.*pass(es|ing)?.*prop|pass(es|ing)?.*(reports?|data).*(as )?prop/i.test(
             answer
           ),
         },

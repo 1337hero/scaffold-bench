@@ -114,6 +114,7 @@ runsRouter.get("/:id", (c) => {
       maxPoints: sr.max_points,
       wallTimeMs: sr.wall_time_ms,
       toolCallCount: sr.tool_call_count,
+      errorKind: sr.error_kind,
       evaluation: sr.evaluation_json ? JSON.parse(sr.evaluation_json) : null,
     })),
     ...(events

@@ -40,6 +40,10 @@ export function runMigrations(): void {
       name: "002_oneshot",
       sql: readFileSync(join(import.meta.dir, "oneshot-schema.sql"), "utf8"),
     },
+    {
+      name: "003_scenario_error_kind",
+      sql: readFileSync(join(import.meta.dir, "migrations/003_scenario_error_kind.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {

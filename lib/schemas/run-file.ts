@@ -50,6 +50,8 @@ export const ModelMetricsSchema = Schema.Struct({
   completionEvalTimeMs: Schema.optional(Ms),
 });
 
+const RuntimeErrorKindSchema = Schema.Literal("infra", "timeout", "aborted", "runtime");
+
 export const ScenarioResultSchema = Schema.Struct({
   scenarioId: ScenarioId,
   category: Schema.String,
@@ -62,6 +64,7 @@ export const ScenarioResultSchema = Schema.Struct({
   turnWallTimes: Schema.optional(Schema.Array(Ms)),
   turnFirstTokenMs: Schema.optional(Schema.Array(Schema.NullishOr(Ms))),
   error: Schema.optional(Schema.String),
+  errorKind: Schema.optional(RuntimeErrorKindSchema),
   modelMetrics: Schema.optional(ModelMetricsSchema),
   scenarioMetrics: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   checks: Schema.Array(CheckSchema),

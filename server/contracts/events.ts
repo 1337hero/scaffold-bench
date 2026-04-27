@@ -1,4 +1,4 @@
-import type { ModelMetrics, ToolCall } from "../../lib/scoring.ts";
+import type { ModelMetrics, RuntimeErrorKind, ToolCall } from "../../lib/scoring.ts";
 import type { RuntimeEvent } from "../../lib/runtimes/types.ts";
 
 interface EventBase {
@@ -44,6 +44,7 @@ export type PersistedEvent =
       turnFirstTokenMs?: Array<number | undefined>;
       evaluation: unknown;
       modelMetrics?: ModelMetrics;
+      errorKind?: RuntimeErrorKind;
     })
   | (EventBase & {
       type: "assistant";

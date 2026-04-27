@@ -65,6 +65,7 @@ export type RuntimeErrorClassification = {
   kind: "infra" | "timeout" | "aborted" | "runtime";
   scoreExempt: boolean;
 };
+export type RuntimeErrorKind = RuntimeErrorClassification["kind"];
 
 export interface ScenarioResult {
   scenarioId: ScenarioId;

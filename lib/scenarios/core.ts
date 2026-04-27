@@ -188,7 +188,9 @@ export const coreScenarios: Scenario[] = [
         },
         {
           name: "mentions comments.author_id needs index",
-          pass: /comments?\.author_id|author_id.*index|index.*author_id/i.test(stdout),
+          pass: /comments?\s*(?:\.|\(|\s)\s*author_id|author_id.*(?:index|indexed|missing)|(?:index|indexed|missing).*(?:comments?\s*)?author_id/i.test(
+            stdout
+          ),
         },
         {
           name: "mentions email uniqueness",

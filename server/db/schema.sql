@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS scenario_runs (
   tool_call_count INTEGER,
   model_metrics_json TEXT,
   evaluation_json TEXT,
+  error_kind TEXT CHECK(error_kind IN ('infra','timeout','aborted','runtime')),
   error TEXT,
   PRIMARY KEY(run_id, scenario_id),
   FOREIGN KEY(run_id) REFERENCES runs(id)

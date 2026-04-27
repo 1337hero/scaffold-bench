@@ -25,6 +25,7 @@ export const ScenarioRunSummarySchema = Schema.Struct({
   maxPoints: Schema.NullOr(Schema.Number),
   wallTimeMs: Schema.NullOr(Schema.Number),
   toolCallCount: Schema.NullOr(Schema.Number),
+  errorKind: Schema.NullOr(Schema.Literal("infra", "timeout", "aborted", "runtime")),
 });
 export type ScenarioRunSummary = Schema.Schema.Type<typeof ScenarioRunSummarySchema>;
 
