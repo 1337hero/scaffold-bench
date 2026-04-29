@@ -16,6 +16,7 @@ const ToolCallDeltaSchema = Schema.Struct({
 const DeltaSchema = Schema.Struct({
   role: Schema.optional(Schema.String),
   content: Schema.optional(Schema.NullOr(Schema.String)),
+  reasoning_content: Schema.optional(Schema.NullOr(Schema.String)),
   tool_calls: Schema.optional(Schema.Array(ToolCallDeltaSchema)),
 });
 

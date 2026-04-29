@@ -178,6 +178,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
 
       state.conversation.push({ role: "user", content: prompt });
 
+      let emptyTurnNudges = 0;
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
         if (performance.now() >= deadline) return finishRun(state, "TIMEOUT");
         if (signal?.aborted) return finishRun(state, "ABORTED");
@@ -203,6 +204,22 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
         applyLocalEvent({ type: "assistant", message: reply.message }, state, ctx);
 
         if (reply.finishReason !== "tool_calls" || !reply.message.tool_calls?.length) {
+          const emptyContent = !(reply.message.content && reply.message.content.trim().length);
+          const noToolCalls = !reply.message.tool_calls?.length;
+          if (emptyContent && noToolCalls && emptyTurnNudges < 1) {
+            emptyTurnNudges++;
+            const reasonHint = reply.reasoning?.trim().length
+              ? ` Your previous turn ended inside reasoning without producing output.`
+              : "";
+            state.transcript.push(
+              `guard: empty assistant turn (finish=${reply.finishReason}); nudging`
+            );
+            state.conversation.push({
+              role: "user",
+              content: `Continue.${reasonHint} Emit either a final answer or a tool call.`,
+            });
+            continue;
+          }
           return finishRun(state);
         }
 

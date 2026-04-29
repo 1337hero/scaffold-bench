@@ -69,7 +69,12 @@ export async function callModel(
   config: CallModelConfig,
   tools: object[],
   onDelta?: (text: string) => void
-): Promise<{ finishReason: FinishReason; message?: ChatMessage; metrics: ModelCallMetrics }> {
+): Promise<{
+  finishReason: FinishReason;
+  message?: ChatMessage;
+  reasoning: string;
+  metrics: ModelCallMetrics;
+}> {
   const requestStartedAt = performance.now();
   const remainingMs = Math.max(1, Math.ceil(deadline - requestStartedAt));
   const controller = new AbortController();
@@ -112,6 +117,7 @@ export async function callModel(
         return {
           finishReason: toolCalls.length ? "tool_calls" : stream.finishReason,
           message,
+          reasoning: stream.reasoning,
           metrics: extractModelCallMetrics(
             { usage: stream.usage, timings: stream.timings },
             performance.now() - requestStartedAt
@@ -145,6 +151,7 @@ export type ToolCallParts = { id: string; name: string; arguments: string };
 
 export type ChatStream = {
   content: string;
+  reasoning: string;
   finishReason: FinishReason;
   toolCallsByIndex: Map<number, ToolCallParts>;
   usage?: Usage;
@@ -167,6 +174,7 @@ export async function readChatStream(
 
   const stream: ChatStream = {
     content: "",
+    reasoning: "",
     finishReason: "stop",
     toolCallsByIndex: new Map(),
   };
@@ -197,6 +205,9 @@ export async function readChatStream(
     if (typeof delta.content === "string" && delta.content.length) {
       stream.content += delta.content;
       onDelta?.(delta.content);
+    }
+    if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length) {
+      stream.reasoning += delta.reasoning_content;
     }
 
     for (const tc of delta.tool_calls ?? []) {
