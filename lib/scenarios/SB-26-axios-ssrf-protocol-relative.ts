@@ -63,7 +63,7 @@ const scenario: Scenario = {
     const runStartedAt = performance.now();
     let output: RuntimeOutput;
     try {
-      output = await runtime.run({ workDir, prompt: config.prompt, timeoutMs, onEvent: onRuntimeEvent, ...runtimeOverrides });
+      output = await runtime.run({ workDir, prompt: SB29_PROMPT, timeoutMs, onEvent: onRuntimeEvent, ...runtimeOverrides });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };

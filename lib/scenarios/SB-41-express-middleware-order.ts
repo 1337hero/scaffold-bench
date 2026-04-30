@@ -83,7 +83,7 @@ const scenario: Scenario = {
       publicRoutesIdx >= 0 && requireAuthIdx >= 0 && publicRoutesIdx < requireAuthIdx &&
       requireAuthIdx >= 0 && privateRoutesIdx >= 0 && requireAuthIdx < privateRoutesIdx;
 
-    return rubricToEvaluation({
+    const evaluation = rubricToEvaluation({
       correctness: [
         { name: "vitest passes", pass: testsPass, weight: 2 },
         { name: "auth ordering at least partially correct", pass: requireAuthIdx >= 0 && privateRoutesIdx >= 0 && requireAuthIdx < privateRoutesIdx, weight: 1 },
@@ -107,6 +107,8 @@ const scenario: Scenario = {
       partial: "Tests pass but fix is superficial or order not canonical.",
       fail: "Tests still fail after fix.",
     });
+
+    return { output, evaluation };
   },
 };
 
