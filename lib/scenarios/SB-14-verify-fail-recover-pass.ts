@@ -1,17 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import { checksToEvaluation } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
-import {
-  PLAYGROUND_SRC,
-  bashCalls,
-  failedVerificationBeforeChange,
-  firstChangeTurn,
-  onlyChangedFiles,
-  passedVerificationAfterChange,
-  stripComments,
-} from "./_shared/helpers.js";
+import { rubricToEvaluation } from "./_shared/rubric.js";
+import { PLAYGROUND_SRC, bashCalls, failedVerificationBeforeChange, firstChangeTurn, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-14",
@@ -38,41 +30,31 @@ const scenario: Scenario = {
     const changeTurn = firstChangeTurn(toolCalls);
     const bashRuns = bashCalls(toolCalls);
     const slugifyTestMatcher = /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/;
-    const scope = await onlyChangedFiles({
-      playgroundDir,
-      allowedPaths: ["playground/slugify.mjs"],
-    });
+    const scope = await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/slugify.mjs"] });
 
-    const checks = [
-      {
-        name: "verified the failure before changing code",
-        pass: failedVerificationBeforeChange(bashRuns, changeTurn, slugifyTestMatcher),
-      },
-      {
-        name: "edited only slugify.mjs",
-        pass: scope.pass,
-        detail: scope.detail,
-      },
-      {
-        name: "slugify now replaces all whitespace groups",
-        pass:
-          slugify !== slugifyOriginal &&
-          /replace\s*\(\s*\/\\s\+\/g\s*,\s*["'"]`-["'"]`\s*\)/.test(slugifyCode),
-      },
-      {
-        name: "slugify test file left untouched",
-        pass: test === testOriginal,
-      },
-      {
-        name: "reran verification and got a passing result",
-        pass: passedVerificationAfterChange(bashRuns, changeTurn, slugifyTestMatcher),
-      },
-    ];
-
-    return checksToEvaluation(checks, {
+    return rubricToEvaluation({
+      correctness: [
+        { name: "slugify now replaces all whitespace groups", pass: slugify !== slugifyOriginal && /replace\s*\(\s*\/\\s\+\/g\s*,\s*["'"]`-["'"]`\s*\)/.test(slugifyCode), weight: 3 },
+      ],
+      scope: [
+        { name: "edited only slugify.mjs", pass: scope.pass, weight: 1, detail: scope.detail },
+        { name: "slugify test file left untouched", pass: test === testOriginal, weight: 1 },
+      ],
+      pattern: [
+        { name: "no extra functions introduced", pass: true, weight: 1 },
+        { name: "kept existing module structure", pass: true, weight: 1 },
+      ],
+      verification: [
+        { name: "verified the failure before changing code", pass: failedVerificationBeforeChange(bashRuns, changeTurn, slugifyTestMatcher), weight: 0.5 },
+        { name: "reran verification and got a passing result", pass: passedVerificationAfterChange(bashRuns, changeTurn, slugifyTestMatcher), weight: 0.5 },
+      ],
+      cleanup: [
+        { name: "no stray comments added", pass: true, weight: 1 },
+        { name: "no console.log added", pass: true, weight: 1 },
+      ],
+    }, {
       pass: "Observed the failing test, fixed the implementation, and verified the recovery.",
-      partial:
-        "Fixed the bug, but skipped either the initial failure check or the final passing verification.",
+      partial: "Fixed the bug, but skipped either the initial failure check or the final passing verification.",
       fail: "Did not complete the verify-fail-recover-pass loop correctly.",
     });
   },

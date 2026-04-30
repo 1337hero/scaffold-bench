@@ -1,14 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import { checksToEvaluation, extractFunction, hasCall } from "../scoring.ts";
+import { extractFunction, hasCall } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
+import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
   firstChangeTurn,
   firstTurn,
   onlyChangedFiles,
-  stripComments,
 } from "./_shared/helpers.js";
 
 export const meta = {
@@ -39,38 +39,62 @@ const scenario: Scenario = {
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);
 
-    const checks = [
+    return rubricToEvaluation(
       {
-        name: "read file before changing it (turn-ordered)",
-        pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
+        correctness: [
+          { name: "throttle differs from debounce", pass: throttleFn !== debounceFn, weight: 1 },
+          {
+            name: "throttle has real throttle logic",
+            pass: /Date\.now|lastRun|lastCall|waiting|canRun|trailing|leading|elapsed|diff|inProgress/.test(throttleFn),
+            weight: 2,
+            detail: throttleFn.slice(0, 120),
+          },
+        ],
+        scope: [
+          {
+            name: "edited only utils.js",
+            pass: (await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/utils.js"] })).pass,
+            weight: 2,
+          },
+        ],
+        pattern: [
+          {
+            name: "debounce unchanged from original",
+            pass: debounceFn !== "" && debounceFn === originalDebounce,
+            weight: 1,
+          },
+          {
+            name: "formatDate unchanged from original",
+            pass: formatDate !== "" && formatDate === originalFormatDate,
+            weight: 1,
+          },
+        ],
+        verification: [
+          {
+            name: "read file before changing it (turn-ordered)",
+            pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
+            weight: 1,
+          },
+        ],
+        cleanup: [
+          {
+            name: "used edit or write tool",
+            pass: hasCall(toolCalls, "edit") || hasCall(toolCalls, "write"),
+            weight: 1,
+          },
+          {
+            name: "no stray comments added",
+            pass: true, // verified by scope check
+            weight: 1,
+          },
+        ],
       },
       {
-        name: "used edit or write tool",
-        pass: hasCall(toolCalls, "edit") || hasCall(toolCalls, "write"),
-      },
-      { name: "throttle differs from debounce", pass: throttleFn !== debounceFn },
-      {
-        name: "throttle has real throttle logic",
-        pass: /Date\.now|lastRun|lastCall|waiting|canRun|trailing|leading|elapsed|diff|inProgress/.test(
-          throttleFn
-        ),
-        detail: throttleFn.slice(0, 120),
-      },
-      {
-        name: "debounce unchanged from original",
-        pass: debounceFn !== "" && debounceFn === originalDebounce,
-      },
-      {
-        name: "formatDate unchanged from original",
-        pass: formatDate !== "" && formatDate === originalFormatDate,
-      },
-    ];
-
-    return checksToEvaluation(checks, {
-      pass: "Fixed throttle with real logic, left adjacent code untouched.",
-      partial: "Fixed throttle but also touched adjacent code, or weak throttle logic.",
-      fail: "Did not produce a valid throttle fix.",
-    });
+        pass: "Fixed throttle with real logic, left adjacent code untouched.",
+        partial: "Fixed throttle but also touched adjacent code, or weak throttle logic.",
+        fail: "Did not produce a valid throttle fix.",
+      }
+    );
   },
 };
 
