@@ -77,6 +77,7 @@ const scenario: Scenario = {
   id: "SB-22" as ScenarioId,
   name: "high-frequency-loop",
   category: "responsiveness",
+  family: "regex-style",
   maxPoints: 5,
   prompt: meta.prompt,
   async execute({ runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides }) {

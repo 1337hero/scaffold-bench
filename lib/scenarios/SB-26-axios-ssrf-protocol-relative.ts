@@ -33,6 +33,7 @@ const scenario: Scenario = {
   id: "SB-26" as ScenarioId,
   name: "axios-ssrf-protocol-relative",
   category: "verify-and-repair",
+  family: "regression",
   maxPoints: 2,
   prompt: meta.prompt,
   async execute(ctx) {

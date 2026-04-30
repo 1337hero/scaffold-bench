@@ -32,6 +32,7 @@ const scenario: Scenario = {
   id: "SB-23" as ScenarioId,
   name: "long-context-retrieval",
   category: "long-context",
+  family: "regex-style",
   maxPoints: 3,
   prompt: meta.prompt,
   async execute({ runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides }) {

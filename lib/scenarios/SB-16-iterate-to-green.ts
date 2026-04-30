@@ -27,6 +27,7 @@ const scenario: Scenario = {
   id: "SB-16" as ScenarioId,
   name: "iterate-to-green",
   category: "verify-and-repair",
+  family: "regression",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const normalizeTag = await readFile(

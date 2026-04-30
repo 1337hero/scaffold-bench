@@ -24,6 +24,7 @@ const scenario: Scenario = {
   id: "SB-12" as ScenarioId,
   name: "frontend-reuse-existing-abstraction",
   category: "scope-discipline",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const sidebar = await readFile(

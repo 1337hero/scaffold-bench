@@ -28,6 +28,7 @@ const scenario: Scenario = {
   id: "SB-15" as ScenarioId,
   name: "typescript-compile-loop",
   category: "verify-and-repair",
+  family: "regression",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const summaryFile = await readFile(

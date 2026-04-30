@@ -19,6 +19,7 @@ const scenario: Scenario = {
   id: "SB-09" as ScenarioId,
   name: "frontend-red-herring",
   category: "read-only-analysis",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls, stdout }) {
     const pageOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/ReportsPage.tsx"), "utf-8");

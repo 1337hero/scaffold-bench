@@ -25,6 +25,7 @@ const scenario: Scenario = {
   id: "SB-06" as ScenarioId,
   name: "frontend-query-owner",
   category: "scope-discipline",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const page = await readFile(
