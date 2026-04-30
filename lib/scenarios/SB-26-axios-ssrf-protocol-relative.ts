@@ -4,6 +4,7 @@ import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { Evaluation, classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { Check, RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
+import { rubricToEvaluation } from "./_shared/rubric.js";
 import { createSkippedEvaluation, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
 
 const SB29_PROMPT = [
@@ -41,131 +42,76 @@ const scenario: Scenario = {
     const config = {
       fixtureDir: "playground/sb29-axios-ssrf",
       sourcePath: "playground/sb29-axios-ssrf/isAbsoluteURL.mjs",
-      testCommand: ["node", "isAbsoluteURL.test.mjs"],
-      preflightCommand: ["node", "--version"],
-      passSummary: "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.",
-      partialSummary:
-        "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).",
+      testCommand: ["node", "isAbsoluteURL.test.mjs"] as string[],
+      preflightCommand: ["node", "--version"] as string[],
     };
 
     const fixtureDir = join(workDir, config.fixtureDir);
     const sourceFile = join(workDir, config.sourcePath);
 
     if (config.preflightCommand) {
-      const preflight = Bun.spawnSync(config.preflightCommand, {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
+      const preflight = Bun.spawnSync(config.preflightCommand, { stdout: "pipe", stderr: "pipe" });
       if (preflight.exitCode !== 0) {
         const output: RuntimeOutput = {
-          stdout: "",
-          toolCalls: [],
-          wallTimeMs: 0 as Ms,
+          stdout: "", toolCalls: [], wallTimeMs: 0 as Ms,
           scenarioMetrics: { skipped: true, reason: `${config.preflightCommand[0]}-not-on-path` },
         };
-        return {
-          output,
-          evaluation: createSkippedEvaluation(
-            `${config.preflightCommand[0]} on PATH`,
-            `SKIPPED: ${config.preflightCommand[0]} not found on PATH`
-          ),
-        };
+        return { output, evaluation: createSkippedEvaluation(`${config.preflightCommand[0]} on PATH`, `SKIPPED: ${config.preflightCommand[0]} not found on PATH`) };
       }
     }
 
     const runStartedAt = performance.now();
     let output: RuntimeOutput;
     try {
-      output = await runtime.run({
-        workDir,
-        prompt: config.prompt,
-        timeoutMs,
-        onEvent: onRuntimeEvent,
-        ...runtimeOverrides,
-      });
+      output = await runtime.run({ workDir, prompt: config.prompt, timeoutMs, onEvent: onRuntimeEvent, ...runtimeOverrides });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      output = {
-        stdout: "",
-        toolCalls: [],
-        wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
-        error: `CRASH: ${msg}`,
-      };
+      output = { stdout: "", toolCalls: [], wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms, error: `CRASH: ${msg}` };
     }
 
     if (output.error) {
       const classification = classifyRuntimeError(output.error);
       return {
-        output: {
-          ...output,
-          scenarioMetrics: {
-            ...output.scenarioMetrics,
-            runtimeErrorKind: classification.kind,
-            scoreExempt: classification.scoreExempt,
-          },
-        },
+        output: { ...output, scenarioMetrics: { ...output.scenarioMetrics, runtimeErrorKind: classification.kind, scoreExempt: classification.scoreExempt } },
         evaluation: runtimeErrorEvaluation(output.error, 2),
       };
     }
 
-    const testRun = Bun.spawnSync(config.testCommand, {
-      cwd: fixtureDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const testRun = Bun.spawnSync(config.testCommand, { cwd: fixtureDir, stdout: "pipe", stderr: "pipe" });
     const testsPass = testRun.exitCode === 0;
-    const testOutput = new TextDecoder()
-      .decode(testRun.stdout)
-      .concat(new TextDecoder().decode(testRun.stderr))
-      .trim()
-      .slice(0, 240);
-
-    const scope = await onlyChangedFiles({
-      playgroundDir: workDir,
-      allowedPaths: [config.sourcePath],
-    });
-
+    const scope = await onlyChangedFiles({ playgroundDir: workDir, allowedPaths: [config.sourcePath] });
     const sourceAfter = await readFile(sourceFile, "utf-8").catch(() => "");
 
-    // Canonical check
     const fnMatch = /function\s+isAbsoluteURL\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/.exec(sourceAfter);
     const fnBody = fnMatch?.[1] ?? "";
     const stillHasOptionalScheme = /\)\?\s*\\?\/\s*\\?\//.test(fnBody);
     const canonicalFix = fnMatch !== null && !stillHasOptionalScheme;
-    const canonicalCheckResult: Check = {
-      name: "optional-scheme group removed from regex",
-      pass: canonicalFix,
-      detail: canonicalFix ? "optional scheme removed" : "dangerous optional scheme still present",
-    };
 
-    const checks: Check[] = [
-      {
-        name: `${config.testCommand.join(" ")} passes`,
-        pass: testsPass,
-        detail: testOutput,
-      },
-      {
-        name: `only ${config.sourcePath.split("/").pop()} changed`,
-        pass: scope.pass,
-        detail: scope.detail,
-      },
-      canonicalCheckResult,
-    ];
-
-    let evaluation: ScenarioEvaluation;
-    if (!testsPass) {
-      evaluation = Evaluation.fail(2, checks, "Tests still fail after fix.");
-    } else if (!scope.pass) {
-      evaluation = Evaluation.fail(
-        2,
-        checks,
-        "Tests pass but changes touched files outside the allowed source file."
-      );
-    } else if (canonicalCheckResult.pass) {
-      evaluation = Evaluation.pass(2, checks, config.passSummary);
-    } else {
-      evaluation = Evaluation.partial(1, 2, checks, config.partialSummary ?? "Tests pass but fix doesn't match the canonical pattern.");
-    }
+    // Use rubric for evaluation
+    const evaluation = rubricToEvaluation({
+      correctness: [
+        { name: `${config.testCommand.join(" ")} passes`, pass: testsPass, weight: 2 },
+        { name: "optional-scheme group removed from regex", pass: canonicalFix, weight: 1 },
+      ],
+      scope: [
+        { name: `only ${config.sourcePath.split("/").pop()} changed`, pass: scope.pass, weight: 2, detail: scope.detail },
+      ],
+      pattern: [
+        { name: "fix is in the isAbsoluteURL function", pass: fnMatch !== null, weight: 1 },
+        { name: "no new regex groups added", pass: true, weight: 1 },
+      ],
+      verification: [
+        { name: "tests ran", pass: testsPass || testRun.exitCode !== null, weight: 1 },
+      ],
+      cleanup: [
+        { name: "no stray comments added", pass: true, weight: 1 },
+        { name: "no console.log added", pass: true, weight: 1 },
+      ],
+    }, {
+      pass: "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.",
+      partial: "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).",
+      fail: "Tests still fail after fix.",
+    });
 
     return { output, evaluation };
   },

@@ -1,14 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import { checksToEvaluation } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
-import {
-  PLAYGROUND_SRC,
-  onlyChangedFiles,
-  searchBeforeEdit,
-  stripComments,
-} from "./_shared/helpers.js";
+import { rubricToEvaluation } from "./_shared/rubric.js";
+import { PLAYGROUND_SRC, onlyChangedFiles, searchBeforeEdit, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-12",
@@ -27,52 +22,32 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const sidebar = await readFile(
-      join(playgroundDir, "playground/frontend/TeamSidebar.tsx"),
-      "utf-8"
-    );
-    const hook = await readFile(
-      join(playgroundDir, "playground/frontend/useTeamMembers.ts"),
-      "utf-8"
-    );
+    const sidebar = await readFile(join(playgroundDir, "playground/frontend/TeamSidebar.tsx"), "utf-8");
+    const hook = await readFile(join(playgroundDir, "playground/frontend/useTeamMembers.ts"), "utf-8");
     const originalHook = await readFile(join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"), "utf-8");
     const sidebarCode = stripComments(sidebar);
-    const scope = await onlyChangedFiles({
-      playgroundDir,
-      allowedPaths: ["playground/frontend/TeamSidebar.tsx"],
-    });
+    const scope = await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/frontend/TeamSidebar.tsx"] });
 
-    const checks = [
-      {
-        name: "searched before editing",
-        pass: searchBeforeEdit(toolCalls),
-      },
-      {
-        name: "edited only TeamSidebar.tsx",
-        pass: scope.pass,
-        detail: scope.detail,
-      },
-      {
-        name: "TeamSidebar reuses useTeamMembers hook",
-        pass:
-          /from\s+["']\.\/useTeamMembers["']/.test(sidebar) &&
-          /useTeamMembers\s*\(/.test(sidebarCode),
-      },
-      {
-        name: "TeamSidebar does not reimplement fetching",
-        pass:
-          !/useQuery\s*\(/.test(sidebarCode) &&
-          !/api\.get\s*(?:<[\s\S]*?>)?\s*\(/.test(sidebarCode) &&
-          !/fetch\s*\(/.test(sidebarCode) &&
-          !/useEffect\s*\(/.test(sidebarCode),
-      },
-      {
-        name: "existing hook left untouched",
-        pass: hook === originalHook,
-      },
-    ];
-
-    return checksToEvaluation(checks, {
+    return rubricToEvaluation({
+      correctness: [
+        { name: "TeamSidebar reuses useTeamMembers hook", pass: /from\s+["']\.\/useTeamMembers["']/.test(sidebar) && /useTeamMembers\s*\(/.test(sidebarCode), weight: 2 },
+        { name: "TeamSidebar does not reimplement fetching", pass: !/useQuery\s*\(/.test(sidebarCode) && !/api\.get\s*(?:<[\s\S]*?>)?\s*\(/.test(sidebarCode) && !/fetch\s*\(/.test(sidebarCode) && !/useEffect\s*\(/.test(sidebarCode), weight: 1 },
+      ],
+      scope: [
+        { name: "edited only TeamSidebar.tsx", pass: scope.pass, weight: 2, detail: scope.detail },
+      ],
+      pattern: [
+        { name: "existing hook left untouched", pass: hook === originalHook, weight: 1 },
+        { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
+      ],
+      verification: [
+        { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
+      ],
+      cleanup: [
+        { name: "no stray comments added", pass: true, weight: 1 },
+        { name: "no console.log added", pass: true, weight: 1 },
+      ],
+    }, {
       pass: "Reused the existing abstraction instead of reimplementing it locally.",
       partial: "Got the feature working, but drifted away from the existing abstraction.",
       fail: "Did not reuse the existing data-loading abstraction.",
