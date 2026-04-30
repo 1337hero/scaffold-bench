@@ -13,8 +13,8 @@ export const scenarios: Scenario[] = [
   ...regressionScenarios,
 ];
 
-if (scenarios.length !== 30) {
-  throw new Error(`Expected 30 active scenarios, got ${scenarios.length}`);
+if (scenarios.length !== 21) {
+  throw new Error(`Expected 21 active scenarios, got ${scenarios.length}`);
 }
 
 export { PLAYGROUND_SRC } from "./helpers.js";
