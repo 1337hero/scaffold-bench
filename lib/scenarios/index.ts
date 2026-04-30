@@ -21,6 +21,10 @@ import SB21 from "./SB-21-hono-fix-n-plus-1.js";
 import SB22 from "./SB-22-high-frequency-loop.js";
 import SB23 from "./SB-23-long-context-retrieval.js";
 import SB26 from "./SB-26-axios-ssrf-protocol-relative.js";
+import SB40 from "./SB-40-nextjs-server-client-boundary.js";
+import SB41 from "./SB-41-express-middleware-order.js";
+import SB42 from "./SB-42-react-hook-form-zod-resolver.js";
+import SB43 from "./SB-43-tanstack-router-loader-ownership.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -44,10 +48,14 @@ export const scenarios: Scenario[] = [
   SB22,
   SB23,
   SB26,
+  SB40,
+  SB41,
+  SB42,
+  SB43,
 ];
 
-if (scenarios.length !== 21) {
-  throw new Error(`Expected 21 active scenarios, got ${scenarios.length}`);
+if (scenarios.length !== 25) {
+  throw new Error(`Expected 25 active scenarios, got ${scenarios.length}`);
 }
 
 export { PLAYGROUND_SRC } from "./_shared/helpers.js";
