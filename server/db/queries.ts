@@ -10,11 +10,35 @@ export interface RunRow {
   started_at: number;
   finished_at: number | null;
   status: "running" | "done" | "failed" | "stopped";
-  runtime: string;
-  model: string | null;
-  endpoint: string | null;
+
+  bench_version: string;
+  git_dirty: number;
   system_prompt_hash: string | null;
   scenario_ids: string;
+
+  runtime: string;
+  runtime_kind: string;
+  runtime_build: string | null;
+  endpoint: string | null;
+  model: string;
+  model_file: string | null;
+  quant: string | null;
+  quant_tier: number | null;
+  quant_source: string | null;
+  context_size: number | null;
+
+  temperature: number | null;
+  top_p: number | null;
+  top_k: number | null;
+  seed: number | null;
+  max_tokens: number | null;
+
+  gpu_backend: string | null;
+  gpu_model: string | null;
+  gpu_count: number | null;
+  vram_total_mb: number | null;
+  host_thermal_note: string | null;
+
   total_points: number | null;
   max_points: number | null;
   report_path: string | null;
@@ -25,11 +49,18 @@ export interface ScenarioRunRow {
   run_id: string;
   scenario_id: string;
   category: string | null;
+  family: string;
   started_at: number | null;
   finished_at: number | null;
   status: "pending" | "running" | "pass" | "partial" | "fail" | "stopped" | null;
   points: number | null;
   max_points: number | null;
+  rubric_kind: string;
+  correctness: number | null;
+  scope: number | null;
+  pattern: number | null;
+  verification: number | null;
+  cleanup: number | null;
   wall_time_ms: number | null;
   first_token_ms: number | null;
   tool_call_count: number | null;
@@ -53,17 +84,40 @@ export function insertRun(
 ): void {
   const db = getDb();
   db.run(
-    `INSERT INTO runs (id, started_at, status, runtime, model, endpoint, system_prompt_hash, scenario_ids)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO runs (
+      id, started_at, status, bench_version, git_dirty, system_prompt_hash, scenario_ids,
+      runtime, runtime_kind, runtime_build, endpoint, model, model_file, quant, quant_tier, quant_source, context_size,
+      temperature, top_p, top_k, seed, max_tokens,
+      gpu_backend, gpu_model, gpu_count, vram_total_mb, host_thermal_note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       run.id,
       run.started_at,
       run.status,
-      run.runtime,
-      run.model,
-      run.endpoint,
+      run.bench_version,
+      run.git_dirty,
       run.system_prompt_hash,
       run.scenario_ids,
+      run.runtime,
+      run.runtime_kind,
+      run.runtime_build,
+      run.endpoint,
+      run.model,
+      run.model_file,
+      run.quant,
+      run.quant_tier,
+      run.quant_source,
+      run.context_size,
+      run.temperature,
+      run.top_p,
+      run.top_k,
+      run.seed,
+      run.max_tokens,
+      run.gpu_backend,
+      run.gpu_model,
+      run.gpu_count,
+      run.vram_total_mb,
+      run.host_thermal_note,
     ]
   );
 }
@@ -71,7 +125,15 @@ export function insertRun(
 export function updateRun(
   id: string,
   updates: Partial<
-    Pick<RunRow, "finished_at" | "status" | "total_points" | "max_points" | "report_path" | "error">
+    Pick<
+      RunRow,
+      | "finished_at"
+      | "status"
+      | "total_points"
+      | "max_points"
+      | "report_path"
+      | "error"
+    >
   >
 ): void {
   const db = getDb();
@@ -87,31 +149,50 @@ export function upsertScenarioRun(
 ): void {
   const db = getDb();
   db.run(
-    `INSERT INTO scenario_runs (run_id, scenario_id, category, started_at, finished_at, status, points, max_points, wall_time_ms, first_token_ms, tool_call_count, model_metrics_json, evaluation_json, error_kind, error)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(run_id, scenario_id) DO UPDATE SET
-       category = COALESCE(excluded.category, category),
-       started_at = COALESCE(excluded.started_at, started_at),
-       finished_at = COALESCE(excluded.finished_at, finished_at),
-       status = COALESCE(excluded.status, status),
-       points = COALESCE(excluded.points, points),
-       max_points = COALESCE(excluded.max_points, max_points),
-       wall_time_ms = COALESCE(excluded.wall_time_ms, wall_time_ms),
-       first_token_ms = COALESCE(excluded.first_token_ms, first_token_ms),
-       tool_call_count = COALESCE(excluded.tool_call_count, tool_call_count),
-       model_metrics_json = COALESCE(excluded.model_metrics_json, model_metrics_json),
-       evaluation_json = COALESCE(excluded.evaluation_json, evaluation_json),
-       error_kind = COALESCE(excluded.error_kind, error_kind),
-       error = COALESCE(excluded.error, error)`,
+    `INSERT INTO scenario_runs (
+      run_id, scenario_id, category, family, started_at, finished_at, status,
+      points, max_points, rubric_kind,
+      correctness, scope, pattern, verification, cleanup,
+      wall_time_ms, first_token_ms, tool_call_count,
+      model_metrics_json, evaluation_json, error_kind, error
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(run_id, scenario_id) DO UPDATE SET
+      category = COALESCE(excluded.category, category),
+      family = COALESCE(excluded.family, family),
+      started_at = COALESCE(excluded.started_at, started_at),
+      finished_at = COALESCE(excluded.finished_at, finished_at),
+      status = COALESCE(excluded.status, status),
+      points = COALESCE(excluded.points, points),
+      max_points = COALESCE(excluded.max_points, max_points),
+      rubric_kind = COALESCE(excluded.rubric_kind, rubric_kind),
+      correctness = COALESCE(excluded.correctness, correctness),
+      scope = COALESCE(excluded.scope, scope),
+      pattern = COALESCE(excluded.pattern, pattern),
+      verification = COALESCE(excluded.verification, verification),
+      cleanup = COALESCE(excluded.cleanup, cleanup),
+      wall_time_ms = COALESCE(excluded.wall_time_ms, wall_time_ms),
+      first_token_ms = COALESCE(excluded.first_token_ms, first_token_ms),
+      tool_call_count = COALESCE(excluded.tool_call_count, tool_call_count),
+      model_metrics_json = COALESCE(excluded.model_metrics_json, model_metrics_json),
+      evaluation_json = COALESCE(excluded.evaluation_json, evaluation_json),
+      error_kind = COALESCE(excluded.error_kind, error_kind),
+      error = COALESCE(excluded.error, error)`,
     [
       row.run_id,
       row.scenario_id,
       row.category ?? null,
+      row.family ?? null,
       row.started_at ?? null,
       row.finished_at ?? null,
       row.status ?? null,
       row.points ?? null,
       row.max_points ?? null,
+      row.rubric_kind ?? null,
+      row.correctness ?? null,
+      row.scope ?? null,
+      row.pattern ?? null,
+      row.verification ?? null,
+      row.cleanup ?? null,
       row.wall_time_ms ?? null,
       row.first_token_ms ?? null,
       row.tool_call_count ?? null,

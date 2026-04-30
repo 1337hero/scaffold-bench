@@ -1,24 +1,21 @@
--- v2 fresh schema for suite-realignment-v2
--- Drops and recreates all tables. Archive scaffold-bench.db before applying.
+-- v2 fresh schema migration: drop old tables, recreate with new columns
+-- Archive scaffold-bench.db → scaffold-bench.v1.db before running this.
 
 DROP TABLE IF EXISTS runs;
 DROP TABLE IF EXISTS scenario_runs;
 DROP TABLE IF EXISTS run_events;
 
--- runs: one row per benchmark invocation
 CREATE TABLE runs (
   id TEXT PRIMARY KEY,
   started_at INTEGER NOT NULL,
   finished_at INTEGER,
   status TEXT NOT NULL CHECK(status IN ('running','done','failed','stopped')),
 
-  -- bench identity
   bench_version TEXT NOT NULL DEFAULT '',
   git_dirty INTEGER NOT NULL DEFAULT 0,
   system_prompt_hash TEXT NOT NULL,
   scenario_ids TEXT NOT NULL,
 
-  -- model identity
   runtime TEXT NOT NULL,
   runtime_kind TEXT NOT NULL DEFAULT 'llama.cpp',
   runtime_build TEXT,
@@ -30,28 +27,24 @@ CREATE TABLE runs (
   quant_source TEXT,
   context_size INTEGER,
 
-  -- sampling
   temperature REAL,
   top_p REAL,
   top_k INTEGER,
   seed INTEGER,
   max_tokens INTEGER,
 
-  -- hardware
   gpu_backend TEXT,
   gpu_model TEXT,
   gpu_count INTEGER,
   vram_total_mb INTEGER,
   host_thermal_note TEXT,
 
-  -- aggregate scoring
   total_points INTEGER,
   max_points INTEGER,
   report_path TEXT,
   error TEXT
 );
 
--- scenario_runs: one row per (run, scenario) pair
 CREATE TABLE scenario_runs (
   run_id TEXT NOT NULL REFERENCES runs(id),
   scenario_id TEXT NOT NULL,
@@ -65,7 +58,6 @@ CREATE TABLE scenario_runs (
   max_points INTEGER,
   rubric_kind TEXT NOT NULL DEFAULT '10pt' CHECK(rubric_kind IN ('10pt','custom-5pt','custom-3pt')),
 
-  -- per-dimension breakdown (NULL when rubric_kind != '10pt')
   correctness INTEGER,
   scope INTEGER,
   pattern INTEGER,
@@ -82,7 +74,6 @@ CREATE TABLE scenario_runs (
   PRIMARY KEY(run_id, scenario_id)
 );
 
--- run_events: unchanged from v1
 CREATE TABLE run_events (
   run_id TEXT NOT NULL,
   scenario_id TEXT,

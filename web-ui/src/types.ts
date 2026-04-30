@@ -7,6 +7,25 @@ export type PersistedEvent =
       scenarioIds: string[];
       model: string | null;
       endpoint: string | null;
+      runtimeKind?: string;
+      runtimeBuild?: string | null;
+      modelFile?: string | null;
+      quant?: string | null;
+      quantTier?: number | null;
+      quantSource?: string | null;
+      contextSize?: number | null;
+      temperature?: number | null;
+      topP?: number | null;
+      topK?: number | null;
+      seed?: number | null;
+      maxTokens?: number | null;
+      gpuBackend?: string | null;
+      gpuModel?: string | null;
+      gpuCount?: number | null;
+      vramTotalMb?: number | null;
+      benchVersion?: string;
+      gitDirty?: number;
+      systemPromptHash?: string | null;
     })
   | (PersistedEventBase & {
       type: "run_finished";
@@ -24,6 +43,8 @@ export type PersistedEvent =
       name?: string;
       category: string;
       maxPoints: number;
+      family?: string;
+      rubricKind?: string;
     })
   | (PersistedEventBase & {
       type: "scenario_finished";
@@ -39,6 +60,15 @@ export type PersistedEvent =
       evaluation: ScenarioEvaluation;
       modelMetrics?: ModelMetrics;
       errorKind?: "infra" | "timeout" | "aborted" | "runtime";
+      family?: string;
+      rubricKind?: string;
+      rubricBreakdown?: {
+        correctness: number;
+        scope: number;
+        pattern: number;
+        verification: number;
+        cleanup: number;
+      } | null;
     })
   | (PersistedEventBase & { type: "assistant"; runId: string; scenarioId: string; content: string })
   | (PersistedEventBase & {
