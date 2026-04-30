@@ -7,7 +7,7 @@ import {
   extractReportedLineRange,
   onlyChangedFiles,
   noFilesChanged,
-} from "../lib/scenarios/helpers.ts";
+} from "../lib/scenarios/_shared/helpers.ts";
 
 async function makeTempDir(): Promise<string> {
   const dir = join(tmpdir(), `sb-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);

@@ -6,11 +6,11 @@ import {
   EditArgsSchema,
   ReadArgsSchema,
   WriteArgsSchema,
-} from "../schemas/index.js";
-import type { Check, ScenarioEvaluation, ToolCall } from "../scoring.ts";
-import { Evaluation, bashPassed } from "../scoring.ts";
+} from "../../schemas/index.js";
+import type { Check, ScenarioEvaluation, ToolCall } from "../../scoring.ts";
+import { Evaluation, bashPassed } from "../../scoring.ts";
 
-export const PLAYGROUND_SRC = join(import.meta.dir, "..", "..", "playground");
+export const PLAYGROUND_SRC = join(import.meta.dir, "..", "..", "..", "playground");
 export const TS_COMPILE_COMMAND = "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
 export const SB22_LOOP_PATH = "playground/sb22-loop.js";
 export const SB23_LONGCONTEXT_PATH = "playground/sb23-longcontext.js";

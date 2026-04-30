@@ -1,12 +1,12 @@
-import type { ScenarioId } from "../schemas/brands.js";
-import type { RuntimeEvent, Runtime } from "../runtimes/types.ts";
+import type { ScenarioId } from "../../schemas/brands.js";
+import type { RuntimeEvent, Runtime } from "../../runtimes/types.ts";
 import type {
   Category,
   ModelMetrics,
   RuntimeOutput,
   ScenarioEvaluation,
   ToolCall,
-} from "../scoring.ts";
+} from "../../scoring.ts";
 
 export type ScenarioEvaluateInput = {
   stdout: string;
