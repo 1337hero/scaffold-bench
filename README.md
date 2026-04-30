@@ -1,6 +1,6 @@
 <div align="center">
 
-# Scaffold Bench - v1.0.2
+# Scaffold Bench - v2.0.0
 
 **Stress-test local LLMs on real agentic coding work — not trivia, not math puzzles.**
 
@@ -76,31 +76,35 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | `responsiveness`     | Stay usable in a tight edit loop. Correctness only counts when turns stay under budget. |
 | `long-context`       | Retrieve the right answer from a very large inline context and respond quickly.         |
 
-### Current Scenarios (21 active)
+### Current Scenarios (25 active)
 
-| ID    | Name                                | Category           | Task                                                                                           |
-| ----- | ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
-| SB-01 | fix-throttle                        | surgical-edit      | `throttle()` is a copy of `debounce()`. Fix it.                                                |
-| SB-05 | frontend-derived-state-fix          | surgical-edit      | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                         |
-| SB-06 | frontend-query-owner                | scope-discipline   | Move the query to the page, pass data as props to the child.                                   |
-| SB-07 | frontend-scope-discipline           | scope-discipline   | Invalidate the orders query after approve succeeds. Only that.                                 |
-| SB-08 | frontend-stack-loyalty              | surgical-edit      | Finish `ActivityFeed.tsx` using the existing TanStack Query + apiClient stack.                 |
-| SB-09 | frontend-red-herring                | read-only-analysis | Is there really a bug here, or is the user wrong?                                              |
-| SB-10 | frontend-no-op                      | read-only-analysis | Confirm the requested change is already present and avoid editing anyway.                      |
-| SB-11 | frontend-find-the-right-file        | surgical-edit      | Fix the currency formatting bug in the real shared helper, not in the component.               |
-| SB-12 | frontend-reuse-existing-abstraction | scope-discipline   | Reuse the existing `useTeamMembers` hook instead of reimplementing fetching.                   |
-| SB-13 | verify-and-repair                   | verify-and-repair  | Fix `calculateSubtotal`, then verify the fix passes.                                           |
-| SB-14 | verify-fail-recover-pass            | verify-and-repair  | Run the failing slugify test first, fix the bug, then rerun to green.                          |
-| SB-15 | typescript-compile-loop             | verify-and-repair  | Fix a strict-null TypeScript error and verify with `tsc --noEmit`.                             |
-| SB-16 | iterate-to-green                    | verify-and-repair  | Work through an intermediate failing test run and iterate until green.                         |
-| SB-17 | hono-admin-password-reset           | implementation     | Implement admin password reset flow (new table, two routes, session invalidation).             |
-| SB-18 | hono-cursor-pagination              | implementation     | Add opaque cursor pagination to `GET /items` with validation + limit cap.                      |
-| SB-19 | hono-audit-log                      | implementation     | Add `audit_events` table, `logAudit` helper, and admin role-update route.                      |
-| SB-20 | hono-soft-delete-restore            | implementation     | Use the existing `deleted_at` column to build `POST /items/:id/restore`.                       |
-| SB-21 | hono-fix-n-plus-1                   | implementation     | Replace per-row owner query in `GET /items` with a single JOIN.                                |
-| SB-22 | high-frequency-loop                 | responsiveness     | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
-| SB-23 | long-context-retrieval              | long-context       | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
-| SB-26 | axios-ssrf-protocol-relative        | verify-and-repair  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
+| ID    | Name                                | Category           | Family       | Task                                                                                           |
+| ----- | ----------------------------------- | ------------------ | ------------ | ---------------------------------------------------------------------------------------------- |
+| SB-01 | fix-throttle                        | surgical-edit      | regex-style  | `throttle()` is a copy of `debounce()`. Fix it.                                                |
+| SB-05 | frontend-derived-state-fix          | surgical-edit      | regex-style  | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                         |
+| SB-06 | frontend-query-owner                | scope-discipline   | regex-style  | Move the query to the page, pass data as props to the child.                                   |
+| SB-07 | frontend-scope-discipline           | scope-discipline   | regex-style  | Invalidate the orders query after approve succeeds. Only that.                                 |
+| SB-08 | frontend-stack-loyalty              | surgical-edit      | regex-style  | Finish `ActivityFeed.tsx` using the existing TanStack Query + apiClient stack.                 |
+| SB-09 | frontend-red-herring                | read-only-analysis | regex-style  | Is there really a bug here, or is the user wrong?                                              |
+| SB-10 | frontend-no-op                      | read-only-analysis | regex-style  | Confirm the requested change is already present and avoid editing anyway.                      |
+| SB-11 | frontend-find-the-right-file        | surgical-edit      | regex-style  | Fix the currency formatting bug in the real shared helper, not in the component.               |
+| SB-12 | frontend-reuse-existing-abstraction | scope-discipline   | regex-style  | Reuse the existing `useTeamMembers` hook instead of reimplementing fetching.                   |
+| SB-13 | verify-and-repair                   | verify-and-repair  | regression   | Fix `calculateSubtotal`, then verify the fix passes.                                           |
+| SB-14 | verify-fail-recover-pass            | verify-and-repair  | regression   | Run the failing slugify test first, fix the bug, then rerun to green.                          |
+| SB-15 | typescript-compile-loop             | verify-and-repair  | regression   | Fix a strict-null TypeScript error and verify with `tsc --noEmit`.                             |
+| SB-16 | iterate-to-green                    | verify-and-repair  | regression   | Work through an intermediate failing test run and iterate until green.                         |
+| SB-17 | hono-admin-password-reset           | implementation     | spec-impl    | Implement admin password reset flow (new table, two routes, session invalidation).             |
+| SB-18 | hono-cursor-pagination              | implementation     | spec-impl    | Add opaque cursor pagination to `GET /items` with validation + limit cap.                      |
+| SB-19 | hono-audit-log                      | implementation     | spec-impl    | Add `audit_events` table, `logAudit` helper, and admin role-update route.                      |
+| SB-20 | hono-soft-delete-restore            | implementation     | spec-impl    | Use the existing `deleted_at` column to build `POST /items/:id/restore`.                       |
+| SB-21 | hono-fix-n-plus-1                   | implementation     | spec-impl    | Replace per-row owner query in `GET /items` with a single JOIN.                                |
+| SB-22 | high-frequency-loop                 | responsiveness     | regex-style  | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
+| SB-23 | long-context-retrieval              | long-context       | regex-style  | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
+| SB-26 | axios-ssrf-protocol-relative        | verify-and-repair  | regression   | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
+| SB-40 | nextjs-server-client-boundary       | surgical-edit      | regex-style  | Add missing `"use client"` directive to a component using `useState`.                          |
+| SB-41 | express-middleware-order            | verify-and-repair  | regression   | Fix Express middleware ordering so auth gate and body parser run before routes.                 |
+| SB-42 | react-hook-form-zod-resolver        | scope-discipline   | regex-style  | Wire `zodResolver` with existing `signupSchema` into `useForm`.                                |
+| SB-43 | tanstack-router-loader-ownership    | scope-discipline   | regex-style  | Move data fetching from `ProjectsTable` to the route's `loader`; table becomes presentational. |
 
 The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`.
 
@@ -110,13 +114,17 @@ Additional historical regression fixtures remain in `playground/` but are not ex
 
 ## Scoring
 
-Most scenarios are ternary: **pass = 2pts / partial = 1pt / fail = 0pt**.
+Most scenarios use a **0-10 rubric** scored across five dimensions:
 
-Each scenario defines its own `Check[]` — regex matches, AST-ish function extraction, file diff comparisons, turn-ordering checks. `checksToEvaluation()` reduces them:
+| Dimension          | Points | What it measures                                                                  |
+| ------------------ | ------ | --------------------------------------------------------------------------------- |
+| **Correctness**    | 0-3    | Did the actual change solve the stated problem?                                   |
+| **Scope**          | 0-2    | Did the model touch only the files/regions the task allowed?                      |
+| **Pattern adherence** | 0-2 | Did it use the existing stack/idioms/abstractions instead of inventing new ones?  |
+| **Verification**   | 0-1    | Did it run the right command before and/or after the change to confirm the fix?   |
+| **Cleanup cost**   | 0-2    | How much would a human reviewer have to clean up after?                           |
 
-- All checks pass → `pass` (2pt)
-- ≥ 50% pass → `partial` (1pt)
-- < 50% → `fail` (0pt)
+Status thresholds: **≥9 → pass**, **5-8 → partial**, **≤4 → fail**.
 
 Scope discipline is checked from an actual filesystem diff between the pristine fixture and the model's working copy, so changes made through `bash` (e.g., `sed`) are caught just like `edit` or `write` tool calls.
 
@@ -124,8 +132,6 @@ Two scenarios use custom point models:
 
 - `SB-22` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
 - `SB-23` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
-
-SB-26 (`axios-ssrf-protocol-relative`) also uses the standard 2-point model.
 
 Results are persisted to SQLite and accessible from the dashboard at **http://localhost:4317**.
 
@@ -162,26 +168,51 @@ Results are persisted to SQLite and accessible from the dashboard at **http://lo
 ## Adding a Scenario
 
 1. Drop fixture files in `playground/`
-2. Add the scenario to the appropriate module under `lib/scenarios/` (`core.ts`, `frontend.ts`, `verify.ts`, `hono.ts`, or `regressions.ts`)
-3. Re-export it from `lib/scenarios/index.ts` if it is part of the active suite
-4. The `evaluate()` function receives `playgroundDir` (modified copy) and `PLAYGROUND_SRC` (pristine) and returns a `ScenarioEvaluation`
+2. Create a new file `lib/scenarios/SB-XX-name.ts` following the per-scenario layout
+3. Import it in `lib/scenarios/index.ts` and add to the `scenarios` array
+4. Update the count guard in `index.ts`
+5. Update the README scenario table by hand
+
+Each scenario file exports `meta` and a default `Scenario` object:
 
 ```ts
-{
+import { rubricToEvaluation } from "./_shared/rubric.js";
+import type { Scenario } from "./_shared/types.js";
+import { PLAYGROUND_SRC, onlyChangedFiles } from "./_shared/helpers.js";
+
+export const meta = {
   id: "SB-XX",
   name: "my-scenario",
+  category: "surgical-edit" as const,
+  family: "regex-style" as const,
+  rubricKind: "10pt" as const,
+  fixturePath: "playground/",
+  prompt: `Fix the thing in playground/thing.ts. Only that.`,
+} as const;
+
+const scenario: Scenario = {
+  id: "SB-XX" as ScenarioId,
+  name: "my-scenario",
   category: "surgical-edit",
-  prompt: "Fix the thing in playground/thing.ts. Only that.",
+  family: "regex-style",
+  prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls, stdout }) {
-    const current = await readFile(join(playgroundDir, "thing.ts"), "utf-8");
-    const original = await readFile(join(PLAYGROUND_SRC, "thing.ts"), "utf-8");
-    const checks: Check[] = [
-      { name: "file was changed", pass: current !== original },
-      { name: "did not edit unrelated files", pass: !hasCall(toolCalls, "edit") && !hasCall(toolCalls, "write") },
-    ];
-    return checksToEvaluation(checks, {
-      pass: "Fixed correctly without collateral changes.",
-      partial: "Some progress made.",
+    return rubricToEvaluation({
+      correctness: [...],
+      scope: [...],
+      pattern: [...],
+      verification: [...],
+      cleanup: [...],
+    }, {
+      pass: "Fixed correctly.",
+      partial: "Partial fix.",
+      fail: "Did not fix.",
+    });
+  },
+};
+
+export default scenario;
+```
       fail: "No change or wrong file edited.",
     });
   },

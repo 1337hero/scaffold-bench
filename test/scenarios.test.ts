@@ -2,8 +2,8 @@ import { describe, test, expect } from "bun:test";
 import { scenarios } from "../lib/scenarios.ts";
 
 describe("active scenario suite", () => {
-  test("has exactly 21 scenarios", () => {
-    expect(scenarios.length).toBe(21);
+  test("has exactly 25 scenarios", () => {
+    expect(scenarios.length).toBe(25);
   });
 
   test("all IDs are unique", () => {
@@ -21,6 +21,7 @@ describe("active scenario suite", () => {
       "SB-17", "SB-18", "SB-19", "SB-20", "SB-21",
       "SB-22", "SB-23",
       "SB-26",
+      "SB-40", "SB-41", "SB-42", "SB-43",
     ];
     for (const id of expected) {
       expect(ids).toContain(id);
@@ -41,14 +42,15 @@ describe("active scenario suite", () => {
       expect(s.name).toBeTruthy();
       expect(s.category).toBeTruthy();
       expect(s.prompt).toBeTruthy();
+      expect(s.family).toBeTruthy();
     }
   });
 
   test("maxPoints values are sane", () => {
     for (const s of scenarios) {
-      const max = s.maxPoints ?? 2;
+      const max = s.maxPoints ?? 10;
       expect(max).toBeGreaterThan(0);
-      expect(max).toBeLessThanOrEqual(5);
+      expect(max).toBeLessThanOrEqual(10);
     }
   });
 });

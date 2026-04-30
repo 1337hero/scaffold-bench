@@ -1,0 +1,11 @@
+{
+  "name": "tanstack-router-app",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@tanstack/react-router": "^1.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
