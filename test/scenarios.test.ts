@@ -2,8 +2,8 @@ import { describe, test, expect } from "bun:test";
 import { scenarios } from "../lib/scenarios.ts";
 
 describe("active scenario suite", () => {
-  test("has exactly 30 scenarios", () => {
-    expect(scenarios.length).toBe(30);
+  test("has exactly 21 scenarios", () => {
+    expect(scenarios.length).toBe(21);
   });
 
   test("all IDs are unique", () => {
@@ -12,44 +12,27 @@ describe("active scenario suite", () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  test("IDs are contiguous SB-01 through SB-30", () => {
-    const ids = scenarios.map((s) => s.id).toSorted();
-    const expected = Array.from({ length: 30 }, (_, i) => `SB-${String(i + 1).padStart(2, "0")}`);
-    expect(ids).toEqual(expected);
-  });
-
-  test("core IDs SB-01 through SB-04 are present", () => {
+  test("kept scenario IDs are present", () => {
     const ids = scenarios.map((s) => s.id);
-    for (let i = 1; i <= 4; i++) {
-      expect(ids).toContain(`SB-${String(i).padStart(2, "0")}`);
+    const expected = [
+      "SB-01",
+      "SB-05", "SB-06", "SB-07", "SB-08", "SB-09", "SB-10", "SB-11", "SB-12",
+      "SB-13", "SB-14", "SB-15", "SB-16",
+      "SB-17", "SB-18", "SB-19", "SB-20", "SB-21",
+      "SB-22", "SB-23",
+      "SB-26",
+    ];
+    for (const id of expected) {
+      expect(ids).toContain(id);
     }
   });
 
-  test("frontend IDs SB-05 through SB-12 are present", () => {
+  test("pruned scenario IDs are absent", () => {
     const ids = scenarios.map((s) => s.id);
-    for (let i = 5; i <= 12; i++) {
-      expect(ids).toContain(`SB-${String(i).padStart(2, "0")}`);
+    const pruned = ["SB-02", "SB-03", "SB-04", "SB-24", "SB-25", "SB-27", "SB-28", "SB-29", "SB-30"];
+    for (const id of pruned) {
+      expect(ids).not.toContain(id);
     }
-  });
-
-  test("verify IDs SB-13 through SB-16 are present", () => {
-    const ids = scenarios.map((s) => s.id);
-    for (let i = 13; i <= 16; i++) {
-      expect(ids).toContain(`SB-${String(i).padStart(2, "0")}`);
-    }
-  });
-
-  test("hono IDs SB-17 through SB-21 are present", () => {
-    const ids = scenarios.map((s) => s.id);
-    for (let i = 17; i <= 21; i++) {
-      expect(ids).toContain(`SB-${String(i).padStart(2, "0")}`);
-    }
-  });
-
-  test("SB-22 and SB-23 are present", () => {
-    const ids = scenarios.map((s) => s.id);
-    expect(ids).toContain("SB-22");
-    expect(ids).toContain("SB-23");
   });
 
   test("every scenario has required fields", () => {

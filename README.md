@@ -8,7 +8,7 @@
 
 ---
 
-Scaffold Bench wraps any OpenAI-compatible LLM (Ollama, llama.cpp, LM Studio, vLLM) in a fixed coding agent with full tool execution. The agent can read, write, edit, bash and runs against 30 real coding tasks.
+Scaffold Bench wraps any OpenAI-compatible LLM (Ollama, llama.cpp, LM Studio, vLLM) in a fixed coding agent with full tool execution. The agent can read, write, edit, bash and runs against 25 real coding tasks.
 
 ---
 
@@ -64,12 +64,11 @@ The API key stays server-side — it's never sent across the wire from the brows
 
 Each scenario gives the model a real task and a real codebase. It has access to five tools — `read`, `ls`, `edit`, `write`, `bash` — and a timeout. Search is done through `bash` (`ugrep`/`rg`, `bfs`/`find`) for fewer, faster tool round-trips. The harness scores the result with deterministic, code-driven checks. **No LLM judge.**
 
-### Eight Scenario Categories
+### Scenario Categories
 
 | Category             | What It Probes                                                                          |
 | -------------------- | --------------------------------------------------------------------------------------- |
 | `surgical-edit`      | Fix exactly the thing that's broken. Don't touch adjacent code.                         |
-| `audit`              | Read the code, find the bugs. Do NOT edit anything.                                     |
 | `scope-discipline`   | Make the requested change. Nothing else.                                                |
 | `read-only-analysis` | Answer a question about the code. Don't reach for the edit tool.                        |
 | `verify-and-repair`  | Close the loop: reproduce the failure, fix it, verify, and recover if needed.           |
@@ -77,14 +76,11 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | `responsiveness`     | Stay usable in a tight edit loop. Correctness only counts when turns stay under budget. |
 | `long-context`       | Retrieve the right answer from a very large inline context and respond quickly.         |
 
-### Current Scenarios (30 total)
+### Current Scenarios (21 active)
 
 | ID    | Name                                | Category           | Task                                                                                           |
 | ----- | ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
 | SB-01 | fix-throttle                        | surgical-edit      | `throttle()` is a copy of `debounce()`. Fix it.                                                |
-| SB-02 | audit-server                        | audit              | Find all bugs in `server.go`. List them. Don't fix them.                                       |
-| SB-03 | surgical-edit                       | scope-discipline   | Add email uniqueness check to `createUser`. That's it.                                         |
-| SB-04 | read-only-analysis                  | read-only-analysis | What indexes are missing from `schema.sql` and why does it matter?                             |
 | SB-05 | frontend-derived-state-fix          | surgical-edit      | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                         |
 | SB-06 | frontend-query-owner                | scope-discipline   | Move the query to the page, pass data as props to the child.                                   |
 | SB-07 | frontend-scope-discipline           | scope-discipline   | Invalidate the orders query after approve succeeds. Only that.                                 |
@@ -104,13 +100,7 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 | SB-21 | hono-fix-n-plus-1                   | implementation     | Replace per-row owner query in `GET /items` with a single JOIN.                                |
 | SB-22 | high-frequency-loop                 | responsiveness     | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
 | SB-23 | long-context-retrieval              | long-context       | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
-| SB-24 | caddy-replacer-closing-brace        | verify-and-repair  | Fix Caddy `uri replace` escaping of closing braces in `replacer.go`.                           |
-| SB-25 | terraform-ssh-connection-leak       | verify-and-repair  | Derive a cancellable context in Terraform's `RunScripts` to close SSH promptly.                |
 | SB-26 | axios-ssrf-protocol-relative        | verify-and-repair  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
-| SB-27 | babel-sourcemap-undefined-content   | verify-and-repair  | Guard against missing `sourcesContent` in Babel's source-map handling.                         |
-| SB-28 | babel-rename-shorthand              | verify-and-repair  | Expand shorthand `ObjectProperty` nodes correctly during Babel rename.                         |
-| SB-29 | vue-shallowreactive-vfor            | verify-and-repair  | Consult `isShallow(source)` in Vue's `renderList` to avoid deep-reactive upgrade.              |
-| SB-30 | vue-sync-watchers-batch             | verify-and-repair  | Move `batchDepth--` before the flush loop in Vue's `endBatch`.                                 |
 
 The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`.
 
@@ -135,7 +125,7 @@ Two scenarios use custom point models:
 - `SB-22` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
 - `SB-23` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
 
-The retained regression scenarios (SB-24 through SB-30) also use the standard 2-point model.
+SB-26 (`axios-ssrf-protocol-relative`) also uses the standard 2-point model.
 
 Results are persisted to SQLite and accessible from the dashboard at **http://localhost:4317**.
 
