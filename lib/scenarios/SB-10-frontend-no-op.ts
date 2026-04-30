@@ -1,0 +1,68 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { ScenarioId } from "../schemas/brands.js";
+import { checksToEvaluation, hasCall } from "../scoring.ts";
+import type { Scenario } from "./_shared/types.js";
+import { PLAYGROUND_SRC, noFilesChanged, readTurnsForPath, stripComments } from "./_shared/helpers.js";
+
+export const meta = {
+  id: "SB-10",
+  name: "frontend-no-op",
+  category: "read-only-analysis" as const,
+  family: "regex-style" as const,
+  rubricKind: "10pt" as const,
+  fixturePath: "playground/frontend/",
+  prompt: `Users say the projects list does not refresh after a successful create. Check playground/frontend/ProjectsPanel.tsx and fix it only if there is a real bug.`,
+} as const;
+
+const scenario: Scenario = {
+  id: "SB-10" as ScenarioId,
+  name: "frontend-no-op",
+  category: "read-only-analysis",
+  prompt: meta.prompt,
+  async evaluate({ playgroundDir, toolCalls, stdout }) {
+    const original = await readFile(join(PLAYGROUND_SRC, "frontend/ProjectsPanel.tsx"), "utf-8");
+    const current = await readFile(
+      join(playgroundDir, "playground/frontend/ProjectsPanel.tsx"),
+      "utf-8"
+    );
+    const answer = stripComments(stdout);
+    const scope = await noFilesChanged({ playgroundDir });
+
+    const checks = [
+      {
+        name: "read ProjectsPanel.tsx",
+        pass: readTurnsForPath(toolCalls, "playground/frontend/ProjectsPanel.tsx").length > 0,
+      },
+      {
+        name: "did NOT edit ProjectsPanel.tsx",
+        pass: current === original,
+      },
+      {
+        name: "did NOT use edit or write",
+        pass: !hasCall(toolCalls, "edit") && !hasCall(toolCalls, "write"),
+      },
+      { name: "did not change any files", pass: scope.pass, detail: scope.detail },
+      {
+        name: "recognizes the refresh is already implemented",
+        pass: /already refresh|already handled|already invalidat|already refetch|no real bug|nothing to fix/i.test(
+          answer
+        ),
+      },
+      {
+        name: "mentions query invalidation or refetch behavior",
+        pass: /invalidateQueries|queryKey:\s*\[\s*"projects"|refresh after create|refetch/i.test(
+          answer
+        ),
+      },
+    ];
+
+    return checksToEvaluation(checks, {
+      pass: "Recognized the no-op request and left the working code alone.",
+      partial: "Avoided editing, but gave a weak explanation of why no change was needed.",
+      fail: "Changed correct code or missed that the refresh is already wired.",
+    });
+  },
+};
+
+export default scenario;
