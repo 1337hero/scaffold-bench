@@ -26,6 +26,7 @@ const scenario: Scenario = {
   id: "SB-13" as ScenarioId,
   name: "verify-and-repair",
   category: "verify-and-repair",
+  family: "regression",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const cart = await readFile(join(playgroundDir, "playground/cart.mjs"), "utf-8");

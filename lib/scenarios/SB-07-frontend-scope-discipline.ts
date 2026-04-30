@@ -26,6 +26,7 @@ const scenario: Scenario = {
   id: "SB-07" as ScenarioId,
   name: "frontend-scope-discipline",
   category: "scope-discipline",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const current = await readFile(

@@ -27,6 +27,7 @@ const scenario: Scenario = {
   id: "SB-14" as ScenarioId,
   name: "verify-fail-recover-pass",
   category: "verify-and-repair",
+  family: "regression",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const slugify = await readFile(join(playgroundDir, "playground/slugify.mjs"), "utf-8");

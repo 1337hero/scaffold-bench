@@ -8,6 +8,20 @@ import type {
   ToolCall,
 } from "../../scoring.ts";
 
+export type Family = "regression" | "spec-impl" | "regex-style";
+
+export type RubricKind = "10pt" | "custom-5pt" | "custom-3pt";
+
+export type ScenarioMeta = {
+  id: string;
+  name: string;
+  category: Category;
+  family: Family;
+  rubricKind: RubricKind;
+  fixturePath: string;
+  prompt: string;
+};
+
 export type ScenarioEvaluateInput = {
   stdout: string;
   playgroundDir: string;
@@ -37,6 +51,7 @@ export type ScenarioBase = {
   id: ScenarioId;
   name: string;
   category: Category;
+  family: Family;
   prompt: string;
   maxPoints?: number;
   buildPrompt?(input: { playgroundDir: string }): Promise<string>;

@@ -25,6 +25,7 @@ const scenario: Scenario = {
   id: "SB-08" as ScenarioId,
   name: "frontend-stack-loyalty",
   category: "surgical-edit",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const current = await readFile(

@@ -19,6 +19,7 @@ const scenario: Scenario = {
   id: "SB-20" as ScenarioId,
   name: "hono-soft-delete-restore",
   category: "implementation",
+  family: "spec-impl",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const BASE = join(playgroundDir, "playground/hono-api");

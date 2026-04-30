@@ -26,6 +26,7 @@ const scenario: Scenario = {
   id: "SB-11" as ScenarioId,
   name: "frontend-find-the-right-file",
   category: "surgical-edit",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const helper = await readFile(

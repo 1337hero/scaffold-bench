@@ -25,6 +25,7 @@ const scenario: Scenario = {
   id: "SB-01" as ScenarioId,
   name: "fix-throttle",
   category: "surgical-edit",
+  family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const utils = await readFile(join(playgroundDir, "playground/utils.js"), "utf-8");
