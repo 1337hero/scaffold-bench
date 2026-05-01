@@ -22,7 +22,11 @@ import {
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
 import { detectGpu } from "../lib/hardware/gpu.ts";
-import { parseQuantTag, quantTagToTier, detectQuantSource } from "../lib/scenarios/_shared/quant.ts";
+import {
+  parseQuantTag,
+  quantTagToTier,
+  detectQuantSource,
+} from "../lib/scenarios/_shared/quant.ts";
 
 export interface RunBenchOptions {
   runId?: string;
@@ -224,12 +228,14 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
   const scenarioIds = request.scenarioIds;
   const gpu = detectGpu();
 
-  const metadata = await localRuntime.getMetadata?.({
-    workDir: "",
-    endpoint: request.endpoint,
-    model: request.modelId,
-    apiKey: request.apiKey,
-  }).catch(() => undefined);
+  const metadata = await localRuntime
+    .getMetadata?.({
+      workDir: "",
+      endpoint: request.endpoint,
+      model: request.modelId,
+      apiKey: request.apiKey,
+    })
+    .catch(() => undefined);
 
   const quantSource = metadata?.modelFile ? parseQuantTag(metadata.modelFile) : null;
   const quantTier = quantTagToTier(quantSource);

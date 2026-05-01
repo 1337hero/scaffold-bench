@@ -27,17 +27,18 @@ const SB29_PROMPT = [
 ].join("\n");
 
 export const meta = {
-  id: "SB-26",
+  id: "SB-21",
   name: "axios-ssrf-protocol-relative",
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "behavioral" as const,
   fixturePath: "playground/sb29-axios-ssrf/",
   prompt: SB29_PROMPT,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-26" as ScenarioId,
+  id: "SB-21" as ScenarioId,
   name: "axios-ssrf-protocol-relative",
   category: "verify-and-repair",
   family: "regression",

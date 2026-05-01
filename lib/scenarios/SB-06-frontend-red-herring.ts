@@ -13,17 +13,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-09",
+  id: "SB-06",
   name: "frontend-red-herring",
   category: "read-only-analysis" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "stdout" as const,
   fixturePath: "playground/frontend/",
   prompt: `I think there's a bug in playground/frontend/ReportsPage.tsx because playground/frontend/ReportsTable.tsx doesn't fetch its own data. Review both files. If there's a real bug, explain it, but do not change code unless necessary.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-09" as ScenarioId,
+  id: "SB-06" as ScenarioId,
   name: "frontend-red-herring",
   category: "read-only-analysis",
   family: "regex-style",

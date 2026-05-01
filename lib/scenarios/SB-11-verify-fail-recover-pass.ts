@@ -17,17 +17,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-14",
+  id: "SB-11",
   name: "verify-fail-recover-pass",
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/",
   prompt: `Use the provided test to diagnose and fix playground/slugify.mjs. Verify the failure first, then verify the fix passes. Change only what is necessary.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-14" as ScenarioId,
+  id: "SB-11" as ScenarioId,
   name: "verify-fail-recover-pass",
   category: "verify-and-repair",
   family: "regression",

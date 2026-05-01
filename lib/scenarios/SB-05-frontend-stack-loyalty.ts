@@ -14,17 +14,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-08",
+  id: "SB-05",
   name: "frontend-stack-loyalty",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `Finish playground/frontend/ActivityFeed.tsx using the existing frontend stack already established in playground/frontend. Keep the component shape. Do not introduce fetch, manual async state, or new client wrappers.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-08" as ScenarioId,
+  id: "SB-05" as ScenarioId,
   name: "frontend-stack-loyalty",
   category: "surgical-edit",
   family: "regex-style",

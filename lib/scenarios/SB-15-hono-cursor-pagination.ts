@@ -3,21 +3,22 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, readOrEmpty } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-21",
-  name: "hono-fix-n-plus-1",
+  id: "SB-15",
+  name: "hono-cursor-pagination",
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/hono-api/",
-  prompt: `Read the spec at playground/hono-api/specs/fix-n-plus-1.md and implement the fix described there. Follow the patterns already established in playground/hono-api/.`,
+  prompt: `Read the spec at playground/hono-api/specs/cursor-pagination.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-21" as ScenarioId,
-  name: "hono-fix-n-plus-1",
+  id: "SB-15" as ScenarioId,
+  name: "hono-cursor-pagination",
   category: "implementation",
   family: "spec-impl",
   prompt: meta.prompt,
@@ -32,22 +33,17 @@ const scenario: Scenario = {
     const origUsers = await readFile(join(ORIG, "src/routes/users.ts"), "utf-8");
     const sessions = await readOrEmpty(join(BASE, "src/routes/sessions.ts"));
     const origSessions = await readFile(join(ORIG, "src/routes/sessions.ts"), "utf-8");
-    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("fix-n-plus-1.md"));
-    const stillHasPerRowQuery = /SELECT\s+email\s+FROM\s+users\s+WHERE\s+id\s*=\s*\?/i.test(items);
-    const hasPost = /itemsRoutes\.post\(/.test(items);
-    const hasDelete = /itemsRoutes\.delete\(/.test(items);
+    const readSpec = toolCalls.some(
+      (c) => c.name === "read" && c.args.includes("cursor-pagination.md")
+    );
 
     return rubricToEvaluation(
       {
         correctness: [
           { name: "edited items.ts", pass: items !== origItems, weight: 0.5 },
-          { name: "uses JOIN on users table", pass: /JOIN\s+users/i.test(items), weight: 1 },
-          { name: "removed per-row owner query", pass: !stillHasPerRowQuery, weight: 1 },
-          {
-            name: "still selects owner_email in response",
-            pass: /owner_email/.test(items),
-            weight: 0.5,
-          },
+          { name: "response includes nextCursor", pass: /nextCursor/.test(items), weight: 1 },
+          { name: "query uses LIMIT", pass: /LIMIT\s+\?/i.test(items), weight: 0.5 },
+          { name: "filters by cursor (id < ?)", pass: /id\s*<\s*\?/.test(items), weight: 1 },
         ],
         scope: [
           { name: "did not modify schema.sql", pass: schema === origSchema, weight: 1 },
@@ -61,24 +57,26 @@ const scenario: Scenario = {
           {
             name: "keeps deleted_at IS NULL filter",
             pass: /deleted_at\s+IS\s+NULL/i.test(items),
-            weight: 1,
+            weight: 0.5,
           },
           {
             name: "keeps ORDER BY id DESC",
             pass: /ORDER\s+BY\s+id\s+DESC/i.test(items),
-            weight: 1,
+            weight: 0.5,
           },
+          { name: "validates input via AppError", pass: /AppError/.test(items), weight: 0.5 },
+          { name: "caps limit at 100", pass: /100/.test(items), weight: 0.5 },
         ],
         verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
         cleanup: [
-          { name: "preserved POST /items handler", pass: hasPost, weight: 1 },
-          { name: "preserved DELETE handler", pass: hasDelete, weight: 1 },
+          { name: "no added comments", pass: noAddedComments(items, origItems), weight: 1 },
+          { name: "no console.log added", pass: noConsoleLog(items), weight: 1 },
         ],
       },
       {
-        pass: "Replaced N+1 with a JOIN and preserved response shape and other handlers.",
-        partial: "Partial fix — still has per-row query, or touched unrelated code.",
-        fail: "Did not fix the N+1 or broke the route.",
+        pass: "Added cursor pagination with correct response shape and preserved filters.",
+        partial: "Partial implementation — missing cursor filter, validation, or limit cap.",
+        fail: "Did not implement cursor pagination correctly.",
       }
     );
   },

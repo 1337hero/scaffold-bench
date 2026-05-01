@@ -16,17 +16,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-13",
+  id: "SB-10",
   name: "verify-and-repair",
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/",
   prompt: `Fix calculateSubtotal in playground/cart.mjs and verify the fix.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-13" as ScenarioId,
+  id: "SB-10" as ScenarioId,
   name: "verify-and-repair",
   category: "verify-and-repair",
   family: "regression",

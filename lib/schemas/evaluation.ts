@@ -28,7 +28,10 @@ export type PartialEvaluation = {
 };
 export type FailEvaluation = {
   status: "fail";
-  points: 0;
+  // points is the actual earned-points sum, NOT 0.
+  // A fail with 4/10 earned points is meaningfully different from a 0/10 zero.
+  // Status-vs-points: status reflects bucketing thresholds; points reflect raw signal.
+  points: number;
   maxPoints: number;
   checks: Check[];
   summary: string;
@@ -75,10 +78,11 @@ export const Evaluation = {
     checks: Check[],
     summary: string,
     rubricKind?: string,
-    rubricBreakdown?: RubricBreakdown
+    rubricBreakdown?: RubricBreakdown,
+    points = 0
   ): FailEvaluation => ({
     status: "fail",
-    points: 0,
+    points,
     maxPoints,
     checks,
     summary,

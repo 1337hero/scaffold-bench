@@ -140,7 +140,9 @@ export const localRuntime: Runtime = {
       try {
         const res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(3_000) });
         if (res.ok) {
-          const body = (await res.json()) as { data?: Array<{ id: string; name?: string; owned_by?: string }> };
+          const body = (await res.json()) as {
+            data?: Array<{ id: string; name?: string; owned_by?: string }>;
+          };
           const entry = body.data?.find((m) => m.id === model);
           if (entry) {
             modelFile = entry.name ?? entry.id;

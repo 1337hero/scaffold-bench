@@ -12,17 +12,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-06",
+  id: "SB-03",
   name: "frontend-query-owner",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `The page and child both fetch the same users data. Make playground/frontend/UsersPage.tsx own the query and pass the data into playground/frontend/UserTable.tsx. Keep the existing stack and do not refactor unrelated code.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-06" as ScenarioId,
+  id: "SB-03" as ScenarioId,
   name: "frontend-query-owner",
   category: "scope-discipline",
   family: "regex-style",

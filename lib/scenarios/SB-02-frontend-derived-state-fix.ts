@@ -15,17 +15,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-05",
+  id: "SB-02",
   name: "frontend-derived-state-fix",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `Fix the derived-state issue in playground/frontend/InventoryPanel.tsx. Keep the component shape and existing stack. Fix that issue only.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-05" as ScenarioId,
+  id: "SB-02" as ScenarioId,
   name: "frontend-derived-state-fix",
   category: "surgical-edit",
   family: "regex-style",

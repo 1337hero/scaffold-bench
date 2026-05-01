@@ -12,17 +12,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-42",
+  id: "SB-24",
   name: "react-hook-form-zod-resolver",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `\`SignupForm.tsx\` should use the existing \`signupSchema.ts\` for client-side validation. Wire it up via \`react-hook-form\`'s zod resolver. Don't change the schema or the API call.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-42" as ScenarioId,
+  id: "SB-24" as ScenarioId,
   name: "react-hook-form-zod-resolver",
   category: "scope-discipline",
   family: "regex-style",

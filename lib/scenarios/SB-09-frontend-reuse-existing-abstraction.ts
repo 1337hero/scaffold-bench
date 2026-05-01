@@ -13,17 +13,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-12",
+  id: "SB-09",
   name: "frontend-reuse-existing-abstraction",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `Show team members in playground/frontend/TeamSidebar.tsx. Reuse any existing abstraction in playground/frontend rather than reimplementing data loading.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-12" as ScenarioId,
+  id: "SB-09" as ScenarioId,
   name: "frontend-reuse-existing-abstraction",
   category: "scope-discipline",
   family: "regex-style",
@@ -79,10 +80,7 @@ const scenario: Scenario = {
             detail: scope.detail,
           },
         ],
-        pattern: [
-          { name: "existing hook left untouched", pass: hook === originalHook, weight: 1 },
-          { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
-        ],
+        pattern: [{ name: "existing hook left untouched", pass: hook === originalHook, weight: 2 }],
         verification: [
           { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
         ],

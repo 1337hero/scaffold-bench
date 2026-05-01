@@ -55,17 +55,18 @@ function sb22TurnCheck(source: string, turnIndex: number): { pass: boolean; deta
 }
 
 export const meta = {
-  id: "SB-22",
+  id: "SB-19",
   name: "high-frequency-loop",
   category: "responsiveness" as const,
   family: "regex-style" as const,
   rubricKind: "custom-5pt" as const,
+  signalType: "latency" as const,
   fixturePath: "playground/",
   prompt: `Five sequential micro-fixes in one conversation against playground/sb22-loop.js, scored one point per correct edit completed within 10 seconds.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-22" as ScenarioId,
+  id: "SB-19" as ScenarioId,
   name: "high-frequency-loop",
   category: "responsiveness",
   family: "regex-style",

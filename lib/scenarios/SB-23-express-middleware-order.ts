@@ -13,17 +13,18 @@ const SB41_PROMPT = [
 ].join("\n");
 
 export const meta = {
-  id: "SB-41",
+  id: "SB-23",
   name: "express-middleware-order",
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "behavioral" as const,
   fixturePath: "playground/express-api/",
   prompt: SB41_PROMPT,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-41" as ScenarioId,
+  id: "SB-23" as ScenarioId,
   name: "express-middleware-order",
   category: "verify-and-repair",
   family: "regression",

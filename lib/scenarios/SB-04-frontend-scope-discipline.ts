@@ -14,17 +14,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-07",
+  id: "SB-04",
   name: "frontend-scope-discipline",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `In playground/frontend/OrdersPanel.tsx, make the orders list refresh after approve succeeds. Only fix that. Do not rename exports, extract helpers, or reorganize the file.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-07" as ScenarioId,
+  id: "SB-04" as ScenarioId,
   name: "frontend-scope-discipline",
   category: "scope-discipline",
   family: "regex-style",

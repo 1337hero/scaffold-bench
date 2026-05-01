@@ -63,11 +63,12 @@ function detectCuda(): GpuInfo | null {
 
 export function detectGpu(): GpuInfo {
   if (cached) return cached;
-  cached = detectRocm() ?? detectCuda() ?? {
-    backend: "CPU",
-    model: null,
-    count: 0,
-    vramTotalMB: null,
-  };
+  cached = detectRocm() ??
+    detectCuda() ?? {
+      backend: "CPU",
+      model: null,
+      count: 0,
+      vramTotalMB: null,
+    };
   return cached;
 }

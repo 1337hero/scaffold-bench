@@ -14,17 +14,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-11",
+  id: "SB-08",
   name: "frontend-find-the-right-file",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `Refund amounts render as \`$-5.00\` instead of \`-$5.00\` in the invoices UI. Fix the bug with the smallest correct change.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-11" as ScenarioId,
+  id: "SB-08" as ScenarioId,
   name: "frontend-find-the-right-file",
   category: "surgical-edit",
   family: "regex-style",

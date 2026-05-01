@@ -15,17 +15,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-23",
+  id: "SB-20",
   name: "long-context-retrieval",
   category: "long-context" as const,
   family: "regex-style" as const,
   rubricKind: "custom-3pt" as const,
+  signalType: "latency" as const,
   fixturePath: "playground/",
   prompt: `Long inline codebase retrieval: identify \`throttleWithJitter\`, report its name, line range, and get the first meaningful token out inside 30 seconds.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-23" as ScenarioId,
+  id: "SB-20" as ScenarioId,
   name: "long-context-retrieval",
   category: "long-context",
   family: "regex-style",

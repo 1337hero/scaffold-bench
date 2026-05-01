@@ -6,18 +6,19 @@ import { rubricToEvaluation } from "./_shared/rubric.js";
 import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-20",
-  name: "hono-soft-delete-restore",
+  id: "SB-18",
+  name: "hono-fix-n-plus-1",
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/hono-api/",
-  prompt: `Read the spec at playground/hono-api/specs/soft-delete-restore.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`,
+  prompt: `Read the spec at playground/hono-api/specs/fix-n-plus-1.md and implement the fix described there. Follow the patterns already established in playground/hono-api/.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-20" as ScenarioId,
-  name: "hono-soft-delete-restore",
+  id: "SB-18" as ScenarioId,
+  name: "hono-fix-n-plus-1",
   category: "implementation",
   family: "spec-impl",
   prompt: meta.prompt,
@@ -30,42 +31,46 @@ const scenario: Scenario = {
     const origSchema = await readFile(join(ORIG, "schema.sql"), "utf-8");
     const users = await readOrEmpty(join(BASE, "src/routes/users.ts"));
     const origUsers = await readFile(join(ORIG, "src/routes/users.ts"), "utf-8");
-    const readSpec = toolCalls.some(
-      (c) => c.name === "read" && c.args.includes("soft-delete-restore.md")
-    );
-    const hasGet = /itemsRoutes\.get\(\s*["']\/items["']/.test(items);
-    const hasPost = /itemsRoutes\.post\(\s*["']\/items["']/.test(items);
-    const hasDelete = /itemsRoutes\.delete\(\s*["']\/items\/:id["']/.test(items);
+    const sessions = await readOrEmpty(join(BASE, "src/routes/sessions.ts"));
+    const origSessions = await readFile(join(ORIG, "src/routes/sessions.ts"), "utf-8");
+    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("fix-n-plus-1.md"));
+    const stillHasPerRowQuery = /SELECT\s+email\s+FROM\s+users\s+WHERE\s+id\s*=\s*\?/i.test(items);
+    const hasPost = /itemsRoutes\.post\(/.test(items);
+    const hasDelete = /itemsRoutes\.delete\(/.test(items);
 
     return rubricToEvaluation(
       {
         correctness: [
           { name: "edited items.ts", pass: items !== origItems, weight: 0.5 },
+          { name: "uses JOIN on users table", pass: /JOIN\s+users/i.test(items), weight: 1 },
+          { name: "removed per-row owner query", pass: !stillHasPerRowQuery, weight: 1 },
           {
-            name: "added restore route",
-            pass: /itemsRoutes\.post\(\s*["']\/items\/:id\/restore["']/.test(items),
-            weight: 1,
+            name: "still selects owner_email in response",
+            pass: /owner_email/.test(items),
+            weight: 0.5,
           },
-          {
-            name: "clears deleted_at on restore",
-            pass: /deleted_at\s*=\s*NULL/i.test(items),
-            weight: 1,
-          },
-          { name: "uses AppError for error responses", pass: /AppError/.test(items), weight: 0.5 },
         ],
         scope: [
           { name: "did not modify schema.sql", pass: schema === origSchema, weight: 1 },
-          { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
+          {
+            name: "did not modify users.ts or sessions.ts",
+            pass: users === origUsers && sessions === origSessions,
+            weight: 1,
+          },
         ],
         pattern: [
-          { name: "preserved GET /items handler", pass: hasGet, weight: 0.5 },
-          { name: "preserved POST /items handler", pass: hasPost, weight: 0.5 },
-          { name: "preserved DELETE /items/:id handler", pass: hasDelete, weight: 0.5 },
           {
-            name: "uses not_deleted code on already-active",
-            pass: /not_deleted/.test(items),
+            name: "keeps deleted_at IS NULL filter",
+            pass: /deleted_at\s+IS\s+NULL/i.test(items),
             weight: 0.5,
           },
+          {
+            name: "keeps ORDER BY id DESC",
+            pass: /ORDER\s+BY\s+id\s+DESC/i.test(items),
+            weight: 0.5,
+          },
+          { name: "preserved POST /items handler", pass: hasPost, weight: 0.5 },
+          { name: "preserved DELETE handler", pass: hasDelete, weight: 0.5 },
         ],
         verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
         cleanup: [
@@ -74,10 +79,9 @@ const scenario: Scenario = {
         ],
       },
       {
-        pass: "Added restore route using existing soft-delete column and preserved other handlers.",
-        partial:
-          "Partial implementation — missing correct error codes, or touched unrelated handlers.",
-        fail: "Did not implement the restore endpoint correctly.",
+        pass: "Replaced N+1 with a JOIN and preserved response shape and other handlers.",
+        partial: "Partial fix — still has per-row query, or touched unrelated code.",
+        fail: "Did not fix the N+1 or broke the route.",
       }
     );
   },

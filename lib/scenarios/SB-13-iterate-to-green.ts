@@ -17,17 +17,18 @@ import {
 } from "./_shared/helpers.js";
 
 export const meta = {
-  id: "SB-16",
+  id: "SB-13",
   name: "iterate-to-green",
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "trace" as const,
   fixturePath: "playground/",
   prompt: `Use the provided test to iteratively fix playground/normalizeTag.mjs. Verify the failure first, then keep running the test until it passes. Change only what is necessary.`,
 } as const;
 
 const scenario: Scenario = {
-  id: "SB-16" as ScenarioId,
+  id: "SB-13" as ScenarioId,
   name: "iterate-to-green",
   category: "verify-and-repair",
   family: "regression",
@@ -69,12 +70,7 @@ const scenario: Scenario = {
           {
             name: "implementation changed from the original",
             pass: normalizeTag !== originalNormalizeTag,
-            weight: 1,
-          },
-          {
-            name: "reran verification and got a passing result",
-            pass: passedAfterRecovery,
-            weight: 1,
+            weight: 2,
           },
           { name: "normalizeTag test file left untouched", pass: test === originalTest, weight: 1 },
         ],
@@ -102,12 +98,17 @@ const scenario: Scenario = {
           {
             name: "verified the failure before changing code",
             pass: failedVerificationBeforeChange(bashRuns, changeTurn, normalizeTestMatcher),
-            weight: 0.5,
+            weight: 0.3,
           },
           {
             name: "saw another failing verification and iterated",
             pass: failedAfterChange !== undefined && changedAgainAfterFailedVerification,
-            weight: 0.5,
+            weight: 0.3,
+          },
+          {
+            name: "reran verification and got a passing result",
+            pass: passedAfterRecovery,
+            weight: 0.4,
           },
         ],
         cleanup: [
