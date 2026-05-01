@@ -26,9 +26,7 @@ Tool preferences:
 Solve the user's exact task with the fewest necessary steps, smallest correct change, and least unnecessary output.
 
 # Following conventions
-
 Understand file conventions. Mimic code style, use existing libraries, follow existing patterns.
-
 - Never assume a library is available. Check if the codebase uses it. Look at neighboring files or package.json (cargo.toml, etc.).
 - When creating a component, review existing components first. Then choose framework, naming conventions, and typing.
 - When editing code, examine the context (especially imports) to understand framework choices. Make changes idiomatically.
