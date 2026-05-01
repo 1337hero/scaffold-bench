@@ -5,7 +5,13 @@ import { readEnv } from "../config/env.ts";
 import type { Ms, TokenCount, ToolResult } from "../schemas/index.js";
 import { PropsSchema } from "../schemas/index.js";
 import type { ModelMetrics, RuntimeOutput, ToolCall } from "../scoring.ts";
-import type { Runtime, RuntimeContext, RuntimeSession, RuntimeSessionContext } from "./types.ts";
+import type {
+  Runtime,
+  RuntimeContext,
+  RuntimeMetadata,
+  RuntimeSession,
+  RuntimeSessionContext,
+} from "./types.ts";
 import type { ChatMessage, ModelCallMetrics, OpenAIToolCall } from "./local-model.ts";
 import { callModel, normalizeEndpoint } from "./local-model.ts";
 import type { PendingToolExecution } from "./local-tools.ts";
@@ -120,6 +126,39 @@ export const localRuntime: Runtime = {
 
   async startSession(ctx: RuntimeSessionContext): Promise<RuntimeSession> {
     return createLocalSession(ctx);
+  },
+
+  async getMetadata(ctx?: RuntimeSessionContext): Promise<RuntimeMetadata> {
+    const endpoint = normalizeEndpoint(ctx?.endpoint ?? readEnv().localEndpoint);
+    const base = endpoint.replace(/\/v1\/chat\/completions$/, "");
+    const model = ctx?.model;
+
+    let runtimeKind: RuntimeMetadata["runtimeKind"] = "llama.cpp";
+    let modelFile: string | null = null;
+
+    if (model) {
+      try {
+        const res = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(3_000) });
+        if (res.ok) {
+          const body = (await res.json()) as { data?: Array<{ id: string; name?: string; owned_by?: string }> };
+          const entry = body.data?.find((m) => m.id === model);
+          if (entry) {
+            modelFile = entry.name ?? entry.id;
+            if (entry.owned_by === "llama-swap") runtimeKind = "llama-swap";
+          }
+        }
+      } catch {
+        /* leave defaults */
+      }
+    }
+
+    const contextSize = await localRuntime.getContextWindow?.(ctx);
+
+    return {
+      runtimeKind,
+      modelFile,
+      contextSize: contextSize ?? null,
+    };
   },
 
   async getContextWindow(ctx?: RuntimeSessionContext): Promise<number | undefined> {
