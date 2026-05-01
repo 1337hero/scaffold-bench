@@ -13,7 +13,7 @@ CREATE TABLE runs (
 
   bench_version TEXT NOT NULL DEFAULT '',
   git_dirty INTEGER NOT NULL DEFAULT 0,
-  system_prompt_hash TEXT NOT NULL,
+  system_prompt_hash TEXT,
   scenario_ids TEXT NOT NULL,
 
   runtime TEXT NOT NULL,

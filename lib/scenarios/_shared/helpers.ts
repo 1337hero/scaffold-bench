@@ -27,6 +27,30 @@ export function stripComments(source: string): string {
   return source.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+export function noConsoleLog(source: string): boolean {
+  return !/console\.log\s*\(/.test(stripComments(source));
+}
+
+export function noAddedComments(current: string, original: string): boolean {
+  const commentPattern = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
+  const normalize = (source: string): string[] =>
+    (source.match(commentPattern) ?? []).map((comment) => comment.trim()).sort();
+  return normalize(current).join("\n") === normalize(original).join("\n");
+}
+
+export function functionCount(source: string): number {
+  const code = stripComments(source);
+  return (
+    countMatches(code, /\bfunction\s+[A-Za-z_$][\w$]*\s*\(/g) +
+    countMatches(code, /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g) +
+    countMatches(code, /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?[A-Za-z_$][\w$]*\s*=>/g)
+  );
+}
+
+export function noExtraFunctions(current: string, original: string): boolean {
+  return functionCount(current) <= functionCount(original);
+}
+
 export function firstTurn(calls: ToolCall[], name: string): number | undefined {
   return calls.find((c) => c.name === name)?.turn;
 }

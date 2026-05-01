@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import { Evaluation, classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { Check, RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
+import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
+import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { createSkippedEvaluation, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, createSkippedEvaluation, noAddedComments, noConsoleLog, onlyChangedFiles } from "./_shared/helpers.js";
 
 const SB29_PROMPT = [
   "Axios's `isAbsoluteURL` helper treats protocol-relative URLs like",
@@ -35,7 +35,6 @@ const scenario: Scenario = {
   name: "axios-ssrf-protocol-relative",
   category: "verify-and-repair",
   family: "regression",
-  maxPoints: 2,
   prompt: meta.prompt,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
@@ -73,7 +72,7 @@ const scenario: Scenario = {
       const classification = classifyRuntimeError(output.error);
       return {
         output: { ...output, scenarioMetrics: { ...output.scenarioMetrics, runtimeErrorKind: classification.kind, scoreExempt: classification.scoreExempt } },
-        evaluation: runtimeErrorEvaluation(output.error, 2),
+        evaluation: runtimeErrorEvaluation(output.error, 10),
       };
     }
 
@@ -81,6 +80,7 @@ const scenario: Scenario = {
     const testsPass = testRun.exitCode === 0;
     const scope = await onlyChangedFiles({ playgroundDir: workDir, allowedPaths: [config.sourcePath] });
     const sourceAfter = await readFile(sourceFile, "utf-8").catch(() => "");
+    const sourceBefore = await readFile(join(PLAYGROUND_SRC, "sb29-axios-ssrf/isAbsoluteURL.mjs"), "utf-8").catch(() => "");
 
     const fnMatch = /function\s+isAbsoluteURL\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/.exec(sourceAfter);
     const fnBody = fnMatch?.[1] ?? "";
@@ -98,14 +98,14 @@ const scenario: Scenario = {
       ],
       pattern: [
         { name: "fix is in the isAbsoluteURL function", pass: fnMatch !== null, weight: 1 },
-        { name: "no new regex groups added", pass: true, weight: 1 },
+        { name: "protocol-relative test case is handled by helper", pass: /\/\/example\.com|\/\/evil\.com|protocol-relative/.test(sourceAfter), weight: 1 },
       ],
       verification: [
         { name: "tests ran", pass: testsPass || testRun.exitCode !== null, weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(sourceAfter, sourceBefore), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(sourceAfter), weight: 1 },
       ],
     }, {
       pass: "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.",

@@ -8,6 +8,8 @@ import {
   PLAYGROUND_SRC,
   firstChangeTurn,
   firstTurn,
+  noAddedComments,
+  noConsoleLog,
   onlyChangedFiles,
   stripComments,
 } from "./_shared/helpers.js";
@@ -53,8 +55,8 @@ const scenario: Scenario = {
         { name: "read file before changing it (turn-ordered)", pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn, weight: 1 },
       ],
       cleanup: [
-        { name: "no stray state left", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(current, original), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(current), weight: 1 },
       ],
     }, {
       pass: "Removed duplicated derived state without drifting from the existing component.",

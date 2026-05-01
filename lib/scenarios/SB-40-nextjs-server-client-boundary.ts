@@ -61,7 +61,7 @@ const scenario: Scenario = {
       ],
       cleanup: [
         { name: 'no "use server" directive added', pass: !hasUseServer, weight: 1 },
-        { name: "did not move or split the component", pass: !/import.*from.*DashboardFilters/.test(filters) || /export default/.test(filters), weight: 1 },
+        { name: "other app files untouched", pass: dashboardPage === originalDashboardPage && layoutPage === originalLayoutPage, weight: 1 },
       ],
     }, {
       pass: "Added 'use client' directive at the top of the right file, nothing else touched.",

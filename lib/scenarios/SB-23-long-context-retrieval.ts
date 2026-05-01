@@ -10,7 +10,6 @@ import {
 import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import {
-  PLAYGROUND_SRC,
   SB23_LONGCONTEXT_PATH,
   computeLineRange,
   createPointBasedEvaluation,

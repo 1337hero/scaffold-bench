@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, readOrEmpty } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-20",
@@ -56,8 +56,8 @@ const scenario: Scenario = {
         { name: "read the spec file", pass: readSpec, weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(items, origItems), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(items), weight: 1 },
       ],
     }, {
       pass: "Added restore route using existing soft-delete column and preserved other handlers.",

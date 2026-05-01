@@ -17,7 +17,7 @@ export function getDb(): Database {
 }
 
 export function runMigrations(): void {
-  const db = getDb();
+  let db = getDb();
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
@@ -53,6 +53,7 @@ export function runMigrations(): void {
           applied_at INTEGER NOT NULL
         )
       `);
+      db = freshDb;
       // Clear applied set since we're on a fresh DB
       applied.clear();
     }

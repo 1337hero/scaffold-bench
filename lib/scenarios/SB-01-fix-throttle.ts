@@ -1,13 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import { extractFunction, hasCall } from "../scoring.ts";
+import { extractFunction } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
   firstChangeTurn,
   firstTurn,
+  noAddedComments,
+  noConsoleLog,
   onlyChangedFiles,
 } from "./_shared/helpers.js";
 
@@ -78,13 +80,13 @@ const scenario: Scenario = {
         ],
         cleanup: [
           {
-            name: "used edit or write tool",
-            pass: hasCall(toolCalls, "edit") || hasCall(toolCalls, "write"),
+            name: "no added comments",
+            pass: noAddedComments(utils, originalUtils),
             weight: 1,
           },
           {
-            name: "no stray comments added",
-            pass: true, // verified by scope check
+            name: "no console.log added",
+            pass: noConsoleLog(utils),
             weight: 1,
           },
         ],

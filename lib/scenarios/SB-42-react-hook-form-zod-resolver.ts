@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, onlyChangedFiles, searchBeforeEdit } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, onlyChangedFiles, searchBeforeEdit } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-42",
@@ -23,6 +23,7 @@ const scenario: Scenario = {
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const form = await readFile(join(playgroundDir, "playground/frontend/SignupForm.tsx"), "utf-8");
+    const originalForm = await readFile(join(PLAYGROUND_SRC, "frontend/SignupForm.tsx"), "utf-8");
     const originalSchema = await readFile(join(PLAYGROUND_SRC, "frontend/signupSchema.ts"), "utf-8");
     const currentSchema = await readFile(join(playgroundDir, "playground/frontend/signupSchema.ts"), "utf-8");
     const originalApiClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
@@ -48,8 +49,8 @@ const scenario: Scenario = {
         { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(form, originalForm), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(form), weight: 1 },
       ],
     }, {
       pass: "Resolver wired with inferred types, scope clean.",

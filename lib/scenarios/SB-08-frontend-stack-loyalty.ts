@@ -1,10 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import { hasCall } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, firstChangeTurn, firstTurn, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, firstChangeTurn, firstTurn, noAddedComments, noConsoleLog, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-08",
@@ -24,6 +23,7 @@ const scenario: Scenario = {
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const current = await readFile(join(playgroundDir, "playground/frontend/ActivityFeed.tsx"), "utf-8");
+    const original = await readFile(join(PLAYGROUND_SRC, "frontend/ActivityFeed.tsx"), "utf-8");
     const client = await readFile(join(playgroundDir, "playground/frontend/apiClient.ts"), "utf-8");
     const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
     const code = stripComments(current);
@@ -48,8 +48,8 @@ const scenario: Scenario = {
         { name: "read files before changing them (turn-ordered)", pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn, weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(current, original), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(current), weight: 1 },
       ],
     }, {
       pass: "Implemented the feature with the established stack and no architecture drift.",

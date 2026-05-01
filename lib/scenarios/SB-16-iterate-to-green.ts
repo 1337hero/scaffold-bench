@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, bashCalls, failedVerificationBeforeChange, firstChangeTurn, firstFailedVerificationAfterChange, onlyChangedFiles, passedVerificationAfterChange } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, bashCalls, failedVerificationBeforeChange, firstChangeTurn, firstFailedVerificationAfterChange, noAddedComments, noConsoleLog, noExtraFunctions, onlyChangedFiles, passedVerificationAfterChange } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-16",
@@ -45,16 +45,16 @@ const scenario: Scenario = {
         { name: "edited only normalizeTag.mjs", pass: scope.pass, weight: 2, detail: scope.detail },
       ],
       pattern: [
-        { name: "no extra files introduced", pass: true, weight: 1 },
-        { name: "kept existing module structure", pass: true, weight: 1 },
+        { name: "no extra functions introduced", pass: noExtraFunctions(normalizeTag, originalNormalizeTag), weight: 1 },
+        { name: "kept existing export shape", pass: /export\s+function\s+normalizeTag/.test(normalizeTag), weight: 1 },
       ],
       verification: [
         { name: "verified the failure before changing code", pass: failedVerificationBeforeChange(bashRuns, changeTurn, normalizeTestMatcher), weight: 0.5 },
         { name: "saw another failing verification and iterated", pass: failedAfterChange !== undefined && changedAgainAfterFailedVerification, weight: 0.5 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(normalizeTag, originalNormalizeTag), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(normalizeTag), weight: 1 },
       ],
     }, {
       pass: "Worked through an intermediate failure and iterated the implementation to a passing result.",

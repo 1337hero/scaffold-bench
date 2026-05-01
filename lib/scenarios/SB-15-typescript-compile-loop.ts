@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, TS_COMPILE_COMMAND, bashCalls, failedVerificationBeforeChange, firstChangeTurn, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, TS_COMPILE_COMMAND, bashCalls, failedVerificationBeforeChange, firstChangeTurn, noAddedComments, noConsoleLog, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-15",
@@ -41,15 +41,15 @@ const scenario: Scenario = {
       ],
       pattern: [
         { name: "no type-escape hacks used", pass: !/as\s+any/.test(summaryCode) && !/@ts-ignore/.test(summaryCode), weight: 1 },
-        { name: "kept existing module structure", pass: true, weight: 1 },
+        { name: "kept existing export shape", pass: /export\s+/.test(summaryFile), weight: 1 },
       ],
       verification: [
         { name: "verified the compile failure before changing code", pass: failedVerificationBeforeChange(bashRuns, changeTurn, TS_COMPILE_COMMAND), weight: 0.5 },
         { name: "reran compile verification and got a passing result", pass: passedVerificationAfterChange(bashRuns, changeTurn, TS_COMPILE_COMMAND), weight: 0.5 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(summaryFile, originalSummaryFile), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(summaryFile), weight: 1 },
       ],
     }, {
       pass: "Observed the TypeScript compile error, fixed it surgically, and verified the compile passed.",

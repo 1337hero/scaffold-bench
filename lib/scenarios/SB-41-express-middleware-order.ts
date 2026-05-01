@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import { Evaluation, classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { Check, RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
+import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
+import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { createSkippedEvaluation, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
+import { createSkippedEvaluation, noConsoleLog, onlyChangedFiles } from "./_shared/helpers.js";
 
 const SB41_PROMPT = [
   "The auth tests in `playground/express-api` show `/api/me` returning 200 when it should return 401.",
@@ -27,7 +27,6 @@ const scenario: Scenario = {
   name: "express-middleware-order",
   category: "verify-and-repair",
   family: "regression",
-  maxPoints: 2,
   prompt: meta.prompt,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
@@ -57,7 +56,7 @@ const scenario: Scenario = {
       const classification = classifyRuntimeError(output.error);
       return {
         output: { ...output, scenarioMetrics: { ...output.scenarioMetrics, runtimeErrorKind: classification.kind, scoreExempt: classification.scoreExempt } },
-        evaluation: runtimeErrorEvaluation(output.error, 2),
+        evaluation: runtimeErrorEvaluation(output.error, 10),
       };
     }
 
@@ -76,7 +75,7 @@ const scenario: Scenario = {
     const requireAuthIdx = lines.findIndex((l) => /requireAuth/.test(l) && /app\.use/.test(l));
     const privateRoutesIdx = lines.findIndex((l) => /privateRoutes/.test(l) && /app\.use/.test(l));
     const jsonIdx = lines.findIndex((l) => /express\.json/.test(l));
-    const firstRouteUseIdx = [publicRoutesIdx, privateRoutesIdx].filter((i) => i >= 0)[0] ?? -1;
+    const firstRouteUseIdx = [publicRoutesIdx, privateRoutesIdx].find((i) => i >= 0) ?? -1;
 
     const canonicalOrder =
       jsonIdx >= 0 && firstRouteUseIdx >= 0 && jsonIdx < firstRouteUseIdx &&
@@ -99,7 +98,7 @@ const scenario: Scenario = {
         { name: "test command ran", pass: testRun.exitCode !== null, weight: 1 },
       ],
       cleanup: [
-        { name: "no stray imports", pass: true, weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(sourceAfter), weight: 1 },
         { name: "no commented-out lines", pass: !/^\s*\/\//.test(sourceAfter.split("\n").find((l) => l.includes("app.use")) ?? ""), weight: 1 },
       ],
     }, {

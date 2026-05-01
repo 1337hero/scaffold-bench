@@ -2,14 +2,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
 import {
-  Evaluation,
   classifyRuntimeError,
   runtimeErrorEvaluation,
 } from "../scoring.ts";
 import type { Check, RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import {
-  PLAYGROUND_SRC,
   SB22_LOOP_PATH,
   createPointBasedEvaluation,
   onlyChangedFiles,
