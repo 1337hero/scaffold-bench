@@ -22,6 +22,7 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/",
   prompt: `Use the provided test to diagnose and fix playground/slugify.mjs. Verify the failure first, then verify the fix passes. Change only what is necessary.`,
 } as const;

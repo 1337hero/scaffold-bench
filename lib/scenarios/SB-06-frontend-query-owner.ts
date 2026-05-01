@@ -17,6 +17,7 @@ export const meta = {
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `The page and child both fetch the same users data. Make playground/frontend/UsersPage.tsx own the query and pass the data into playground/frontend/UserTable.tsx. Keep the existing stack and do not refactor unrelated code.`,
 } as const;

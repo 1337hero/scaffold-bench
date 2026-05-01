@@ -3,7 +3,12 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, onlyChangedFiles, searchBeforeEdit } from "./_shared/helpers.js";
+import {
+  PLAYGROUND_SRC,
+  noConsoleLog,
+  onlyChangedFiles,
+  searchBeforeEdit,
+} from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-43",
@@ -11,6 +16,7 @@ export const meta = {
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/tanstack-router-app/",
   prompt: `In \`playground/tanstack-router-app\`, the route at \`src/routes/projects.tsx\` should own the projects data via its \`loader\`. \`ProjectsTable.tsx\` should be a presentational component that receives \`projects\` as a prop. Keep the existing stack and don't refactor unrelated code.`,
 } as const;
@@ -95,11 +101,11 @@ const scenario: Scenario = {
         ],
         cleanup: [
           {
-            name: "no orphaned useQuery imports in table",
+            name: "no orphaned useQuery / fetch imports in table",
             pass: tableNoUseQuery && tableNoFetch,
             weight: 1,
           },
-          { name: "no dead state in table file", pass: tableNoUseQuery, weight: 1 },
+          { name: "no console.log added in table", pass: noConsoleLog(table), weight: 1 },
         ],
       },
       {

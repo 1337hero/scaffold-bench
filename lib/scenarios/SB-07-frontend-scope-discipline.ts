@@ -19,6 +19,7 @@ export const meta = {
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `In playground/frontend/OrdersPanel.tsx, make the orders list refresh after approve succeeds. Only fix that. Do not rename exports, extract helpers, or reorganize the file.`,
 } as const;

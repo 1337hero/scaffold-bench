@@ -20,6 +20,7 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `Fix the derived-state issue in playground/frontend/InventoryPanel.tsx. Keep the component shape and existing stack. Fix that issue only.`,
 } as const;

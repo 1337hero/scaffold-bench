@@ -21,6 +21,7 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/",
   prompt: `Fix calculateSubtotal in playground/cart.mjs and verify the fix.`,
 } as const;

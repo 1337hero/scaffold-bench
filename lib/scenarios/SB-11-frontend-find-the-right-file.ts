@@ -19,6 +19,7 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `Refund amounts render as \`$-5.00\` instead of \`-$5.00\` in the invoices UI. Fix the bug with the smallest correct change.`,
 } as const;

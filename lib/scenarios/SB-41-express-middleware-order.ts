@@ -18,6 +18,7 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
+  signalType: "behavioral" as const,
   fixturePath: "playground/express-api/",
   prompt: SB41_PROMPT,
 } as const;

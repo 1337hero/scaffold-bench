@@ -19,6 +19,7 @@ export const meta = {
   category: "read-only-analysis" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "stdout" as const,
   fixturePath: "playground/frontend/",
   prompt: `Users say the projects list does not refresh after a successful create. Check playground/frontend/ProjectsPanel.tsx and fix it only if there is a real bug.`,
 } as const;
@@ -65,16 +66,11 @@ const scenario: Scenario = {
           },
         ],
         pattern: [
-          { name: "did not change any files", pass: scope.pass, weight: 1, detail: scope.detail },
-          {
-            name: "read ProjectsPanel.tsx",
-            pass: readTurnsForPath(toolCalls, "playground/frontend/ProjectsPanel.tsx").length > 0,
-            weight: 1,
-          },
+          { name: "did not change any files", pass: scope.pass, weight: 2, detail: scope.detail },
         ],
         verification: [
           {
-            name: "read before concluding",
+            name: "read ProjectsPanel.tsx before concluding",
             pass: readTurnsForPath(toolCalls, "playground/frontend/ProjectsPanel.tsx").length > 0,
             weight: 1,
           },

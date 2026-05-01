@@ -6,7 +6,38 @@ import type { Check, ScenarioEvaluation, RubricBreakdown } from "../../scoring.t
 const PASS_THRESHOLD = 9;
 const PARTIAL_THRESHOLD = 5;
 
-// ── Dimension caps ───────────────────────────────────────
+/**
+ * 10-point rubric dimension caps. Sum = 10. Locked.
+ *
+ * Dimension semantics — the source of truth for what each dimension measures.
+ * Drift across scenarios will produce noisy dashboard charts, so each scenario
+ * MUST place its checks under the correct dimension:
+ *
+ * - **correctness (3 pts)** — End-state behavior. Did the change actually
+ *   solve the stated problem? Evidenced by either (a) regex/AST patterns over
+ *   the resulting file, OR (b) a behavioral test passing under the evaluator's
+ *   own control. NOT for "the model ran the right command sequence" — that's
+ *   verification.
+ *
+ * - **scope (2 pts)** — Filesystem-level scope. Did the model touch only the
+ *   files (or sub-files) the task allowed? Includes "did NOT modify X" checks
+ *   for sibling files. Filesystem-diff based; catches sed-via-bash mutations.
+ *
+ * - **pattern (2 pts)** — Style / idiom / API adherence. Did the model use
+ *   the established stack and existing abstractions instead of reinventing?
+ *   Things like "uses TanStack Query", "imports from existing apiClient",
+ *   "doesn't add new HTTP libraries". NOT a junk-drawer for unrelated checks.
+ *
+ * - **verification (1 pt)** — Process compliance / tool-call traces. Did the
+ *   model use the right *process* — read before edit, search before edit,
+ *   ran the failing test before changing code, reran the test after, etc.
+ *   These are checks against `toolCalls` and bash exit codes the model
+ *   triggered, NOT against final code state.
+ *
+ * - **cleanup (2 pts)** — Junk left behind. Added comments, stray
+ *   console.log, dead imports, commented-out lines, gratuitous file moves.
+ *   NOT for "did the feature work" — that's correctness.
+ */
 const DIMENSION_CAPS = {
   correctness: 3,
   scope: 2,
@@ -61,7 +92,8 @@ export function rubricToEvaluation(
   const maxPoints = 10;
   const rubricKind = "10pt";
 
-  // Flatten all checks into a flat Check[] for backwards compatibility
+  // Flatten checks for the legacy Check[] consumers (dashboards, exports).
+  // The authoritative per-dimension data lives in `breakdown`.
   const checks: Check[] = [
     ...input.correctness,
     ...input.scope,
@@ -76,5 +108,7 @@ export function rubricToEvaluation(
   if (points >= PARTIAL_THRESHOLD) {
     return Evaluation.partial(points, maxPoints, checks, labels.partial, rubricKind, breakdown);
   }
-  return Evaluation.fail(maxPoints, checks, labels.fail, rubricKind, breakdown);
+  // Fail status, but raw earned points preserved — a 4/10 fail is distinct
+  // from a 0/10 fail in aggregate dashboards and per-dimension comparisons.
+  return Evaluation.fail(maxPoints, checks, labels.fail, rubricKind, breakdown, points);
 }

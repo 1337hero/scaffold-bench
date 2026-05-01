@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, readOrEmpty } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-21",
@@ -11,6 +11,7 @@ export const meta = {
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/hono-api/",
   prompt: `Read the spec at playground/hono-api/specs/fix-n-plus-1.md and implement the fix described there. Follow the patterns already established in playground/hono-api/.`,
 } as const;
@@ -61,18 +62,20 @@ const scenario: Scenario = {
           {
             name: "keeps deleted_at IS NULL filter",
             pass: /deleted_at\s+IS\s+NULL/i.test(items),
-            weight: 1,
+            weight: 0.5,
           },
           {
             name: "keeps ORDER BY id DESC",
             pass: /ORDER\s+BY\s+id\s+DESC/i.test(items),
-            weight: 1,
+            weight: 0.5,
           },
+          { name: "preserved POST /items handler", pass: hasPost, weight: 0.5 },
+          { name: "preserved DELETE handler", pass: hasDelete, weight: 0.5 },
         ],
         verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
         cleanup: [
-          { name: "preserved POST /items handler", pass: hasPost, weight: 1 },
-          { name: "preserved DELETE handler", pass: hasDelete, weight: 1 },
+          { name: "no added comments", pass: noAddedComments(items, origItems), weight: 1 },
+          { name: "no console.log added", pass: noConsoleLog(items), weight: 1 },
         ],
       },
       {

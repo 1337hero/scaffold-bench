@@ -18,6 +18,7 @@ export const meta = {
   category: "read-only-analysis" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "stdout" as const,
   fixturePath: "playground/frontend/",
   prompt: `I think there's a bug in playground/frontend/ReportsPage.tsx because playground/frontend/ReportsTable.tsx doesn't fetch its own data. Review both files. If there's a real bug, explain it, but do not change code unless necessary.`,
 } as const;

@@ -60,6 +60,7 @@ export const meta = {
   category: "responsiveness" as const,
   family: "regex-style" as const,
   rubricKind: "custom-5pt" as const,
+  signalType: "latency" as const,
   fixturePath: "playground/",
   prompt: `Five sequential micro-fixes in one conversation against playground/sb22-loop.js, scored one point per correct edit completed within 10 seconds.`,
 } as const;

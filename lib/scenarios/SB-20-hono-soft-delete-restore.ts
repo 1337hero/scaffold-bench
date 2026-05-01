@@ -11,6 +11,7 @@ export const meta = {
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/hono-api/",
   prompt: `Read the spec at playground/hono-api/specs/soft-delete-restore.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`,
 } as const;

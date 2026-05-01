@@ -17,6 +17,7 @@ export const meta = {
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
   prompt: `\`SignupForm.tsx\` should use the existing \`signupSchema.ts\` for client-side validation. Wire it up via \`react-hook-form\`'s zod resolver. Don't change the schema or the API call.`,
 } as const;

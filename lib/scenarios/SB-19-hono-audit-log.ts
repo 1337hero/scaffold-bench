@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, readOrEmpty } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-19",
@@ -11,6 +11,7 @@ export const meta = {
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/hono-api/",
   prompt: `Read the spec at playground/hono-api/specs/audit-log.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`,
 } as const;
@@ -55,6 +56,11 @@ const scenario: Scenario = {
             weight: 0.5,
           },
           { name: "admin.ts calls logAudit", pass: /logAudit\s*\(/.test(admin), weight: 0.5 },
+          {
+            name: "schema.sql adds index on audit_events",
+            pass: /CREATE\s+INDEX[^;]*audit_events/i.test(schema),
+            weight: 0.5,
+          },
         ],
         scope: [
           { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
@@ -68,26 +74,23 @@ const scenario: Scenario = {
           {
             name: "audit.ts exports logAudit",
             pass: /export\s+function\s+logAudit|export\s+(const|let)\s+logAudit/.test(audit),
-            weight: 1,
-          },
-          {
-            name: "index.ts mounts adminRoutes",
-            pass: index !== origIndex && /adminRoutes/.test(index),
-            weight: 1,
-          },
-        ],
-        verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
-        cleanup: [
-          {
-            name: "schema.sql adds index on audit_events",
-            pass: /CREATE\s+INDEX[^;]*audit_events/i.test(schema),
-            weight: 1,
+            weight: 0.75,
           },
           {
             name: "admin.ts exports adminRoutes",
             pass: /export\s+(const|let)\s+adminRoutes/.test(admin),
-            weight: 1,
+            weight: 0.5,
           },
+          {
+            name: "index.ts mounts adminRoutes",
+            pass: index !== origIndex && /adminRoutes/.test(index),
+            weight: 0.75,
+          },
+        ],
+        verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
+        cleanup: [
+          { name: "no console.log added in audit.ts", pass: noConsoleLog(audit), weight: 1 },
+          { name: "no console.log added in admin.ts", pass: noConsoleLog(admin), weight: 1 },
         ],
       },
       {

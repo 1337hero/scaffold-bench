@@ -7,6 +7,7 @@ import {
   PLAYGROUND_SRC,
   firstChangeTurn,
   firstTurn,
+  noConsoleLog,
   onlyChangedFiles,
   searchBeforeEdit,
 } from "./_shared/helpers.js";
@@ -17,6 +18,7 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/nextjs-app/",
   prompt: `The dashboard filters component fails to build. Fix it with the smallest correct change. Do not refactor.`,
 } as const;
@@ -95,7 +97,12 @@ const scenario: Scenario = {
           {
             name: "settings/page.tsx untouched (red herring)",
             pass: settingsPage === originalSettingsPage,
-            weight: 1,
+            weight: 0.5,
+          },
+          {
+            name: "other app files untouched",
+            pass: dashboardPage === originalDashboardPage && layoutPage === originalLayoutPage,
+            weight: 0.5,
           },
         ],
         pattern: [
@@ -113,11 +120,7 @@ const scenario: Scenario = {
         ],
         cleanup: [
           { name: 'no "use server" directive added', pass: !hasUseServer, weight: 1 },
-          {
-            name: "other app files untouched",
-            pass: dashboardPage === originalDashboardPage && layoutPage === originalLayoutPage,
-            weight: 1,
-          },
+          { name: "no console.log added", pass: noConsoleLog(filters), weight: 1 },
         ],
       },
       {

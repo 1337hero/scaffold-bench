@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, readOrEmpty } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-17",
@@ -11,6 +11,7 @@ export const meta = {
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/hono-api/",
   prompt: `Read the spec at playground/hono-api/specs/admin-password-reset.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`,
 } as const;
@@ -70,6 +71,16 @@ const scenario: Scenario = {
             pass: /requireAdmin/.test(resetRoute),
             weight: 0.5,
           },
+          {
+            name: "password_resets has used_at column",
+            pass: /password_resets[\s\S]*?used_at/i.test(schema),
+            weight: 0.5,
+          },
+          {
+            name: "password_resets has expires_at column",
+            pass: /password_resets[\s\S]*?expires_at/i.test(schema),
+            weight: 0.5,
+          },
         ],
         scope: [
           { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
@@ -92,14 +103,10 @@ const scenario: Scenario = {
         ],
         verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
         cleanup: [
+          { name: "no console.log added", pass: noConsoleLog(resetRoute), weight: 1 },
           {
-            name: "password_resets has used_at column",
-            pass: /password_resets[\s\S]*?used_at/i.test(schema),
-            weight: 1,
-          },
-          {
-            name: "password_resets has expires_at column",
-            pass: /password_resets[\s\S]*?expires_at/i.test(schema),
+            name: "no commented-out code",
+            pass: !/^\s*\/\/.*(TODO|FIXME|XXX)/m.test(resetRoute),
             weight: 1,
           },
         ],
