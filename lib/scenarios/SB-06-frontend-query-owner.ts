@@ -3,7 +3,13 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, firstChangeTurn, firstTurn, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
+import {
+  PLAYGROUND_SRC,
+  firstChangeTurn,
+  firstTurn,
+  onlyChangedFiles,
+  stripComments,
+} from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-06",
@@ -30,32 +36,81 @@ const scenario: Scenario = {
     const tableCode = stripComments(table);
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);
-    const scope = await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/frontend/UsersPage.tsx", "playground/frontend/UserTable.tsx"] });
-
-    return rubricToEvaluation({
-      correctness: [
-        { name: "page owns the users query", pass: /useQuery\s*\(/.test(pageCode) && /queryKey:\s*\[\s*"users"\s*\]/.test(pageCode) && /<UserTable[\s\S]*?=\{users\}/.test(pageCode), weight: 2 },
-        { name: "child no longer fetches users", pass: !/useQuery\s*\(/.test(tableCode) && !/api\.get\s*(?:<[\s\S]*?>)?\s*\(\s*["'`]\/users["'`]/.test(tableCode) && !/fetch\s*\(/.test(tableCode) && !/\baxios\b/.test(tableCode), weight: 1 },
-      ],
-      scope: [
-        { name: "edited only UsersPage.tsx and UserTable.tsx", pass: scope.pass, weight: 2, detail: scope.detail },
-      ],
-      pattern: [
-        { name: "page still handles loading and error states", pass: /if\s*\(\s*isLoading\s*\)/.test(pageCode) && /if\s*\(\s*error\s*\)/.test(pageCode), weight: 1 },
-        { name: "existing api client left untouched", pass: client === originalClient, weight: 1 },
-      ],
-      verification: [
-        { name: "read files before changing them (turn-ordered)", pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn, weight: 1 },
-      ],
-      cleanup: [
-        { name: "did not swap in a different request client", pass: !/fetch\s*\(/.test(pageCode) && !/\baxios\b/.test(`${pageCode}\n${tableCode}`), weight: 1 },
-        { name: "table has no query/client imports", pass: !/from\s+["']@tanstack\/react-query["']/.test(table) && !/from\s+["']\.\/apiClient["']/.test(table), weight: 1 },
-      ],
-    }, {
-      pass: "Moved query ownership to the page and kept the existing stack intact.",
-      partial: "Consolidated the query, but introduced some unnecessary drift.",
-      fail: "Did not establish a single query owner or changed the stack.",
+    const scope = await onlyChangedFiles({
+      playgroundDir,
+      allowedPaths: ["playground/frontend/UsersPage.tsx", "playground/frontend/UserTable.tsx"],
     });
+
+    return rubricToEvaluation(
+      {
+        correctness: [
+          {
+            name: "page owns the users query",
+            pass:
+              /useQuery\s*\(/.test(pageCode) &&
+              /queryKey:\s*\[\s*"users"\s*\]/.test(pageCode) &&
+              /<UserTable[\s\S]*?=\{users\}/.test(pageCode),
+            weight: 2,
+          },
+          {
+            name: "child no longer fetches users",
+            pass:
+              !/useQuery\s*\(/.test(tableCode) &&
+              !/api\.get\s*(?:<[\s\S]*?>)?\s*\(\s*["'`]\/users["'`]/.test(tableCode) &&
+              !/fetch\s*\(/.test(tableCode) &&
+              !/\baxios\b/.test(tableCode),
+            weight: 1,
+          },
+        ],
+        scope: [
+          {
+            name: "edited only UsersPage.tsx and UserTable.tsx",
+            pass: scope.pass,
+            weight: 2,
+            detail: scope.detail,
+          },
+        ],
+        pattern: [
+          {
+            name: "page still handles loading and error states",
+            pass:
+              /if\s*\(\s*isLoading\s*\)/.test(pageCode) && /if\s*\(\s*error\s*\)/.test(pageCode),
+            weight: 1,
+          },
+          {
+            name: "existing api client left untouched",
+            pass: client === originalClient,
+            weight: 1,
+          },
+        ],
+        verification: [
+          {
+            name: "read files before changing them (turn-ordered)",
+            pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn,
+            weight: 1,
+          },
+        ],
+        cleanup: [
+          {
+            name: "did not swap in a different request client",
+            pass: !/fetch\s*\(/.test(pageCode) && !/\baxios\b/.test(`${pageCode}\n${tableCode}`),
+            weight: 1,
+          },
+          {
+            name: "table has no query/client imports",
+            pass:
+              !/from\s+["']@tanstack\/react-query["']/.test(table) &&
+              !/from\s+["']\.\/apiClient["']/.test(table),
+            weight: 1,
+          },
+        ],
+      },
+      {
+        pass: "Moved query ownership to the page and kept the existing stack intact.",
+        partial: "Consolidated the query, but introduced some unnecessary drift.",
+        fail: "Did not establish a single query owner or changed the stack.",
+      }
+    );
   },
 };
 

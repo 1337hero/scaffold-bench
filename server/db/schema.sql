@@ -12,16 +12,11 @@ CREATE TABLE runs (
   finished_at INTEGER,
   status TEXT NOT NULL CHECK(status IN ('running','done','failed','stopped')),
 
-  -- bench identity
-  bench_version TEXT NOT NULL DEFAULT '',
-  git_dirty INTEGER NOT NULL DEFAULT 0,
-  system_prompt_hash TEXT,
   scenario_ids TEXT NOT NULL,
 
   -- model identity
   runtime TEXT NOT NULL,
   runtime_kind TEXT NOT NULL DEFAULT 'llama.cpp',
-  runtime_build TEXT,
   endpoint TEXT,
   model TEXT NOT NULL,
   model_file TEXT,
@@ -29,13 +24,6 @@ CREATE TABLE runs (
   quant_tier REAL,
   quant_source TEXT,
   context_size INTEGER,
-
-  -- sampling
-  temperature REAL,
-  top_p REAL,
-  top_k INTEGER,
-  seed INTEGER,
-  max_tokens INTEGER,
 
   -- hardware
   gpu_backend TEXT,

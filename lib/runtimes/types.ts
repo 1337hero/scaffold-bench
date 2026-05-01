@@ -66,15 +66,8 @@ export interface RuntimeSession {
 
 export interface RuntimeMetadata {
   runtimeKind: "llama.cpp" | "llama-swap" | "vllm" | "ollama" | "lmstudio" | "remote-openai";
-  runtimeBuild?: string | null;
   modelFile?: string | null;
   contextSize?: number | null;
-  temperature?: number | null;
-  topP?: number | null;
-  topK?: number | null;
-  seed?: number | null;
-  maxTokens?: number | null;
-  gpuBackend?: "Vulkan" | "ROCm" | "CUDA" | "CPU" | null;
 }
 
 export interface Runtime {

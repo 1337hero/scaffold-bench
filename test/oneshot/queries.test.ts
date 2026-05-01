@@ -11,6 +11,7 @@ import {
   updateOneshotRun,
   upsertOneshotResult,
 } from "../../server/db/oneshot-queries.ts";
+import { STUB_ONESHOT_DB_ENDPOINT } from "../_fixtures/endpoints.ts";
 
 const SCHEMA_SQL = readFileSync(
   join(import.meta.dir, "../../server/db/oneshot-schema.sql"),
@@ -43,7 +44,7 @@ describe("oneshot DB queries", () => {
           started_at: 1000,
           status: "running",
           model: "test-model",
-          endpoint: "http://localhost:8080",
+          endpoint: STUB_ONESHOT_DB_ENDPOINT,
           prompt_ids: '["01","02"]',
         },
         db

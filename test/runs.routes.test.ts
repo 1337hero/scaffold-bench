@@ -4,6 +4,7 @@ import { runsRouter } from "../server/routes/runs.ts";
 import { runMigrations } from "../server/db/migrations.ts";
 import { clearRunData, insertEvent, insertRun, upsertScenarioRun } from "../server/db/queries.ts";
 import { globalRegistry } from "../server/run-registry.ts";
+import { STUB_LOCAL_ENDPOINT } from "./_fixtures/endpoints.ts";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 const ORIGINAL_LOCAL_ENDPOINT = Bun.env.SCAFFOLD_LOCAL_ENDPOINT;
@@ -14,7 +15,7 @@ describe("runs routes", () => {
     clearRunData();
     const active = globalRegistry.activeRunId();
     if (active) globalRegistry.delete(active);
-    Bun.env.SCAFFOLD_LOCAL_ENDPOINT = "http://127.0.0.1:18082/v1/chat/completions";
+    Bun.env.SCAFFOLD_LOCAL_ENDPOINT = STUB_LOCAL_ENDPOINT;
   });
 
   afterEach(() => {
@@ -149,25 +150,16 @@ function seedRunWithEvents(runId: string): void {
     id: runId,
     started_at: Date.now(),
     status: "running",
-    bench_version: "",
-    git_dirty: 0,
     runtime: "local",
     runtime_kind: "llama.cpp",
-    runtime_build: null,
     model: "known-local-model",
     model_file: null,
     quant: null,
     quant_tier: null,
     quant_source: null,
     context_size: null,
-    endpoint: "http://127.0.0.1:18082/v1/chat/completions",
-    system_prompt_hash: null,
+    endpoint: STUB_LOCAL_ENDPOINT,
     scenario_ids: JSON.stringify(["SB-01"]),
-    temperature: null,
-    top_p: null,
-    top_k: null,
-    seed: null,
-    max_tokens: null,
     gpu_backend: null,
     gpu_model: null,
     gpu_count: null,

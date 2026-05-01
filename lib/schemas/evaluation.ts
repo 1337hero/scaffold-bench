@@ -70,7 +70,13 @@ export const Evaluation = {
     ...(rubricKind ? { rubricKind } : {}),
     ...(rubricBreakdown ? { rubricBreakdown } : {}),
   }),
-  fail: (maxPoints: number, checks: Check[], summary: string, rubricKind?: string, rubricBreakdown?: RubricBreakdown): FailEvaluation => ({
+  fail: (
+    maxPoints: number,
+    checks: Check[],
+    summary: string,
+    rubricKind?: string,
+    rubricBreakdown?: RubricBreakdown
+  ): FailEvaluation => ({
     status: "fail",
     points: 0,
     maxPoints,

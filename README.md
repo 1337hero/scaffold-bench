@@ -78,33 +78,33 @@ Each scenario gives the model a real task and a real codebase. It has access to 
 
 ### Current Scenarios (25 active)
 
-| ID    | Name                                | Category           | Family       | Task                                                                                           |
-| ----- | ----------------------------------- | ------------------ | ------------ | ---------------------------------------------------------------------------------------------- |
-| SB-01 | fix-throttle                        | surgical-edit      | regex-style  | `throttle()` is a copy of `debounce()`. Fix it.                                                |
-| SB-05 | frontend-derived-state-fix          | surgical-edit      | regex-style  | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                         |
-| SB-06 | frontend-query-owner                | scope-discipline   | regex-style  | Move the query to the page, pass data as props to the child.                                   |
-| SB-07 | frontend-scope-discipline           | scope-discipline   | regex-style  | Invalidate the orders query after approve succeeds. Only that.                                 |
-| SB-08 | frontend-stack-loyalty              | surgical-edit      | regex-style  | Finish `ActivityFeed.tsx` using the existing TanStack Query + apiClient stack.                 |
-| SB-09 | frontend-red-herring                | read-only-analysis | regex-style  | Is there really a bug here, or is the user wrong?                                              |
-| SB-10 | frontend-no-op                      | read-only-analysis | regex-style  | Confirm the requested change is already present and avoid editing anyway.                      |
-| SB-11 | frontend-find-the-right-file        | surgical-edit      | regex-style  | Fix the currency formatting bug in the real shared helper, not in the component.               |
-| SB-12 | frontend-reuse-existing-abstraction | scope-discipline   | regex-style  | Reuse the existing `useTeamMembers` hook instead of reimplementing fetching.                   |
-| SB-13 | verify-and-repair                   | verify-and-repair  | regression   | Fix `calculateSubtotal`, then verify the fix passes.                                           |
-| SB-14 | verify-fail-recover-pass            | verify-and-repair  | regression   | Run the failing slugify test first, fix the bug, then rerun to green.                          |
-| SB-15 | typescript-compile-loop             | verify-and-repair  | regression   | Fix a strict-null TypeScript error and verify with `tsc --noEmit`.                             |
-| SB-16 | iterate-to-green                    | verify-and-repair  | regression   | Work through an intermediate failing test run and iterate until green.                         |
-| SB-17 | hono-admin-password-reset           | implementation     | spec-impl    | Implement admin password reset flow (new table, two routes, session invalidation).             |
-| SB-18 | hono-cursor-pagination              | implementation     | spec-impl    | Add opaque cursor pagination to `GET /items` with validation + limit cap.                      |
-| SB-19 | hono-audit-log                      | implementation     | spec-impl    | Add `audit_events` table, `logAudit` helper, and admin role-update route.                      |
-| SB-20 | hono-soft-delete-restore            | implementation     | spec-impl    | Use the existing `deleted_at` column to build `POST /items/:id/restore`.                       |
-| SB-21 | hono-fix-n-plus-1                   | implementation     | spec-impl    | Replace per-row owner query in `GET /items` with a single JOIN.                                |
-| SB-22 | high-frequency-loop                 | responsiveness     | regex-style  | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
-| SB-23 | long-context-retrieval              | long-context       | regex-style  | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
-| SB-26 | axios-ssrf-protocol-relative        | verify-and-repair  | regression   | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
-| SB-40 | nextjs-server-client-boundary       | surgical-edit      | regex-style  | Add missing `"use client"` directive to a component using `useState`.                          |
-| SB-41 | express-middleware-order            | verify-and-repair  | regression   | Fix Express middleware ordering so auth gate and body parser run before routes.                 |
-| SB-42 | react-hook-form-zod-resolver        | scope-discipline   | regex-style  | Wire `zodResolver` with existing `signupSchema` into `useForm`.                                |
-| SB-43 | tanstack-router-loader-ownership    | scope-discipline   | regex-style  | Move data fetching from `ProjectsTable` to the route's `loader`; table becomes presentational. |
+| ID    | Name                                | Category           | Family      | Task                                                                                           |
+| ----- | ----------------------------------- | ------------------ | ----------- | ---------------------------------------------------------------------------------------------- |
+| SB-01 | fix-throttle                        | surgical-edit      | regex-style | `throttle()` is a copy of `debounce()`. Fix it.                                                |
+| SB-05 | frontend-derived-state-fix          | surgical-edit      | regex-style | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                         |
+| SB-06 | frontend-query-owner                | scope-discipline   | regex-style | Move the query to the page, pass data as props to the child.                                   |
+| SB-07 | frontend-scope-discipline           | scope-discipline   | regex-style | Invalidate the orders query after approve succeeds. Only that.                                 |
+| SB-08 | frontend-stack-loyalty              | surgical-edit      | regex-style | Finish `ActivityFeed.tsx` using the existing TanStack Query + apiClient stack.                 |
+| SB-09 | frontend-red-herring                | read-only-analysis | regex-style | Is there really a bug here, or is the user wrong?                                              |
+| SB-10 | frontend-no-op                      | read-only-analysis | regex-style | Confirm the requested change is already present and avoid editing anyway.                      |
+| SB-11 | frontend-find-the-right-file        | surgical-edit      | regex-style | Fix the currency formatting bug in the real shared helper, not in the component.               |
+| SB-12 | frontend-reuse-existing-abstraction | scope-discipline   | regex-style | Reuse the existing `useTeamMembers` hook instead of reimplementing fetching.                   |
+| SB-13 | verify-and-repair                   | verify-and-repair  | regression  | Fix `calculateSubtotal`, then verify the fix passes.                                           |
+| SB-14 | verify-fail-recover-pass            | verify-and-repair  | regression  | Run the failing slugify test first, fix the bug, then rerun to green.                          |
+| SB-15 | typescript-compile-loop             | verify-and-repair  | regression  | Fix a strict-null TypeScript error and verify with `tsc --noEmit`.                             |
+| SB-16 | iterate-to-green                    | verify-and-repair  | regression  | Work through an intermediate failing test run and iterate until green.                         |
+| SB-17 | hono-admin-password-reset           | implementation     | spec-impl   | Implement admin password reset flow (new table, two routes, session invalidation).             |
+| SB-18 | hono-cursor-pagination              | implementation     | spec-impl   | Add opaque cursor pagination to `GET /items` with validation + limit cap.                      |
+| SB-19 | hono-audit-log                      | implementation     | spec-impl   | Add `audit_events` table, `logAudit` helper, and admin role-update route.                      |
+| SB-20 | hono-soft-delete-restore            | implementation     | spec-impl   | Use the existing `deleted_at` column to build `POST /items/:id/restore`.                       |
+| SB-21 | hono-fix-n-plus-1                   | implementation     | spec-impl   | Replace per-row owner query in `GET /items` with a single JOIN.                                |
+| SB-22 | high-frequency-loop                 | responsiveness     | regex-style | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
+| SB-23 | long-context-retrieval              | long-context       | regex-style | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
+| SB-26 | axios-ssrf-protocol-relative        | verify-and-repair  | regression  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
+| SB-40 | nextjs-server-client-boundary       | surgical-edit      | regex-style | Add missing `"use client"` directive to a component using `useState`.                          |
+| SB-41 | express-middleware-order            | verify-and-repair  | regression  | Fix Express middleware ordering so auth gate and body parser run before routes.                |
+| SB-42 | react-hook-form-zod-resolver        | scope-discipline   | regex-style | Wire `zodResolver` with existing `signupSchema` into `useForm`.                                |
+| SB-43 | tanstack-router-loader-ownership    | scope-discipline   | regex-style | Move data fetching from `ProjectsTable` to the route's `loader`; table becomes presentational. |
 
 The `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app with `users`, `sessions`, and `items`. Each scenario points at a spec file in `playground/hono-api/specs/`.
 
@@ -116,13 +116,13 @@ Additional historical regression fixtures remain in `playground/` but are not ex
 
 Most scenarios use a **0-10 rubric** scored across five dimensions:
 
-| Dimension          | Points | What it measures                                                                  |
-| ------------------ | ------ | --------------------------------------------------------------------------------- |
-| **Correctness**    | 0-3    | Did the actual change solve the stated problem?                                   |
-| **Scope**          | 0-2    | Did the model touch only the files/regions the task allowed?                      |
-| **Pattern adherence** | 0-2 | Did it use the existing stack/idioms/abstractions instead of inventing new ones?  |
-| **Verification**   | 0-1    | Did it run the right command before and/or after the change to confirm the fix?   |
-| **Cleanup cost**   | 0-2    | How much would a human reviewer have to clean up after?                           |
+| Dimension             | Points | What it measures                                                                 |
+| --------------------- | ------ | -------------------------------------------------------------------------------- |
+| **Correctness**       | 0-3    | Did the actual change solve the stated problem?                                  |
+| **Scope**             | 0-2    | Did the model touch only the files/regions the task allowed?                     |
+| **Pattern adherence** | 0-2    | Did it use the existing stack/idioms/abstractions instead of inventing new ones? |
+| **Verification**      | 0-1    | Did it run the right command before and/or after the change to confirm the fix?  |
+| **Cleanup cost**      | 0-2    | How much would a human reviewer have to clean up after?                          |
 
 Status thresholds: **≥9 → pass**, **5-8 → partial**, **≤4 → fail**.
 
@@ -213,10 +213,13 @@ const scenario: Scenario = {
 
 export default scenario;
 ```
+
       fail: "No change or wrong file edited.",
     });
-  },
+
+},
 }
+
 ```
 
 For large inline prompts, use `buildPrompt()` to assemble from the copied playground. For multi-turn cases, use `execute()` plus `runtime.startSession()`.
@@ -248,3 +251,4 @@ MIT
 ## Credits
 
 - [Commit Mono](https://github.com/eigilnikolajsen/commit-mono) - Commit Mono is an anonymous and neutral programming typeface.
+```
