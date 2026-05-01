@@ -22,6 +22,7 @@ import {
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
 import { getBenchIdentity } from "../lib/bench-identity.ts";
+import { detectGpu } from "../lib/hardware/gpu.ts";
 
 export interface RunBenchOptions {
   runId?: string;
@@ -222,6 +223,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
 
   const scenarioIds = request.scenarioIds;
   const identity = getBenchIdentity();
+  const gpu = detectGpu();
   insertRun({
     id: runId,
     started_at: Date.now(),
@@ -245,10 +247,10 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     top_k: null,
     seed: null,
     max_tokens: null,
-    gpu_backend: null,
-    gpu_model: null,
-    gpu_count: null,
-    vram_total_mb: null,
+    gpu_backend: gpu.backend,
+    gpu_model: gpu.model,
+    gpu_count: gpu.count > 0 ? gpu.count : null,
+    vram_total_mb: gpu.vramTotalMB,
     host_thermal_note: null,
   });
 
