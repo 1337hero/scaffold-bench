@@ -23,6 +23,7 @@ import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
 import { getBenchIdentity } from "../lib/bench-identity.ts";
 import { detectGpu } from "../lib/hardware/gpu.ts";
+import { parseQuantTag, quantTagToTier, detectQuantSource } from "../lib/scenarios/_shared/quant.ts";
 
 export interface RunBenchOptions {
   runId?: string;
@@ -224,6 +225,18 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
   const scenarioIds = request.scenarioIds;
   const identity = getBenchIdentity();
   const gpu = detectGpu();
+
+  const metadata = await localRuntime.getMetadata?.({
+    workDir: "",
+    endpoint: request.endpoint,
+    model: request.modelId,
+    apiKey: request.apiKey,
+  }).catch(() => undefined);
+
+  const quantSource = metadata?.modelFile ? parseQuantTag(metadata.modelFile) : null;
+  const quantTier = quantTagToTier(quantSource);
+  const quantOriginKind = metadata?.modelFile ? detectQuantSource(metadata.modelFile) : null;
+
   insertRun({
     id: runId,
     started_at: Date.now(),
@@ -233,14 +246,14 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     system_prompt_hash: identity.systemPromptHash,
     scenario_ids: JSON.stringify(scenarioIds),
     runtime: "local",
-    runtime_kind: "llama.cpp",
-    runtime_build: null,
+    runtime_kind: metadata?.runtimeKind ?? "llama.cpp",
+    runtime_build: metadata?.runtimeBuild ?? null,
     model: request.modelId ?? "unknown",
-    model_file: null,
-    quant: null,
-    quant_tier: null,
-    quant_source: null,
-    context_size: null,
+    model_file: metadata?.modelFile ?? null,
+    quant: quantSource,
+    quant_tier: quantTier,
+    quant_source: quantOriginKind,
+    context_size: metadata?.contextSize ?? null,
     endpoint: request.endpoint ?? null,
     temperature: null,
     top_p: null,
