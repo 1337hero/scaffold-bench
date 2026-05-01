@@ -33,37 +33,83 @@ const scenario: Scenario = {
     const origUsers = await readFile(join(ORIG, "src/routes/users.ts"), "utf-8");
     const items = await readOrEmpty(join(BASE, "src/routes/items.ts"));
     const origItems = await readFile(join(ORIG, "src/routes/items.ts"), "utf-8");
-    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("admin-password-reset.md"));
+    const readSpec = toolCalls.some(
+      (c) => c.name === "read" && c.args.includes("admin-password-reset.md")
+    );
 
-    return rubricToEvaluation({
-      correctness: [
-        { name: "created src/routes/password-resets.ts", pass: resetRoute.length > 0, weight: 0.5 },
-        { name: "exports adminPasswordResetsRoutes", pass: /export\s+(const|let)\s+adminPasswordResetsRoutes/.test(resetRoute), weight: 0.5 },
-        { name: "exports passwordResetsRoutes", pass: /export\s+(const|let)\s+passwordResetsRoutes/.test(resetRoute), weight: 0.5 },
-        { name: "schema.sql adds password_resets table", pass: schema !== origSchema && /CREATE\s+TABLE[^;]*password_resets/i.test(schema), weight: 0.5 },
-        { name: "invalidates sessions on confirm", pass: /DELETE\s+FROM\s+sessions/i.test(resetRoute), weight: 0.5 },
-        { name: "admin route uses requireAdmin", pass: /requireAdmin/.test(resetRoute), weight: 0.5 },
-      ],
-      scope: [
-        { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
-        { name: "did not modify items.ts", pass: items === origItems, weight: 1 },
-      ],
-      pattern: [
-        { name: "uses AppError from lib/errors", pass: /AppError/.test(resetRoute) && /from\s+["'][^"']*errors["']/.test(resetRoute), weight: 1 },
-        { name: "index.ts mounts both routers", pass: index !== origIndex && /adminPasswordResetsRoutes/.test(index) && /passwordResetsRoutes/.test(index), weight: 1 },
-      ],
-      verification: [
-        { name: "read the spec file", pass: readSpec, weight: 1 },
-      ],
-      cleanup: [
-        { name: "password_resets has used_at column", pass: /password_resets[\s\S]*?used_at/i.test(schema), weight: 1 },
-        { name: "password_resets has expires_at column", pass: /password_resets[\s\S]*?expires_at/i.test(schema), weight: 1 },
-      ],
-    }, {
-      pass: "Implemented admin reset flow with correct file layout, patterns, and session invalidation.",
-      partial: "Partial implementation — pieces missing (tables, invalidation, or patterns).",
-      fail: "Did not produce a workable implementation.",
-    });
+    return rubricToEvaluation(
+      {
+        correctness: [
+          {
+            name: "created src/routes/password-resets.ts",
+            pass: resetRoute.length > 0,
+            weight: 0.5,
+          },
+          {
+            name: "exports adminPasswordResetsRoutes",
+            pass: /export\s+(const|let)\s+adminPasswordResetsRoutes/.test(resetRoute),
+            weight: 0.5,
+          },
+          {
+            name: "exports passwordResetsRoutes",
+            pass: /export\s+(const|let)\s+passwordResetsRoutes/.test(resetRoute),
+            weight: 0.5,
+          },
+          {
+            name: "schema.sql adds password_resets table",
+            pass: schema !== origSchema && /CREATE\s+TABLE[^;]*password_resets/i.test(schema),
+            weight: 0.5,
+          },
+          {
+            name: "invalidates sessions on confirm",
+            pass: /DELETE\s+FROM\s+sessions/i.test(resetRoute),
+            weight: 0.5,
+          },
+          {
+            name: "admin route uses requireAdmin",
+            pass: /requireAdmin/.test(resetRoute),
+            weight: 0.5,
+          },
+        ],
+        scope: [
+          { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
+          { name: "did not modify items.ts", pass: items === origItems, weight: 1 },
+        ],
+        pattern: [
+          {
+            name: "uses AppError from lib/errors",
+            pass: /AppError/.test(resetRoute) && /from\s+["'][^"']*errors["']/.test(resetRoute),
+            weight: 1,
+          },
+          {
+            name: "index.ts mounts both routers",
+            pass:
+              index !== origIndex &&
+              /adminPasswordResetsRoutes/.test(index) &&
+              /passwordResetsRoutes/.test(index),
+            weight: 1,
+          },
+        ],
+        verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
+        cleanup: [
+          {
+            name: "password_resets has used_at column",
+            pass: /password_resets[\s\S]*?used_at/i.test(schema),
+            weight: 1,
+          },
+          {
+            name: "password_resets has expires_at column",
+            pass: /password_resets[\s\S]*?expires_at/i.test(schema),
+            weight: 1,
+          },
+        ],
+      },
+      {
+        pass: "Implemented admin reset flow with correct file layout, patterns, and session invalidation.",
+        partial: "Partial implementation — pieces missing (tables, invalidation, or patterns).",
+        fail: "Did not produce a workable implementation.",
+      }
+    );
   },
 };
 

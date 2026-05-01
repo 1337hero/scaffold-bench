@@ -3,9 +3,7 @@
  * Matches patterns like Q4_K_M, Q8_0, BF16, F16, FP8, MXFP4_MOE, Q3_K_M, etc.
  */
 export function parseQuantTag(filename: string): string | null {
-  const match = filename.match(
-    /(BF16|F16|MXFP4_MOE|MXFP4|Q\d+_\d+|Q\d+_K_[A-Z]+|Q\d+_K|FP8)/i
-  );
+  const match = filename.match(/(BF16|F16|MXFP4_MOE|MXFP4|Q\d+_\d+|Q\d+_K_[A-Z]+|Q\d+_K|FP8)/i);
   return match ? match[1] : null;
 }
 

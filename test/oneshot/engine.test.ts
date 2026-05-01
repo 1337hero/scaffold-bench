@@ -8,6 +8,7 @@ import {
 } from "../../server/db/oneshot-queries.ts";
 import { runMigrations } from "../../server/db/migrations.ts";
 import { globalRegistry } from "../../server/run-registry.ts";
+import { STUB_ONESHOT_ENDPOINT } from "../_fixtures/endpoints.ts";
 
 describe("oneshot engine", () => {
   beforeEach(() => {
@@ -27,7 +28,7 @@ describe("oneshot engine", () => {
     const { runId } = await startOneshotRun({
       promptIds: ["01-meadow-canvas"],
       modelId: "test-model",
-      endpoint: "http://localhost:9000",
+      endpoint: STUB_ONESHOT_ENDPOINT,
     });
 
     expect(typeof runId).toBe("string");
@@ -41,7 +42,7 @@ describe("oneshot engine", () => {
     const { runId } = await startOneshotRun({
       promptIds: ["01-meadow-canvas", "02-snake-game"],
       modelId: "seq-model",
-      endpoint: "http://localhost:9000",
+      endpoint: STUB_ONESHOT_ENDPOINT,
       onRunId: (id) => {
         unsubscribe = globalBus.subscribe(id, (event) => {
           if (event.type.startsWith("oneshot_")) {
@@ -63,7 +64,7 @@ describe("oneshot engine", () => {
     const { runId } = await startOneshotRun({
       promptIds: ["01-meadow-canvas"],
       modelId: "persist-model",
-      endpoint: "http://localhost:9000",
+      endpoint: STUB_ONESHOT_ENDPOINT,
     });
 
     await waitForRunToFinish(runId);
@@ -81,7 +82,7 @@ describe("oneshot engine", () => {
     const { runId } = await startOneshotRun({
       promptIds: ["01-meadow-canvas", "02-snake-game", "03-svg-portrait"],
       modelId: "error-model",
-      endpoint: "http://localhost:9000",
+      endpoint: STUB_ONESHOT_ENDPOINT,
     });
 
     await waitForRunToFinish(runId);
@@ -99,7 +100,7 @@ describe("oneshot engine", () => {
     const { runId } = await startOneshotRun({
       promptIds: ["01-meadow-canvas", "02-snake-game", "03-svg-portrait"],
       modelId: "stop-model",
-      endpoint: "http://localhost:9000",
+      endpoint: STUB_ONESHOT_ENDPOINT,
       onRunId: (id) => {
         globalBus.subscribe(id, (event) => {
           if (event.type.startsWith("oneshot_")) events.push(event.type);

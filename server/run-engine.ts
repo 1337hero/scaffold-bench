@@ -21,7 +21,6 @@ import {
 } from "./db/queries.ts";
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
-import { getBenchIdentity } from "../lib/bench-identity.ts";
 import { detectGpu } from "../lib/hardware/gpu.ts";
 import { parseQuantTag, quantTagToTier, detectQuantSource } from "../lib/scenarios/_shared/quant.ts";
 
@@ -223,7 +222,6 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
   const controller = globalRegistry.create(runId);
 
   const scenarioIds = request.scenarioIds;
-  const identity = getBenchIdentity();
   const gpu = detectGpu();
 
   const metadata = await localRuntime.getMetadata?.({
@@ -241,13 +239,9 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     id: runId,
     started_at: Date.now(),
     status: "running",
-    bench_version: identity.benchVersion,
-    git_dirty: identity.gitDirty,
-    system_prompt_hash: identity.systemPromptHash,
     scenario_ids: JSON.stringify(scenarioIds),
     runtime: "local",
     runtime_kind: metadata?.runtimeKind ?? "llama.cpp",
-    runtime_build: metadata?.runtimeBuild ?? null,
     model: request.modelId ?? "unknown",
     model_file: metadata?.modelFile ?? null,
     quant: quantSource,
@@ -255,11 +249,6 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     quant_source: quantOriginKind,
     context_size: metadata?.contextSize ?? null,
     endpoint: request.endpoint ?? null,
-    temperature: null,
-    top_p: null,
-    top_k: null,
-    seed: null,
-    max_tokens: null,
     gpu_backend: gpu.backend,
     gpu_model: gpu.model,
     gpu_count: gpu.count > 0 ? gpu.count : null,

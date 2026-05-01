@@ -37,33 +37,50 @@ const scenario: Scenario = {
     const hasPost = /itemsRoutes\.post\(/.test(items);
     const hasDelete = /itemsRoutes\.delete\(/.test(items);
 
-    return rubricToEvaluation({
-      correctness: [
-        { name: "edited items.ts", pass: items !== origItems, weight: 0.5 },
-        { name: "uses JOIN on users table", pass: /JOIN\s+users/i.test(items), weight: 1 },
-        { name: "removed per-row owner query", pass: !stillHasPerRowQuery, weight: 1 },
-        { name: "still selects owner_email in response", pass: /owner_email/.test(items), weight: 0.5 },
-      ],
-      scope: [
-        { name: "did not modify schema.sql", pass: schema === origSchema, weight: 1 },
-        { name: "did not modify users.ts or sessions.ts", pass: users === origUsers && sessions === origSessions, weight: 1 },
-      ],
-      pattern: [
-        { name: "keeps deleted_at IS NULL filter", pass: /deleted_at\s+IS\s+NULL/i.test(items), weight: 1 },
-        { name: "keeps ORDER BY id DESC", pass: /ORDER\s+BY\s+id\s+DESC/i.test(items), weight: 1 },
-      ],
-      verification: [
-        { name: "read the spec file", pass: readSpec, weight: 1 },
-      ],
-      cleanup: [
-        { name: "preserved POST /items handler", pass: hasPost, weight: 1 },
-        { name: "preserved DELETE handler", pass: hasDelete, weight: 1 },
-      ],
-    }, {
-      pass: "Replaced N+1 with a JOIN and preserved response shape and other handlers.",
-      partial: "Partial fix — still has per-row query, or touched unrelated code.",
-      fail: "Did not fix the N+1 or broke the route.",
-    });
+    return rubricToEvaluation(
+      {
+        correctness: [
+          { name: "edited items.ts", pass: items !== origItems, weight: 0.5 },
+          { name: "uses JOIN on users table", pass: /JOIN\s+users/i.test(items), weight: 1 },
+          { name: "removed per-row owner query", pass: !stillHasPerRowQuery, weight: 1 },
+          {
+            name: "still selects owner_email in response",
+            pass: /owner_email/.test(items),
+            weight: 0.5,
+          },
+        ],
+        scope: [
+          { name: "did not modify schema.sql", pass: schema === origSchema, weight: 1 },
+          {
+            name: "did not modify users.ts or sessions.ts",
+            pass: users === origUsers && sessions === origSessions,
+            weight: 1,
+          },
+        ],
+        pattern: [
+          {
+            name: "keeps deleted_at IS NULL filter",
+            pass: /deleted_at\s+IS\s+NULL/i.test(items),
+            weight: 1,
+          },
+          {
+            name: "keeps ORDER BY id DESC",
+            pass: /ORDER\s+BY\s+id\s+DESC/i.test(items),
+            weight: 1,
+          },
+        ],
+        verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
+        cleanup: [
+          { name: "preserved POST /items handler", pass: hasPost, weight: 1 },
+          { name: "preserved DELETE handler", pass: hasDelete, weight: 1 },
+        ],
+      },
+      {
+        pass: "Replaced N+1 with a JOIN and preserved response shape and other handlers.",
+        partial: "Partial fix — still has per-row query, or touched unrelated code.",
+        fail: "Did not fix the N+1 or broke the route.",
+      }
+    );
   },
 };
 

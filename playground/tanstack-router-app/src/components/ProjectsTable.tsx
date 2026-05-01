@@ -7,7 +7,11 @@ import { fetchProjects } from "../apiClient";
 type Project = { id: string; name: string; status: string };
 
 export function ProjectsTable() {
-  const { data: projects, isLoading, error } = useQuery({
+  const {
+    data: projects,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["projects"],
     queryFn: fetchProjects,
   });

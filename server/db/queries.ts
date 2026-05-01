@@ -11,14 +11,10 @@ export interface RunRow {
   finished_at: number | null;
   status: "running" | "done" | "failed" | "stopped";
 
-  bench_version: string;
-  git_dirty: number;
-  system_prompt_hash: string | null;
   scenario_ids: string;
 
   runtime: string;
   runtime_kind: string;
-  runtime_build: string | null;
   endpoint: string | null;
   model: string;
   model_file: string | null;
@@ -26,12 +22,6 @@ export interface RunRow {
   quant_tier: number | null;
   quant_source: string | null;
   context_size: number | null;
-
-  temperature: number | null;
-  top_p: number | null;
-  top_k: number | null;
-  seed: number | null;
-  max_tokens: number | null;
 
   gpu_backend: string | null;
   gpu_model: string | null;
@@ -85,22 +75,17 @@ export function insertRun(
   const db = getDb();
   db.run(
     `INSERT INTO runs (
-      id, started_at, status, bench_version, git_dirty, system_prompt_hash, scenario_ids,
-      runtime, runtime_kind, runtime_build, endpoint, model, model_file, quant, quant_tier, quant_source, context_size,
-      temperature, top_p, top_k, seed, max_tokens,
+      id, started_at, status, scenario_ids,
+      runtime, runtime_kind, endpoint, model, model_file, quant, quant_tier, quant_source, context_size,
       gpu_backend, gpu_model, gpu_count, vram_total_mb, host_thermal_note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       run.id,
       run.started_at,
       run.status,
-      run.bench_version,
-      run.git_dirty,
-      run.system_prompt_hash ?? "",
       run.scenario_ids,
       run.runtime,
       run.runtime_kind,
-      run.runtime_build,
       run.endpoint,
       run.model,
       run.model_file,
@@ -108,11 +93,6 @@ export function insertRun(
       run.quant_tier,
       run.quant_source,
       run.context_size,
-      run.temperature,
-      run.top_p,
-      run.top_k,
-      run.seed,
-      run.max_tokens,
       run.gpu_backend,
       run.gpu_model,
       run.gpu_count,
@@ -125,15 +105,7 @@ export function insertRun(
 export function updateRun(
   id: string,
   updates: Partial<
-    Pick<
-      RunRow,
-      | "finished_at"
-      | "status"
-      | "total_points"
-      | "max_points"
-      | "report_path"
-      | "error"
-    >
+    Pick<RunRow, "finished_at" | "status" | "total_points" | "max_points" | "report_path" | "error">
   >
 ): void {
   const db = getDb();

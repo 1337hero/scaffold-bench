@@ -2,11 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { rm } from "node:fs/promises";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import {
-  Evaluation,
-  classifyRuntimeError,
-  runtimeErrorEvaluation,
-} from "../scoring.ts";
+import { Evaluation, classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import {
@@ -40,10 +36,7 @@ const scenario: Scenario = {
     const playgroundDir = workDir;
     const fixturePath = join(playgroundDir, SB23_LONGCONTEXT_PATH);
     const source = await readFile(fixturePath, "utf-8");
-    const actualRange = computeLineRange(
-      source,
-      /function\s+throttleWithJitter\s*\([^)]*\)\s*\{/
-    );
+    const actualRange = computeLineRange(source, /function\s+throttleWithJitter\s*\([^)]*\)\s*\{/);
     await rm(fixturePath, { force: true });
 
     const advertisedCtx = runtime.getContextWindow

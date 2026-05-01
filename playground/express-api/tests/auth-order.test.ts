@@ -14,9 +14,7 @@ describe("auth middleware order", () => {
   });
 
   it("/api/me returns 200 with valid auth", async () => {
-    const res = await request(app)
-      .get("/api/me")
-      .set("Authorization", "Bearer secret-token");
+    const res = await request(app).get("/api/me").set("Authorization", "Bearer secret-token");
     expect(res.status).toBe(200);
   });
 

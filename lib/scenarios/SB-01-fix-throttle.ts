@@ -47,7 +47,9 @@ const scenario: Scenario = {
           { name: "throttle differs from debounce", pass: throttleFn !== debounceFn, weight: 1 },
           {
             name: "throttle has real throttle logic",
-            pass: /Date\.now|lastRun|lastCall|waiting|canRun|trailing|leading|elapsed|diff|inProgress/.test(throttleFn),
+            pass: /Date\.now|lastRun|lastCall|waiting|canRun|trailing|leading|elapsed|diff|inProgress/.test(
+              throttleFn
+            ),
             weight: 2,
             detail: throttleFn.slice(0, 120),
           },
@@ -55,7 +57,8 @@ const scenario: Scenario = {
         scope: [
           {
             name: "edited only utils.js",
-            pass: (await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/utils.js"] })).pass,
+            pass: (await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/utils.js"] }))
+              .pass,
             weight: 2,
           },
         ],

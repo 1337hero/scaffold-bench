@@ -38,35 +38,64 @@ const scenario: Scenario = {
     const origSessions = await readFile(join(ORIG, "src/routes/sessions.ts"), "utf-8");
     const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("audit-log.md"));
 
-    return rubricToEvaluation({
-      correctness: [
-        { name: "created src/lib/audit.ts", pass: audit.length > 0, weight: 0.5 },
-        { name: "logAudit inserts into audit_events", pass: /INSERT\s+INTO\s+audit_events/i.test(audit), weight: 0.5 },
-        { name: "created src/routes/admin.ts", pass: admin.length > 0, weight: 0.5 },
-        { name: "admin.ts uses requireAdmin", pass: /requireAdmin/.test(admin), weight: 0.5 },
-        { name: "schema.sql adds audit_events table", pass: schema !== origSchema && /CREATE\s+TABLE[^;]*audit_events/i.test(schema), weight: 0.5 },
-        { name: "admin.ts calls logAudit", pass: /logAudit\s*\(/.test(admin), weight: 0.5 },
-      ],
-      scope: [
-        { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
-        { name: "did not modify items.ts or sessions.ts", pass: items === origItems && sessions === origSessions, weight: 1 },
-      ],
-      pattern: [
-        { name: "audit.ts exports logAudit", pass: /export\s+function\s+logAudit|export\s+(const|let)\s+logAudit/.test(audit), weight: 1 },
-        { name: "index.ts mounts adminRoutes", pass: index !== origIndex && /adminRoutes/.test(index), weight: 1 },
-      ],
-      verification: [
-        { name: "read the spec file", pass: readSpec, weight: 1 },
-      ],
-      cleanup: [
-        { name: "schema.sql adds index on audit_events", pass: /CREATE\s+INDEX[^;]*audit_events/i.test(schema), weight: 1 },
-        { name: "admin.ts exports adminRoutes", pass: /export\s+(const|let)\s+adminRoutes/.test(admin), weight: 1 },
-      ],
-    }, {
-      pass: "Implemented audit helper, admin route, schema, and wiring with correct patterns.",
-      partial: "Partial implementation — audit mechanism or wiring incomplete.",
-      fail: "Did not implement the audit log feature.",
-    });
+    return rubricToEvaluation(
+      {
+        correctness: [
+          { name: "created src/lib/audit.ts", pass: audit.length > 0, weight: 0.5 },
+          {
+            name: "logAudit inserts into audit_events",
+            pass: /INSERT\s+INTO\s+audit_events/i.test(audit),
+            weight: 0.5,
+          },
+          { name: "created src/routes/admin.ts", pass: admin.length > 0, weight: 0.5 },
+          { name: "admin.ts uses requireAdmin", pass: /requireAdmin/.test(admin), weight: 0.5 },
+          {
+            name: "schema.sql adds audit_events table",
+            pass: schema !== origSchema && /CREATE\s+TABLE[^;]*audit_events/i.test(schema),
+            weight: 0.5,
+          },
+          { name: "admin.ts calls logAudit", pass: /logAudit\s*\(/.test(admin), weight: 0.5 },
+        ],
+        scope: [
+          { name: "did not modify users.ts", pass: users === origUsers, weight: 1 },
+          {
+            name: "did not modify items.ts or sessions.ts",
+            pass: items === origItems && sessions === origSessions,
+            weight: 1,
+          },
+        ],
+        pattern: [
+          {
+            name: "audit.ts exports logAudit",
+            pass: /export\s+function\s+logAudit|export\s+(const|let)\s+logAudit/.test(audit),
+            weight: 1,
+          },
+          {
+            name: "index.ts mounts adminRoutes",
+            pass: index !== origIndex && /adminRoutes/.test(index),
+            weight: 1,
+          },
+        ],
+        verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
+        cleanup: [
+          {
+            name: "schema.sql adds index on audit_events",
+            pass: /CREATE\s+INDEX[^;]*audit_events/i.test(schema),
+            weight: 1,
+          },
+          {
+            name: "admin.ts exports adminRoutes",
+            pass: /export\s+(const|let)\s+adminRoutes/.test(admin),
+            weight: 1,
+          },
+        ],
+      },
+      {
+        pass: "Implemented audit helper, admin route, schema, and wiring with correct patterns.",
+        partial: "Partial implementation — audit mechanism or wiring incomplete.",
+        fail: "Did not implement the audit log feature.",
+      }
+    );
   },
 };
 

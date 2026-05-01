@@ -43,7 +43,10 @@ export function functionCount(source: string): number {
   return (
     countMatches(code, /\bfunction\s+[A-Za-z_$][\w$]*\s*\(/g) +
     countMatches(code, /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g) +
-    countMatches(code, /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?[A-Za-z_$][\w$]*\s*=>/g)
+    countMatches(
+      code,
+      /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?[A-Za-z_$][\w$]*\s*=>/g
+    )
   );
 }
 

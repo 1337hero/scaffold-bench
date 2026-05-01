@@ -22,13 +22,28 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const route = await readFile(join(playgroundDir, "playground/tanstack-router-app/src/routes/projects.tsx"), "utf-8");
-    const table = await readFile(join(playgroundDir, "playground/tanstack-router-app/src/components/ProjectsTable.tsx"), "utf-8");
-    const originalApiClient = await readFile(join(PLAYGROUND_SRC, "tanstack-router-app/src/apiClient.ts"), "utf-8");
-    const currentApiClient = await readFile(join(playgroundDir, "playground/tanstack-router-app/src/apiClient.ts"), "utf-8");
+    const route = await readFile(
+      join(playgroundDir, "playground/tanstack-router-app/src/routes/projects.tsx"),
+      "utf-8"
+    );
+    const table = await readFile(
+      join(playgroundDir, "playground/tanstack-router-app/src/components/ProjectsTable.tsx"),
+      "utf-8"
+    );
+    const originalApiClient = await readFile(
+      join(PLAYGROUND_SRC, "tanstack-router-app/src/apiClient.ts"),
+      "utf-8"
+    );
+    const currentApiClient = await readFile(
+      join(playgroundDir, "playground/tanstack-router-app/src/apiClient.ts"),
+      "utf-8"
+    );
     const scope = await onlyChangedFiles({
       playgroundDir,
-      allowedPaths: ["playground/tanstack-router-app/src/routes/projects.tsx", "playground/tanstack-router-app/src/components/ProjectsTable.tsx"],
+      allowedPaths: [
+        "playground/tanstack-router-app/src/routes/projects.tsx",
+        "playground/tanstack-router-app/src/components/ProjectsTable.tsx",
+      ],
     });
 
     // Route checks
@@ -40,34 +55,59 @@ const scenario: Scenario = {
     const tableNoUseQuery = !/useQuery/.test(table);
     const tableNoUseLoaderData = !/Route\.useLoaderData/.test(table);
     const tableNoFetch = !/fetch\s*\(/.test(table) && !/axios/.test(table);
-    const tableHasProjectsProp = /projects.*:/i.test(table) || /interface.*Props|type.*Props/.test(table);
+    const tableHasProjectsProp =
+      /projects.*:/i.test(table) || /interface.*Props|type.*Props/.test(table);
 
-    return rubricToEvaluation({
-      correctness: [
-        { name: "route loader calls fetchProjects", pass: loaderReturnsProjects, weight: 1 },
-        { name: "route component uses loader data", pass: routeUsesLoaderData, weight: 1 },
-        { name: "route passes projects as prop to table", pass: routePassesProjectsProp, weight: 1 },
-      ],
-      scope: [
-        { name: "edited only routes/projects.tsx and components/ProjectsTable.tsx", pass: scope.pass, weight: 1, detail: scope.detail },
-        { name: "apiClient.ts byte-identical", pass: currentApiClient === originalApiClient, weight: 1 },
-      ],
-      pattern: [
-        { name: "ProjectsTable does not call useQuery", pass: tableNoUseQuery, weight: 1 },
-        { name: "ProjectsTable declares projects props", pass: tableHasProjectsProp && tableNoUseLoaderData, weight: 1 },
-      ],
-      verification: [
-        { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
-      ],
-      cleanup: [
-        { name: "no orphaned useQuery imports in table", pass: tableNoUseQuery && tableNoFetch, weight: 1 },
-        { name: "no dead state in table file", pass: tableNoUseQuery, weight: 1 },
-      ],
-    }, {
-      pass: "Route owns loader data, table is presentational, no duplicate fetching.",
-      partial: "Consolidated the data ownership but with some drift from the pattern.",
-      fail: "Did not establish loader ownership or table still fetches independently.",
-    });
+    return rubricToEvaluation(
+      {
+        correctness: [
+          { name: "route loader calls fetchProjects", pass: loaderReturnsProjects, weight: 1 },
+          { name: "route component uses loader data", pass: routeUsesLoaderData, weight: 1 },
+          {
+            name: "route passes projects as prop to table",
+            pass: routePassesProjectsProp,
+            weight: 1,
+          },
+        ],
+        scope: [
+          {
+            name: "edited only routes/projects.tsx and components/ProjectsTable.tsx",
+            pass: scope.pass,
+            weight: 1,
+            detail: scope.detail,
+          },
+          {
+            name: "apiClient.ts byte-identical",
+            pass: currentApiClient === originalApiClient,
+            weight: 1,
+          },
+        ],
+        pattern: [
+          { name: "ProjectsTable does not call useQuery", pass: tableNoUseQuery, weight: 1 },
+          {
+            name: "ProjectsTable declares projects props",
+            pass: tableHasProjectsProp && tableNoUseLoaderData,
+            weight: 1,
+          },
+        ],
+        verification: [
+          { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
+        ],
+        cleanup: [
+          {
+            name: "no orphaned useQuery imports in table",
+            pass: tableNoUseQuery && tableNoFetch,
+            weight: 1,
+          },
+          { name: "no dead state in table file", pass: tableNoUseQuery, weight: 1 },
+        ],
+      },
+      {
+        pass: "Route owns loader data, table is presentational, no duplicate fetching.",
+        partial: "Consolidated the data ownership but with some drift from the pattern.",
+        fail: "Did not establish loader ownership or table still fetches independently.",
+      }
+    );
   },
 };
 

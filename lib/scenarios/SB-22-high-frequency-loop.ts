@@ -1,17 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
-import {
-  classifyRuntimeError,
-  runtimeErrorEvaluation,
-} from "../scoring.ts";
+import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { Check, RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
-import {
-  SB22_LOOP_PATH,
-  createPointBasedEvaluation,
-  onlyChangedFiles,
-} from "./_shared/helpers.js";
+import { SB22_LOOP_PATH, createPointBasedEvaluation, onlyChangedFiles } from "./_shared/helpers.js";
 
 const SB22_TURN_PROMPTS = [
   "Fix the typo in playground/sb22-loop.js where the local variable is named `usre` instead of `user`. Only make that one edit.",

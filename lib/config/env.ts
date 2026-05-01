@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { EnvSchema } from "../schemas/config.ts";
 
-const DEFAULT_LOCAL_ENDPOINT = "http://127.0.0.1:8082";
+export const DEFAULT_LOCAL_ENDPOINT = "http://127.0.0.1:8082";
 
 export interface RemoteProvider {
   endpoint: string;

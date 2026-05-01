@@ -11,9 +11,9 @@ const app = express();
 // 2. express.json() after routes → POST handlers see undefined req.body
 // 3. publicRoutes after requireAuth → public routes get gated
 app.use(logger);
-app.use("/api", privateRoutes);          // <-- before requireAuth
-app.use(requireAuth);                    // <-- registered too late
-app.use("/api/public", publicRoutes);    // <-- caught by requireAuth (also wrong)
-app.use(express.json());                 // <-- after routes
+app.use("/api", privateRoutes); // <-- before requireAuth
+app.use(requireAuth); // <-- registered too late
+app.use("/api/public", publicRoutes); // <-- caught by requireAuth (also wrong)
+app.use(express.json()); // <-- after routes
 
 export { app };
