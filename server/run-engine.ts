@@ -21,6 +21,7 @@ import {
 } from "./db/queries.ts";
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
+import { getBenchIdentity } from "../lib/bench-identity.ts";
 
 export interface RunBenchOptions {
   runId?: string;
@@ -220,13 +221,14 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
   const controller = globalRegistry.create(runId);
 
   const scenarioIds = request.scenarioIds;
+  const identity = getBenchIdentity();
   insertRun({
     id: runId,
     started_at: Date.now(),
     status: "running",
-    bench_version: "",
-    git_dirty: 0,
-    system_prompt_hash: null,
+    bench_version: identity.benchVersion,
+    git_dirty: identity.gitDirty,
+    system_prompt_hash: identity.systemPromptHash,
     scenario_ids: JSON.stringify(scenarioIds),
     runtime: "local",
     runtime_kind: "llama.cpp",
