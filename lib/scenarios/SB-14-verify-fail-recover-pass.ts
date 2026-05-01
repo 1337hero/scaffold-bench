@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, bashCalls, failedVerificationBeforeChange, firstChangeTurn, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, bashCalls, failedVerificationBeforeChange, firstChangeTurn, noAddedComments, noConsoleLog, noExtraFunctions, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-14",
@@ -41,16 +41,16 @@ const scenario: Scenario = {
         { name: "slugify test file left untouched", pass: test === testOriginal, weight: 1 },
       ],
       pattern: [
-        { name: "no extra functions introduced", pass: true, weight: 1 },
-        { name: "kept existing module structure", pass: true, weight: 1 },
+        { name: "no extra functions introduced", pass: noExtraFunctions(slugify, slugifyOriginal), weight: 1 },
+        { name: "kept existing export shape", pass: /export\s+function/.test(slugify), weight: 1 },
       ],
       verification: [
         { name: "verified the failure before changing code", pass: failedVerificationBeforeChange(bashRuns, changeTurn, slugifyTestMatcher), weight: 0.5 },
         { name: "reran verification and got a passing result", pass: passedVerificationAfterChange(bashRuns, changeTurn, slugifyTestMatcher), weight: 0.5 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(slugify, slugifyOriginal), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(slugify), weight: 1 },
       ],
     }, {
       pass: "Observed the failing test, fixed the implementation, and verified the recovery.",

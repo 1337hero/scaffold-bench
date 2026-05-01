@@ -71,7 +71,7 @@ export function rubricToEvaluation(
   ];
 
   if (points >= PASS_THRESHOLD) {
-    return Evaluation.pass(maxPoints, checks, labels.pass, rubricKind, breakdown);
+    return Evaluation.pass(maxPoints, checks, labels.pass, rubricKind, breakdown, points);
   }
   if (points >= PARTIAL_THRESHOLD) {
     return Evaluation.partial(points, maxPoints, checks, labels.partial, rubricKind, breakdown);

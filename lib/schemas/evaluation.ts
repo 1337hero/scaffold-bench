@@ -38,9 +38,16 @@ export type FailEvaluation = {
 export type ScenarioEvaluation = PassEvaluation | PartialEvaluation | FailEvaluation;
 
 export const Evaluation = {
-  pass: (maxPoints: number, checks: Check[], summary: string, rubricKind?: string, rubricBreakdown?: RubricBreakdown): PassEvaluation => ({
+  pass: (
+    maxPoints: number,
+    checks: Check[],
+    summary: string,
+    rubricKind?: string,
+    rubricBreakdown?: RubricBreakdown,
+    points = maxPoints
+  ): PassEvaluation => ({
     status: "pass",
-    points: maxPoints,
+    points,
     maxPoints,
     checks,
     summary,

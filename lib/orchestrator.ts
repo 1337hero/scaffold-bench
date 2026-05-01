@@ -54,7 +54,7 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
   try {
     let output: RuntimeOutput;
     let evaluation: ScenarioEvaluation;
-    const scenarioMaxPoints = opts.scenario.maxPoints ?? 2;
+    const scenarioMaxPoints = opts.scenario.maxPoints ?? 10;
 
     const runtime = withToolExecution(opts.runtime, opts.toolExecution);
 

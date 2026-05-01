@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, firstChangeTurn, firstTurn, onlyChangedFiles, searchBeforeEdit, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, firstChangeTurn, firstTurn, noConsoleLog, onlyChangedFiles, searchBeforeEdit, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-11",
@@ -49,7 +49,7 @@ const scenario: Scenario = {
       ],
       cleanup: [
         { name: "read before changing files (turn-ordered)", pass: readTurn !== undefined && changeTurn !== undefined && readTurn < changeTurn, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(helper), weight: 1 },
       ],
     }, {
       pass: "Found the shared formatting helper and fixed the real source of the bug.",

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, bashCalls, firstChangeTurn, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, bashCalls, firstChangeTurn, noAddedComments, noConsoleLog, noExtraFunctions, onlyChangedFiles, passedVerificationAfterChange, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-13",
@@ -41,15 +41,15 @@ const scenario: Scenario = {
         { name: "cart test file left untouched", pass: test === testOriginal, weight: 1 },
       ],
       pattern: [
-        { name: "no extra functions introduced", pass: true, weight: 1 },
-        { name: "kept existing module structure", pass: true, weight: 1 },
+        { name: "no extra functions introduced", pass: noExtraFunctions(cart, cartOriginal), weight: 1 },
+        { name: "kept existing export shape", pass: /export\s+function\s+calculateSubtotal/.test(cart), weight: 1 },
       ],
       verification: [
         { name: "ran a passing verification command after editing", pass: passedVerificationAfterChange(bashRuns, changeTurn, cartTestMatcher), weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(cart, cartOriginal), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(cart), weight: 1 },
       ],
     }, {
       pass: "Fixed the bug and ran a verification command afterward.",

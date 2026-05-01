@@ -4,7 +4,7 @@ import type { ScenarioId } from "../schemas/brands.js";
 import { hasCall } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, noFilesChanged, readTurnsForPath, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, noFilesChanged, readTurnsForPath, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-10",
@@ -45,8 +45,8 @@ const scenario: Scenario = {
         { name: "read before concluding", pass: readTurnsForPath(toolCalls, "playground/frontend/ProjectsPanel.tsx").length > 0, weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(current, original), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(current), weight: 1 },
       ],
     }, {
       pass: "Recognized the no-op request and left the working code alone.",

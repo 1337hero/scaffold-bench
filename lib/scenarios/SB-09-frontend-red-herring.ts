@@ -4,7 +4,7 @@ import type { ScenarioId } from "../schemas/brands.js";
 import { hasCall } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, noFilesChanged, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, noFilesChanged, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-09",
@@ -47,8 +47,8 @@ const scenario: Scenario = {
         { name: "did not change any files", pass: scope.pass, weight: 1, detail: scope.detail },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(`${pageCurrent}\n${tableCurrent}`, `${pageOriginal}\n${tableOriginal}`), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(`${pageCurrent}\n${tableCurrent}`), weight: 1 },
       ],
     }, {
       pass: "Recognized the red herring and preserved the existing ownership pattern.",

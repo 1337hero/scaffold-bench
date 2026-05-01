@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, onlyChangedFiles, searchBeforeEdit, stripComments } from "./_shared/helpers.js";
+import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, onlyChangedFiles, searchBeforeEdit, stripComments } from "./_shared/helpers.js";
 
 export const meta = {
   id: "SB-12",
@@ -23,6 +23,7 @@ const scenario: Scenario = {
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const sidebar = await readFile(join(playgroundDir, "playground/frontend/TeamSidebar.tsx"), "utf-8");
+    const originalSidebar = await readFile(join(PLAYGROUND_SRC, "frontend/TeamSidebar.tsx"), "utf-8");
     const hook = await readFile(join(playgroundDir, "playground/frontend/useTeamMembers.ts"), "utf-8");
     const originalHook = await readFile(join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"), "utf-8");
     const sidebarCode = stripComments(sidebar);
@@ -44,8 +45,8 @@ const scenario: Scenario = {
         { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
       ],
       cleanup: [
-        { name: "no stray comments added", pass: true, weight: 1 },
-        { name: "no console.log added", pass: true, weight: 1 },
+        { name: "no added comments", pass: noAddedComments(sidebar, originalSidebar), weight: 1 },
+        { name: "no console.log added", pass: noConsoleLog(sidebar), weight: 1 },
       ],
     }, {
       pass: "Reused the existing abstraction instead of reimplementing it locally.",

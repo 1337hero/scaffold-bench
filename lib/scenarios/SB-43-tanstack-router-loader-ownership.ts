@@ -26,8 +26,6 @@ const scenario: Scenario = {
     const table = await readFile(join(playgroundDir, "playground/tanstack-router-app/src/components/ProjectsTable.tsx"), "utf-8");
     const originalApiClient = await readFile(join(PLAYGROUND_SRC, "tanstack-router-app/src/apiClient.ts"), "utf-8");
     const currentApiClient = await readFile(join(playgroundDir, "playground/tanstack-router-app/src/apiClient.ts"), "utf-8");
-    const originalRoute = await readFile(join(PLAYGROUND_SRC, "tanstack-router-app/src/routes/projects.tsx"), "utf-8");
-    const originalTable = await readFile(join(PLAYGROUND_SRC, "tanstack-router-app/src/components/ProjectsTable.tsx"), "utf-8");
     const scope = await onlyChangedFiles({
       playgroundDir,
       allowedPaths: ["playground/tanstack-router-app/src/routes/projects.tsx", "playground/tanstack-router-app/src/components/ProjectsTable.tsx"],
@@ -56,7 +54,7 @@ const scenario: Scenario = {
       ],
       pattern: [
         { name: "ProjectsTable does not call useQuery", pass: tableNoUseQuery, weight: 1 },
-        { name: "ProjectsTable does not call Route.useLoaderData", pass: tableNoUseLoaderData, weight: 1 },
+        { name: "ProjectsTable declares projects props", pass: tableHasProjectsProp && tableNoUseLoaderData, weight: 1 },
       ],
       verification: [
         { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },

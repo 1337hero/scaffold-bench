@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
-import { extractFunction, hasCall } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import { PLAYGROUND_SRC, firstChangeTurn, firstTurn, onlyChangedFiles, stripComments } from "./_shared/helpers.js";
@@ -50,7 +49,7 @@ const scenario: Scenario = {
       ],
       cleanup: [
         { name: "did not swap in a different request client", pass: !/fetch\s*\(/.test(pageCode) && !/\baxios\b/.test(`${pageCode}\n${tableCode}`), weight: 1 },
-        { name: "no dead imports", pass: true, weight: 1 },
+        { name: "table has no query/client imports", pass: !/from\s+["']@tanstack\/react-query["']/.test(table) && !/from\s+["']\.\/apiClient["']/.test(table), weight: 1 },
       ],
     }, {
       pass: "Moved query ownership to the page and kept the existing stack intact.",

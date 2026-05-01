@@ -9,7 +9,7 @@ scenariosRouter.get("/", (c) => {
       id: s.id,
       name: s.name,
       category: s.category,
-      maxPoints: s.maxPoints ?? 2,
+      maxPoints: s.maxPoints ?? 10,
       prompt: s.prompt,
     }))
   );

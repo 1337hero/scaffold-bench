@@ -84,7 +84,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       scenarioId: scenario.id,
       name: scenario.name,
       category: scenario.category,
-      maxPoints: scenario.maxPoints ?? 2,
+      maxPoints: scenario.maxPoints ?? 10,
       family: scenario.family,
       rubricKind: "rubricKind" in scenario ? (scenario as any).rubricKind : undefined,
       seq: nextSeq(),
@@ -151,7 +151,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         evaluation: {
           status: "fail",
           points: 0,
-          maxPoints: scenario.maxPoints ?? 2,
+          maxPoints: scenario.maxPoints ?? 10,
           checks: [],
           summary: errMsg,
         },
@@ -178,9 +178,12 @@ export async function runBench(opts: RunBenchOptions): Promise<{
     results: results.map((r) => ({
       scenarioId: r.scenarioId,
       category: r.category,
+      family: activeScenarios.find((s) => s.id === r.scenarioId)?.family,
       status: r.evaluation.status,
       points: r.evaluation.points,
       maxPoints: r.evaluation.maxPoints,
+      rubricKind: r.evaluation.rubricKind,
+      rubricBreakdown: r.evaluation.rubricBreakdown,
       toolCallCount: r.output.toolCalls.length,
       wallTimeMs: r.output.wallTimeMs,
       firstTokenMs: r.output.firstTokenMs,
@@ -314,13 +317,16 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
               rubric_kind: resequenced.rubricKind ?? "10pt",
             });
           } else if (resequenced.type === "scenario_finished") {
-            const eval_ = resequenced.evaluation as Record<string, unknown>;
             upsertScenarioRun({
               run_id: runId,
               scenario_id: resequenced.scenarioId,
               status: resequenced.status,
               finished_at: resequenced.ts,
               points: resequenced.points,
+              max_points:
+                typeof (resequenced.evaluation as Record<string, unknown>).maxPoints === "number"
+                  ? ((resequenced.evaluation as Record<string, unknown>).maxPoints as number)
+                  : undefined,
               wall_time_ms: resequenced.wallTimeMs,
               tool_call_count: resequenced.toolCallCount,
               first_token_ms: resequenced.firstTokenMs,
