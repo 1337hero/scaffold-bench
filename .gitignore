@@ -34,3 +34,7 @@ scaffold-bench.db
 scaffold-bench.db-journal
 scaffold-bench.db-wal
 scaffold-bench.db-shm
+
+# Database
+scaffold-bench.db
+scaffold-bench.v1.db

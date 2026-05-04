@@ -51,13 +51,23 @@ export const ModelMetricsSchema = Schema.Struct({
 });
 
 const RuntimeErrorKindSchema = Schema.Literal("infra", "timeout", "aborted", "runtime");
+const RubricBreakdownSchema = Schema.Struct({
+  correctness: Schema.Number,
+  scope: Schema.Number,
+  pattern: Schema.Number,
+  verification: Schema.Number,
+  cleanup: Schema.Number,
+});
 
 export const ScenarioResultSchema = Schema.Struct({
   scenarioId: ScenarioId,
   category: Schema.String,
+  family: Schema.optional(Schema.String),
   status: Schema.Literal("pass", "partial", "fail"),
   points: Schema.Number,
   maxPoints: Schema.Number,
+  rubricKind: Schema.optional(Schema.String),
+  rubricBreakdown: Schema.optional(RubricBreakdownSchema),
   toolCallCount: Schema.Number,
   wallTimeMs: Ms,
   firstTokenMs: Schema.optional(Ms),

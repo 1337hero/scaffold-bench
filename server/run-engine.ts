@@ -21,6 +21,12 @@ import {
 } from "./db/queries.ts";
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
+import { detectGpu } from "../lib/hardware/gpu.ts";
+import {
+  parseQuantTag,
+  quantTagToTier,
+  detectQuantSource,
+} from "../lib/scenarios/_shared/quant.ts";
 
 export interface RunBenchOptions {
   runId?: string;
@@ -84,7 +90,9 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       scenarioId: scenario.id,
       name: scenario.name,
       category: scenario.category,
-      maxPoints: scenario.maxPoints ?? 2,
+      maxPoints: scenario.maxPoints ?? 10,
+      family: scenario.family,
+      rubricKind: "rubricKind" in scenario ? (scenario as any).rubricKind : undefined,
       seq: nextSeq(),
       ts: Date.now(),
     });
@@ -130,6 +138,9 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         evaluation: result.evaluation,
         modelMetrics: result.output.modelMetrics,
         ...(errorKind ? { errorKind } : {}),
+        family: scenario.family,
+        rubricKind: (result.evaluation as any).rubricKind,
+        rubricBreakdown: (result.evaluation as any).rubricBreakdown ?? null,
         seq: nextSeq(),
         ts: Date.now(),
       });
@@ -146,7 +157,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         evaluation: {
           status: "fail",
           points: 0,
-          maxPoints: scenario.maxPoints ?? 2,
+          maxPoints: scenario.maxPoints ?? 10,
           checks: [],
           summary: errMsg,
         },
@@ -173,9 +184,12 @@ export async function runBench(opts: RunBenchOptions): Promise<{
     results: results.map((r) => ({
       scenarioId: r.scenarioId,
       category: r.category,
+      family: activeScenarios.find((s) => s.id === r.scenarioId)?.family,
       status: r.evaluation.status,
       points: r.evaluation.points,
       maxPoints: r.evaluation.maxPoints,
+      rubricKind: r.evaluation.rubricKind,
+      rubricBreakdown: r.evaluation.rubricBreakdown,
       toolCallCount: r.output.toolCalls.length,
       wallTimeMs: r.output.wallTimeMs,
       firstTokenMs: r.output.firstTokenMs,
@@ -212,15 +226,40 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
   const controller = globalRegistry.create(runId);
 
   const scenarioIds = request.scenarioIds;
+  const gpu = detectGpu();
+
+  const metadata = await localRuntime
+    .getMetadata?.({
+      workDir: "",
+      endpoint: request.endpoint,
+      model: request.modelId,
+      apiKey: request.apiKey,
+    })
+    .catch(() => undefined);
+
+  const quantSource = metadata?.modelFile ? parseQuantTag(metadata.modelFile) : null;
+  const quantTier = quantTagToTier(quantSource);
+  const quantOriginKind = metadata?.modelFile ? detectQuantSource(metadata.modelFile) : null;
+
   insertRun({
     id: runId,
     started_at: Date.now(),
     status: "running",
-    runtime: "local",
-    model: request.modelId ?? null,
-    endpoint: request.endpoint ?? null,
-    system_prompt_hash: null,
     scenario_ids: JSON.stringify(scenarioIds),
+    runtime: "local",
+    runtime_kind: metadata?.runtimeKind ?? "llama.cpp",
+    model: request.modelId ?? "unknown",
+    model_file: metadata?.modelFile ?? null,
+    quant: quantSource,
+    quant_tier: quantTier,
+    quant_source: quantOriginKind,
+    context_size: metadata?.contextSize ?? null,
+    endpoint: request.endpoint ?? null,
+    gpu_backend: gpu.backend,
+    gpu_model: gpu.model,
+    gpu_count: gpu.count > 0 ? gpu.count : null,
+    vram_total_mb: gpu.vramTotalMB,
+    host_thermal_note: null,
   });
 
   const startEvent: PersistedEvent = {
@@ -243,7 +282,14 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
   });
 
   for (const scenarioId of scenarioIds) {
-    upsertScenarioRun({ run_id: runId, scenario_id: scenarioId, status: "pending" });
+    const scenario = allScenarios.find((s) => s.id === scenarioId);
+    upsertScenarioRun({
+      run_id: runId,
+      scenario_id: scenarioId,
+      family: scenario?.family ?? "regex-style",
+      rubric_kind: "10pt",
+      status: "pending",
+    });
   }
 
   void (async () => {
@@ -276,9 +322,11 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
               run_id: runId,
               scenario_id: resequenced.scenarioId,
               category: resequenced.category,
+              family: resequenced.family ?? "regex-style",
               status: "running",
               started_at: resequenced.ts,
               max_points: resequenced.maxPoints,
+              rubric_kind: resequenced.rubricKind ?? "10pt",
             });
           } else if (resequenced.type === "scenario_finished") {
             upsertScenarioRun({
@@ -287,9 +335,19 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
               status: resequenced.status,
               finished_at: resequenced.ts,
               points: resequenced.points,
+              max_points:
+                typeof (resequenced.evaluation as Record<string, unknown>).maxPoints === "number"
+                  ? ((resequenced.evaluation as Record<string, unknown>).maxPoints as number)
+                  : undefined,
               wall_time_ms: resequenced.wallTimeMs,
               tool_call_count: resequenced.toolCallCount,
               first_token_ms: resequenced.firstTokenMs,
+              rubric_kind: resequenced.rubricKind ?? "10pt",
+              correctness: resequenced.rubricBreakdown?.correctness ?? null,
+              scope: resequenced.rubricBreakdown?.scope ?? null,
+              pattern: resequenced.rubricBreakdown?.pattern ?? null,
+              verification: resequenced.rubricBreakdown?.verification ?? null,
+              cleanup: resequenced.rubricBreakdown?.cleanup ?? null,
               evaluation_json: JSON.stringify(resequenced.evaluation),
               error_kind: resequenced.errorKind ?? null,
               model_metrics_json: resequenced.modelMetrics

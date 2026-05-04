@@ -64,6 +64,12 @@ export interface RuntimeSession {
   close?(): Promise<void>;
 }
 
+export interface RuntimeMetadata {
+  runtimeKind: "llama.cpp" | "llama-swap" | "vllm" | "ollama" | "lmstudio" | "remote-openai";
+  modelFile?: string | null;
+  contextSize?: number | null;
+}
+
 export interface Runtime {
   name: string;
   run(ctx: RuntimeContext): Promise<RuntimeOutput>;
@@ -72,4 +78,7 @@ export interface Runtime {
   // Used by scenarios (e.g. SB-23) to gracefully skip when the prompt
   // exceeds what the model can ingest.
   getContextWindow?(ctx?: RuntimeSessionContext): Promise<number | undefined>;
+  // Capture per-run metadata for the runs row (quant, sampling, backend).
+  // All fields are optional — runtimes return what they can probe.
+  getMetadata?(ctx?: RuntimeSessionContext): Promise<RuntimeMetadata>;
 }

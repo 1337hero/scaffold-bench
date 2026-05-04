@@ -1,10 +1,11 @@
 import type { Ms, ScenarioId, TokenCount } from "./schemas/brands.js";
 import type { ToolResult } from "./schemas/tool-result.js";
 import { Evaluation } from "./schemas/evaluation.js";
-import type { ScenarioEvaluation } from "./schemas/evaluation.js";
+import type { ScenarioEvaluation, RubricBreakdown } from "./schemas/evaluation.js";
 export { Evaluation };
 export type {
   ScenarioEvaluation,
+  RubricBreakdown,
   PassEvaluation,
   PartialEvaluation,
   FailEvaluation,

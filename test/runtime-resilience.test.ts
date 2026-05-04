@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { callModel } from "../lib/runtimes/local-model.ts";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "../lib/scoring.ts";
+import { DEFAULT_LOCAL_ENDPOINT } from "../lib/config/env.ts";
 
 const ORIGINAL_FETCH = globalThis.fetch;
+const LOCAL_CHAT_ENDPOINT = `${DEFAULT_LOCAL_ENDPOINT}/v1/chat/completions`;
 
 afterEach(() => {
   globalThis.fetch = ORIGINAL_FETCH;
@@ -26,7 +28,7 @@ describe("callModel retries transient empty-body responses", () => {
       [{ role: "user", content: "hi" }],
       performance.now() + 5_000,
       {
-        endpoint: "http://127.0.0.1:8082/v1/chat/completions",
+        endpoint: LOCAL_CHAT_ENDPOINT,
         model: "test-model",
         apiKey: undefined,
       },
@@ -40,7 +42,7 @@ describe("callModel retries transient empty-body responses", () => {
 
 describe("runtime error classification", () => {
   test("marks model endpoint empty-body crashes as score-exempt infra errors", () => {
-    const error = "CRASH: empty response body from http://127.0.0.1:8082/v1/chat/completions";
+    const error = `CRASH: empty response body from ${LOCAL_CHAT_ENDPOINT}`;
     expect(classifyRuntimeError(error)).toEqual({ kind: "infra", scoreExempt: true });
 
     const evaluation = runtimeErrorEvaluation(error, 2);
