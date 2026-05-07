@@ -201,7 +201,8 @@ export async function runBench(opts: RunBenchOptions): Promise<{
 
 function scenarioErrorKind(result: ScenarioResult): RuntimeErrorKind | undefined {
   const fromMetrics = result.output.scenarioMetrics?.runtimeErrorKind;
-  if (typeof fromMetrics === "string" && RUNTIME_ERROR_KINDS.has(fromMetrics)) return fromMetrics as RuntimeErrorKind;
+  if (typeof fromMetrics === "string" && RUNTIME_ERROR_KINDS.has(fromMetrics))
+    return fromMetrics as RuntimeErrorKind;
   if (!result.output.error) return undefined;
   return classifyRuntimeError(result.output.error).kind;
 }

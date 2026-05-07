@@ -34,9 +34,7 @@ function withToolExecution(runtime: Runtime, mode?: ToolExecutionMode): Runtime 
   return {
     ...runtime,
     run: (ctx) => runtime.run(inject(ctx)),
-    ...(runtime.startSession
-      ? { startSession: (ctx) => runtime.startSession!(inject(ctx)) }
-      : {}),
+    ...(runtime.startSession ? { startSession: (ctx) => runtime.startSession!(inject(ctx)) } : {}),
   };
 }
 

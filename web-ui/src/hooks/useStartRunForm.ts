@@ -22,7 +22,7 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
   const scenarios = scenariosQuery.data ?? [];
   const scenariosRef = useRef(scenarios);
   scenariosRef.current = scenarios;
-  
+
   const localModels = modelsQuery.data?.local ?? [];
   const remoteModels = modelsQuery.data?.remote ?? [];
   const loading = scenariosQuery.isLoading || modelsQuery.isLoading;
@@ -52,9 +52,10 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
       onLaunch(runId, variables.scenarioIds);
     },
     onError: (err) => {
-      const message = err instanceof ApiError && err.activeRunId
-        ? `A run is already in progress (${err.activeRunId})`
-        : (err.message ?? "Failed to start run");
+      const message =
+        err instanceof ApiError && err.activeRunId
+          ? `A run is already in progress (${err.activeRunId})`
+          : (err.message ?? "Failed to start run");
       setError(message);
     },
   });

@@ -248,10 +248,13 @@ export function mergeModelMetrics(
   const base = Object.fromEntries(SUM_KEYS.map((k) => [k, sum(k)]));
 
   const paired = PAIRED_KEYS.flatMap(([tokenKey, timeKey]) => {
-    const present = defined.filter(
-      (m) => m[tokenKey] !== undefined && m[timeKey] !== undefined
-    );
-    return present.length === 0 ? [] : [[tokenKey, sum(tokenKey)], [timeKey, sum(timeKey)]];
+    const present = defined.filter((m) => m[tokenKey] !== undefined && m[timeKey] !== undefined);
+    return present.length === 0
+      ? []
+      : [
+          [tokenKey, sum(tokenKey)],
+          [timeKey, sum(timeKey)],
+        ];
   });
 
   return {

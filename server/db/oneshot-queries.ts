@@ -33,16 +33,14 @@ export function clearPreviousOneshot(): void {
   db.run("DELETE FROM oneshot_runs");
 }
 
-export function insertOneshotRun(
-  params: {
-    id: string;
-    started_at: number;
-    status: "running" | "done" | "failed" | "stopped";
-    model: string | null;
-    endpoint: string | null;
-    prompt_ids: string;
-  }
-): string {
+export function insertOneshotRun(params: {
+  id: string;
+  started_at: number;
+  status: "running" | "done" | "failed" | "stopped";
+  model: string | null;
+  endpoint: string | null;
+  prompt_ids: string;
+}): string {
   const db = getDb();
   db.run(
     `INSERT INTO oneshot_runs (id, started_at, status, model, endpoint, prompt_ids)

@@ -53,10 +53,7 @@ function dedupeById(models: Model[]): Model[] {
 
 export async function listModels(): Promise<{ local: Model[]; remote: Model[] }> {
   const { localEndpoint } = readEnv();
-  const [local, remote] = await Promise.all([
-    probeLocalModels(localEndpoint),
-    getRemoteModels(),
-  ]);
+  const [local, remote] = await Promise.all([probeLocalModels(localEndpoint), getRemoteModels()]);
   return { local: dedupeById(local), remote: dedupeById(remote) };
 }
 

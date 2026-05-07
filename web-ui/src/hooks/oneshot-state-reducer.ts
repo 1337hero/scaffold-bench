@@ -77,12 +77,7 @@ export function oneshotStateReducer(
     }
     return {
       runId: latest.runId,
-      status:
-        latest.status === "done"
-          ? "done"
-          : latest.status === "failed"
-            ? "failed"
-            : "running",
+      status: latest.status === "done" ? "done" : latest.status === "failed" ? "failed" : "running",
       model: latest.model,
       promptIds: [...latest.promptIds],
       prompts,

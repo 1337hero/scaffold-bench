@@ -17,7 +17,10 @@ export class EventBus {
     this.runHandlers.get(event.runId)?.forEach((h) => h(event));
     const scenarioId = "scenarioId" in event ? event.scenarioId : undefined;
     if (scenarioId) {
-      this.scenarioHandlers.get(event.runId)?.get(scenarioId)?.forEach((h) => h(event));
+      this.scenarioHandlers
+        .get(event.runId)
+        ?.get(scenarioId)
+        ?.forEach((h) => h(event));
     }
   }
 

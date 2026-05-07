@@ -165,11 +165,12 @@ runsRouter.get("/:id/stream", (c) => {
       ? fromSeqParam
       : -1;
 
-  const history = fromSeq >= 0
-    ? (scenarioId
+  const history =
+    fromSeq >= 0
+      ? scenarioId
         ? getScenarioEvents(runId, scenarioId, fromSeq)
-        : getRunEvents(runId, fromSeq))
-    : [];
+        : getRunEvents(runId, fromSeq)
+      : [];
 
   return streamRunEvents(c, {
     runId,
@@ -177,7 +178,12 @@ runsRouter.get("/:id/stream", (c) => {
     history,
     accept: (e) => {
       if (e.type.startsWith("oneshot_")) return false;
-      if (scenarioId && "scenarioId" in e && (e as { scenarioId: string }).scenarioId !== scenarioId) return false;
+      if (
+        scenarioId &&
+        "scenarioId" in e &&
+        (e as { scenarioId: string }).scenarioId !== scenarioId
+      )
+        return false;
       return true;
     },
     isTerminal: (type) =>
