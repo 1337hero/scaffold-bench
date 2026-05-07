@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { scenarios } from "../../lib/scenarios.ts";
+import { scenarios } from "../../lib/scenarios/index.js";
 
 export const scenariosRouter = new Hono();
 

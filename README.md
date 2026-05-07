@@ -2,13 +2,15 @@
 
 # Scaffold Bench - v2.0.0
 
-**Stress-test local LLMs on real agentic coding work — not trivia, not math puzzles.**
+**Measure whether coding models behave like careful senior assistants in real codebases.**
 
 </div>
 
 ---
 
-Scaffold Bench wraps any OpenAI-compatible LLM (Ollama, llama.cpp, LM Studio, vLLM) in a fixed coding agent with full tool execution. The agent can read, write, edit, bash and runs against 25 real coding tasks.
+Scaffold Bench is a cost-of-delegation benchmark for coding models. It is built around the work a senior solo developer or agency developer actually hands off: inherited frontend and backend codebases, narrow client requests, refactors, fixes, and improvements where making a mess is often worse than failing cleanly.
+
+The harness wraps any OpenAI-compatible LLM (Ollama, llama.cpp, LM Studio, vLLM) in a fixed coding agent with full tool execution. The agent can read, write, edit, and run shell commands against 25 real coding tasks. The benchmark scores whether the model solved the task, but also whether it followed instructions, copied the existing style, kept scope tight, verified the right thing, and avoided leaving review debt behind.
 
 ---
 
@@ -62,7 +64,20 @@ The API key stays server-side — it's never sent across the wire from the brows
 
 ## What It Tests
 
-Each scenario gives the model a real task and a real codebase. It has access to five tools — `read`, `ls`, `edit`, `write`, `bash` — and a timeout. Search is done through `bash` (`ugrep`/`rg`, `bfs`/`find`) for fewer, faster tool round-trips. The harness scores the result with deterministic, code-driven checks. **No LLM judge.**
+Each scenario gives the model a client-shaped task and a real codebase with existing conventions. It has access to five tools — `read`, `ls`, `edit`, `write`, `bash` — and a timeout. Search is done through `bash` (`ugrep`/`rg`, `bfs`/`find`) for fewer, faster tool round-trips. The harness scores the result with deterministic, code-driven checks. **No LLM judge.**
+
+Scaffold Bench is not a LeetCode benchmark, a blank-page app-generation benchmark, or a "did the hidden tests turn green?" benchmark. It measures whether a model is useful as a coding assistant when the expensive part is not typing code — it is preserving the shape, intent, and maintainability of someone else's project.
+
+Good runs tend to:
+
+- inspect the relevant files before editing
+- make the smallest correct change
+- reuse the project's existing stack, helpers, and naming
+- avoid unrelated rewrites, new dependencies, and speculative abstractions
+- run a focused verification command when the task calls for it
+- recover cleanly from failed edits or failing tests
+
+Bad runs often still produce code, but they create cleanup work: broad rewrites, style drift, extra files, brittle workarounds, unnecessary comments, or changes outside the requested scope.
 
 ### Scenario Categories
 
@@ -124,14 +139,16 @@ Most scenarios use a **0-10 rubric** scored across five dimensions:
 | **Verification**      | 0-1    | Did it run the right command before and/or after the change to confirm the fix?  |
 | **Cleanup cost**      | 0-2    | How much would a human reviewer have to clean up after?                          |
 
+Correctness is necessary, but it is not sufficient. A model that gets behavior right by bulldozing surrounding code should score worse than a model that lands a smaller, idiomatic patch.
+
 Status thresholds: **≥9 → pass**, **5-8 → partial**, **≤4 → fail**.
 
 Scope discipline is checked from an actual filesystem diff between the pristine fixture and the model's working copy, so changes made through `bash` (e.g., `sed`) are caught just like `edit` or `write` tool calls.
 
 Two scenarios use custom point models:
 
-- `SB-22` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
-- `SB-23` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
+- `SB-19` (`responsiveness`) scores **0-5**: 1 point per correct turn completed within 10 seconds.
+- `SB-20` (`long-context`) scores **0-3**: name, line range, and first meaningful token within 30 seconds.
 
 Results are persisted to SQLite and accessible from the dashboard at **http://localhost:4317**.
 
@@ -140,6 +157,18 @@ Results are persisted to SQLite and accessible from the dashboard at **http://lo
 - `totalPromptTokens` / `totalCompletionTokens` — summed across all requests
 - `totalRequests` — number of completions made
 - `promptTokensPerSecond` / `completionTokensPerSecond` — only present if the server returns timing metadata (e.g. llama.cpp's `x-inference-time`)
+
+### Trajectory Quality
+
+The harness records every tool call, not just the final diff. This makes it possible to evaluate the model's working style:
+
+- context acquisition: `read`, `ls`, and search before edits
+- edit discipline: `edit` versus whole-file `write`, number of files touched, failed edit recovery
+- verification behavior: failing test reproduced before change, passing test rerun after change
+- overthinking tax: extra files, unnecessary dependencies, speculative refactors, unrelated churn
+- responsiveness: first-token time, turn time, and tight-loop edit latency
+
+These signals are first-class because Scaffold Bench is trying to answer a practical question: how much supervision and cleanup does this model cost?
 
 ---
 
@@ -178,6 +207,7 @@ Each scenario file exports `meta` and a default `Scenario` object:
 ```ts
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import type { Scenario } from "./_shared/types.js";
+import type { ScenarioId } from "../schemas/brands.js";
 import { PLAYGROUND_SRC, onlyChangedFiles } from "./_shared/helpers.js";
 
 export const meta = {
@@ -186,6 +216,7 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
+  signalType: "regex-shape" as const,
   fixturePath: "playground/",
   prompt: `Fix the thing in playground/thing.ts. Only that.`,
 } as const;
@@ -214,14 +245,6 @@ const scenario: Scenario = {
 export default scenario;
 ```
 
-      fail: "No change or wrong file edited.",
-    });
-
-},
-}
-
-```
-
 For large inline prompts, use `buildPrompt()` to assemble from the copied playground. For multi-turn cases, use `execute()` plus `runtime.startSession()`.
 
 ---
@@ -238,7 +261,7 @@ Implement the `Runtime` interface from `lib/runtimes/types.ts` and register it i
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Model server connection refused | Verify `SCAFFOLD_LOCAL_ENDPOINT` points to a running server; test with `curl $SCAFFOLD_LOCAL_ENDPOINT/v1/models` |
 | SSE stream drops                | Web server sets `idleTimeout: 0` for SSE; check firewall if using remote host                                    |
-| Scenario hangs                  | Set a longer `timeoutMs` when starting a run; SB-22 and SB-16 need many turns                                    |
+| Scenario hangs                  | Set a longer `timeoutMs` when starting a run; implementation and multi-turn scenarios can need more time         |
 | SQLite locked                   | Close other running instances; the DB uses WAL mode                                                              |
 | Frontend doesn't connect to API | Make sure `bun run dev` or `bun run start` is running; check port `4317`                                         |
 
@@ -251,4 +274,3 @@ MIT
 ## Credits
 
 - [Commit Mono](https://github.com/eigilnikolajsen/commit-mono) - Commit Mono is an anonymous and neutral programming typeface.
-```

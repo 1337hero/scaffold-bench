@@ -1,9 +1,22 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ScenarioId } from "../schemas/brands.js";
+import type { Ms, ScenarioId } from "../schemas/brands.js";
+import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
+import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { PLAYGROUND_SRC, noAddedComments, noConsoleLog, readOrEmpty } from "./_shared/helpers.js";
+import {
+  PLAYGROUND_SRC,
+  bunAvailable,
+  createSkippedEvaluation,
+  noAddedComments,
+  noConsoleLog,
+  readOrEmpty,
+  runBunTest,
+  onlyChangedFiles,
+} from "./_shared/helpers.js";
+
+const PROMPT = `Read the spec at playground/hono-api/specs/cursor-pagination.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`;
 
 export const meta = {
   id: "SB-15",
@@ -11,9 +24,9 @@ export const meta = {
   category: "implementation" as const,
   family: "spec-impl" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
   fixturePath: "playground/hono-api/",
-  prompt: `Read the spec at playground/hono-api/specs/cursor-pagination.md and implement the feature described there. Follow the patterns already established in playground/hono-api/.`,
+  prompt: PROMPT,
 } as const;
 
 const scenario: Scenario = {
@@ -21,36 +34,91 @@ const scenario: Scenario = {
   name: "hono-cursor-pagination",
   category: "implementation",
   family: "spec-impl",
-  prompt: meta.prompt,
-  async evaluate({ playgroundDir, toolCalls }) {
-    const BASE = join(playgroundDir, "playground/hono-api");
+  prompt: PROMPT,
+  async execute(ctx) {
+    const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
+    const fixtureDir = join(workDir, "playground/hono-api");
+
+    if (!bunAvailable()) {
+      const output: RuntimeOutput = {
+        stdout: "",
+        toolCalls: [],
+        wallTimeMs: 0 as Ms,
+        scenarioMetrics: { skipped: true, reason: "bun-not-on-path" },
+      };
+      return {
+        output,
+        evaluation: createSkippedEvaluation("bun on PATH", "SKIPPED: bun not found on PATH"),
+      };
+    }
+
+    const runStartedAt = performance.now();
+    let output: RuntimeOutput;
+    try {
+      output = await runtime.run({
+        workDir,
+        prompt: PROMPT,
+        timeoutMs,
+        onEvent: onRuntimeEvent,
+        ...runtimeOverrides,
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      output = {
+        stdout: "",
+        toolCalls: [],
+        wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
+        error: `CRASH: ${msg}`,
+      };
+    }
+
+    if (output.error) {
+      const classification = classifyRuntimeError(output.error);
+      return {
+        output: {
+          ...output,
+          scenarioMetrics: {
+            ...output.scenarioMetrics,
+            runtimeErrorKind: classification.kind,
+            scoreExempt: classification.scoreExempt,
+          },
+        },
+        evaluation: runtimeErrorEvaluation(output.error, 10),
+      };
+    }
+
+    const testRun = await runBunTest(fixtureDir, "tests/sb-15-cursor-pagination.test.ts");
+    const testsPass = testRun.pass;
+
+    const BASE = fixtureDir;
     const ORIG = join(PLAYGROUND_SRC, "hono-api");
     const items = await readOrEmpty(join(BASE, "src/routes/items.ts"));
-    const origItems = await readFile(join(ORIG, "src/routes/items.ts"), "utf-8");
-    const schema = await readOrEmpty(join(BASE, "schema.sql"));
-    const origSchema = await readFile(join(ORIG, "schema.sql"), "utf-8");
-    const users = await readOrEmpty(join(BASE, "src/routes/users.ts"));
-    const origUsers = await readFile(join(ORIG, "src/routes/users.ts"), "utf-8");
-    const sessions = await readOrEmpty(join(BASE, "src/routes/sessions.ts"));
-    const origSessions = await readFile(join(ORIG, "src/routes/sessions.ts"), "utf-8");
-    const readSpec = toolCalls.some(
+    const origItems = await readFile(join(ORIG, "src/routes/items.ts"), "utf-8").catch(() => "");
+    const readSpec = output.toolCalls.some(
       (c) => c.name === "read" && c.args.includes("cursor-pagination.md")
     );
 
-    return rubricToEvaluation(
+    const scope = await onlyChangedFiles({
+      playgroundDir: workDir,
+      allowedPaths: ["playground/hono-api/src/routes/items.ts"],
+    });
+
+    const evaluation = rubricToEvaluation(
       {
         correctness: [
-          { name: "edited items.ts", pass: items !== origItems, weight: 0.5 },
-          { name: "response includes nextCursor", pass: /nextCursor/.test(items), weight: 1 },
-          { name: "query uses LIMIT", pass: /LIMIT\s+\?/i.test(items), weight: 0.5 },
-          { name: "filters by cursor (id < ?)", pass: /id\s*<\s*\?/.test(items), weight: 1 },
+          {
+            name: "bun tests pass",
+            pass: testsPass,
+            weight: 3,
+            detail: testsPass ? undefined : testRun.stdout + "\n" + testRun.stderr,
+          },
         ],
         scope: [
-          { name: "did not modify schema.sql", pass: schema === origSchema, weight: 1 },
           {
-            name: "did not modify users.ts or sessions.ts",
-            pass: users === origUsers && sessions === origSessions,
-            weight: 1,
+            name: "only expected files changed",
+            pass: scope.pass,
+            weight: 2,
+            detail: scope.detail,
           },
         ],
         pattern: [
@@ -74,11 +142,13 @@ const scenario: Scenario = {
         ],
       },
       {
-        pass: "Added cursor pagination with correct response shape and preserved filters.",
-        partial: "Partial implementation — missing cursor filter, validation, or limit cap.",
+        pass: "All tests pass with correct response shape and preserved filters.",
+        partial: "Some tests fail, or implementation pieces missing.",
         fail: "Did not implement cursor pagination correctly.",
       }
     );
+
+    return { output, evaluation };
   },
 };
 

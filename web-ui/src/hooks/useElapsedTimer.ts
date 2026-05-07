@@ -15,6 +15,7 @@ export function useElapsedTimer(status: RunStatus, startedAt?: number | null): n
       }, 1000);
       return () => clearInterval(interval);
     } else if (status !== "idle") {
+      if (startTimeRef.current) setElapsed(Date.now() - startTimeRef.current);
       return;
     } else {
       startTimeRef.current = null;

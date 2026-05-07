@@ -19,15 +19,21 @@ function formatTime(ts: number): string {
   return new Date(ts).toISOString().substring(11, 19);
 }
 
+const TOOL_LABEL_MAP: Record<string, string> = {
+  bash: "cmd",
+  execute_bash: "cmd",
+  run_bash: "cmd",
+  computer: "cmd",
+  edit: "edit",
+  write: "edit",
+  str_replace_editor: "edit",
+  str_replace: "edit",
+  create_file: "edit",
+  write_file: "edit",
+};
+
 function toolLabel(name: string): string {
-  if (["bash", "execute_bash", "run_bash", "computer"].includes(name)) return "cmd";
-  if (
-    ["edit", "write", "str_replace_editor", "str_replace", "create_file", "write_file"].includes(
-      name
-    )
-  )
-    return "edit";
-  return "tool";
+  return TOOL_LABEL_MAP[name] ?? "tool";
 }
 
 function updateScenario(

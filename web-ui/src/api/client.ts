@@ -10,6 +10,18 @@ import type { StoredRunEvent } from "@/lib/replay";
 
 const BASE = "/api";
 
+export class ApiError extends Error {
+  status: number;
+  activeRunId?: string;
+
+  constructor(message: string, status: number, activeRunId?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.activeRunId = activeRunId;
+  }
+}
+
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { signal });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
@@ -25,13 +37,7 @@ async function post<T>(path: string, body?: unknown, signal?: AbortSignal): Prom
   });
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { error?: string; activeRunId?: string };
-    const e = new Error(err.error ?? `POST ${path} → ${res.status}`) as Error & {
-      activeRunId?: string;
-      status: number;
-    };
-    e.status = res.status;
-    e.activeRunId = err.activeRunId;
-    throw e;
+    throw new ApiError(err.error ?? `POST ${path} → ${res.status}`, res.status, err.activeRunId);
   }
   return res.json() as Promise<T>;
 }

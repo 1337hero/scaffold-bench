@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import {
@@ -25,11 +25,6 @@ export function RunHistory({ onReplay, onBack, backHref }: RunHistoryProps) {
   const queryClient = useQueryClient();
   const [sourceFilter, setSourceFilter] = useState<ReportSourceFilter>("all");
   const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const t = setTimeout(() => setArmed(false), 3000);
-    return () => clearTimeout(t);
-  }, [armed]);
   const reportQuery = useQuery({
     queryKey: ["report-data"],
     queryFn: ({ signal }) => api.getReportData(signal),
@@ -56,30 +51,13 @@ export function RunHistory({ onReplay, onBack, backHref }: RunHistoryProps) {
     mutationFn: api.clearRuns,
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["runs"] });
-      await queryClient.cancelQueries({ queryKey: ["report-data"] });
-
       const previousRuns = queryClient.getQueryData(["runs"]);
-      const previousReport = queryClient.getQueryData(["report-data"]);
-
       queryClient.setQueryData(["runs"], []);
-      queryClient.setQueryData(["report-data"], (old: unknown) => {
-        if (!old || typeof old !== "object") return old;
-        const report = old as { totals?: { runs?: number; scenarioRuns?: number } };
-        if (!report.totals) return old;
-        return {
-          ...report,
-          totals: { ...report.totals, runs: 0, scenarioRuns: 0 },
-        };
-      });
-
-      return { previousRuns, previousReport };
+      return { previousRuns };
     },
     onError: (_error, _variables, context) => {
       if (context?.previousRuns !== undefined) {
         queryClient.setQueryData(["runs"], context.previousRuns);
-      }
-      if (context?.previousReport !== undefined) {
-        queryClient.setQueryData(["report-data"], context.previousReport);
       }
     },
     onSettled: async () => {
@@ -97,6 +75,7 @@ export function RunHistory({ onReplay, onBack, backHref }: RunHistoryProps) {
   const clearRuns = (): void => {
     if (!armed) {
       setArmed(true);
+      setTimeout(() => setArmed(false), 3000);
       return;
     }
     setArmed(false);

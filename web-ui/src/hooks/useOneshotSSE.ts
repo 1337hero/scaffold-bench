@@ -7,6 +7,7 @@ const EVENT_TYPES: OneshotEvent["type"][] = [
   "oneshot_delta",
   "oneshot_test_finished",
   "oneshot_run_finished",
+  "oneshot_run_stopped",
   "oneshot_run_failed",
 ];
 
@@ -30,7 +31,9 @@ export function useOneshotSSE(
     const handle = (evt: MessageEvent<string>) => {
       try {
         onEventRef.current(JSON.parse(evt.data) as OneshotEvent);
-      } catch {}
+      } catch (error) {
+        console.warn("Ignoring malformed oneshot SSE event", error);
+      }
     };
 
     const handleOpen = () => {

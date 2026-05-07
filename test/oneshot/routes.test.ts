@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { oneshotRouter } from "../../server/routes/oneshot.ts";
 import { runMigrations } from "../../server/db/migrations.ts";
-import { clearPreviousOneshot } from "../../server/db/oneshot-queries.ts";
+import {
+  clearPreviousOneshot,
+  getLatestOneshotRun,
+  insertOneshotRun,
+} from "../../server/db/oneshot-queries.ts";
 import { globalRegistry } from "../../server/run-registry.ts";
 
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -23,6 +27,9 @@ describe("oneshot routes", () => {
   });
 
   afterEach(() => {
+    clearPreviousOneshot();
+    const active = globalRegistry.activeRunId();
+    if (active) globalRegistry.delete(active);
     globalThis.fetch = ORIGINAL_FETCH;
   });
 
@@ -108,5 +115,27 @@ describe("oneshot routes", () => {
     expect(json).not.toBeNull();
     expect(json && typeof json.runId).toBe("string");
     expect(json && Array.isArray(json.results)).toBe(true);
+  });
+
+  test("GET /api/oneshot/runs/latest clears stale running run without active controller", async () => {
+    const app = new Hono();
+    app.route("/api/oneshot", oneshotRouter);
+
+    insertOneshotRun({
+      id: "stale-run",
+      started_at: Date.now() - 60_000,
+      status: "running",
+      model: "test-model",
+      endpoint: null,
+      prompt_ids: '["01-meadow-canvas"]',
+    });
+
+    const res = await app.request("/api/oneshot/runs/latest");
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { status: string; error: string | null } | null;
+
+    expect(json?.status).toBe("failed");
+    expect(json?.error).toBe("stale_running_run");
+    expect(getLatestOneshotRun()?.status).toBe("failed");
   });
 });

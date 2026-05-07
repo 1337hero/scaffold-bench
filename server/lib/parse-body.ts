@@ -4,25 +4,27 @@ import type { Context } from "hono";
 
 export async function parseBody<A, I>(schema: Schema.Schema<A, I>, c: Context): Promise<A> {
   const contentType = c.req.header("content-type")?.toLowerCase() ?? "";
+  let raw: unknown;
 
-  const raw = contentType.includes("application/json")
-    ? await c.req.json().catch(() => {
-        throw new HTTPException(400, { message: "Invalid JSON body" });
-      })
-    : contentType.includes("application/x-www-form-urlencoded") ||
-        contentType.includes("multipart/form-data")
-      ? await c.req.formData().then(formDataToObject)
-      : (() => {
-          throw new HTTPException(415, {
-            message:
-              "Unsupported content-type. Use application/json or application/x-www-form-urlencoded",
-          });
-        })();
+  if (contentType.includes("application/json")) {
+    raw = await c.req.json().catch(() => {
+      throw new HTTPException(400, { message: "Invalid JSON body" });
+    });
+  } else if (
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data")
+  ) {
+    raw = await c.req.formData().then(formDataToObject);
+  } else {
+    throw new HTTPException(415, {
+      message:
+        "Unsupported content-type. Use application/json or application/x-www-form-urlencoded",
+    });
+  }
 
   const result = Schema.decodeUnknownEither(schema)(raw);
   if (result._tag === "Left") {
-    const message = String(result.left);
-    throw new HTTPException(400, { message });
+    throw new HTTPException(400, { message: String(result.left) });
   }
   return result.right;
 }

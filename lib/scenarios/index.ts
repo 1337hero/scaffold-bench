@@ -54,8 +54,10 @@ export const scenarios: Scenario[] = [
   SB25,
 ];
 
-if (scenarios.length !== 25) {
-  throw new Error(`Expected 25 active scenarios, got ${scenarios.length}`);
+if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
+  throw new Error(
+    `Scenario registry failed validation: ${scenarios.length} entries, some missing ids`
+  );
 }
 
 export { PLAYGROUND_SRC } from "./_shared/helpers.js";

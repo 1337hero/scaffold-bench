@@ -44,7 +44,7 @@ export function LogTerminal({ scenario, isLive }: LogTerminalProps) {
     if (!isUserScrolledUp.current && scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: "auto" });
     }
-  }, [scenario?.logs.length, scenario?.streamBuffer]);
+  }, [scenario?.logs.length]);
 
   const handleScroll = () => {
     const el = containerRef.current;

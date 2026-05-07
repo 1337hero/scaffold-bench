@@ -3,12 +3,12 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runScenario } from "../lib/orchestrator.ts";
 import { localRuntime } from "../lib/runtimes/local-agent.ts";
-import { scenarios as allScenarios } from "../lib/scenarios.ts";
+import { scenarios as allScenarios } from "../lib/scenarios/index.js";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
 import { computeRunTotals, type ScenarioLike } from "../lib/aggregates.ts";
 import { classifyRuntimeError, mergeModelMetrics } from "../lib/scoring.ts";
-import type { ScenarioResult } from "../lib/scoring.ts";
-import type { RuntimeErrorKind } from "../lib/scoring.ts";
+import type { ScenarioResult, RuntimeErrorKind } from "../lib/scoring.ts";
+import type { ScenarioEvaluation } from "../lib/schemas/evaluation.js";
 import type { RuntimeEvent, ToolExecutionMode } from "../lib/runtimes/types.ts";
 import { runtimeEventToPersisted } from "./contracts/events.ts";
 import type { PersistedEvent } from "./contracts/events.ts";
@@ -37,30 +37,12 @@ export interface RunBenchOptions {
   systemPrompt?: string;
   toolExecution?: ToolExecutionMode;
   timeoutMs?: number;
+  nextSeq?: () => number;
   onEvent?: (event: PersistedEvent) => void;
   signal?: AbortSignal;
 }
 
-function scenarioToLike(r: ScenarioResult): ScenarioLike {
-  return {
-    id: r.scenarioId,
-    category: r.category,
-    stage: "done",
-    toolCalls: r.output.toolCalls,
-    result: r,
-  };
-}
-
-function isRuntimeErrorKind(value: unknown): value is RuntimeErrorKind {
-  return value === "infra" || value === "timeout" || value === "aborted" || value === "runtime";
-}
-
-function scenarioErrorKind(result: ScenarioResult): RuntimeErrorKind | undefined {
-  const fromMetrics = result.output.scenarioMetrics?.runtimeErrorKind;
-  if (isRuntimeErrorKind(fromMetrics)) return fromMetrics;
-  if (!result.output.error) return undefined;
-  return classifyRuntimeError(result.output.error).kind;
-}
+const RUNTIME_ERROR_KINDS = new Set<string>(["infra", "timeout", "aborted", "runtime"]);
 
 export async function runBench(opts: RunBenchOptions): Promise<{
   results: ScenarioResult[];
@@ -78,8 +60,8 @@ export async function runBench(opts: RunBenchOptions): Promise<{
 
   const timeoutMs = opts.timeoutMs ?? 600_000;
   const results: ScenarioResult[] = [];
-  let seq = 0;
-  const nextSeq = (): number => seq++;
+  let _seq = 0;
+  const nextSeq = opts.nextSeq ?? (() => _seq++);
 
   for (const scenario of activeScenarios) {
     if (opts.signal?.aborted) break;
@@ -92,7 +74,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       category: scenario.category,
       maxPoints: scenario.maxPoints ?? 10,
       family: scenario.family,
-      rubricKind: "rubricKind" in scenario ? (scenario as any).rubricKind : undefined,
+      rubricKind: scenario.rubricKind,
       seq: nextSeq(),
       ts: Date.now(),
     });
@@ -139,8 +121,8 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         modelMetrics: result.output.modelMetrics,
         ...(errorKind ? { errorKind } : {}),
         family: scenario.family,
-        rubricKind: (result.evaluation as any).rubricKind,
-        rubricBreakdown: (result.evaluation as any).rubricBreakdown ?? null,
+        rubricKind: result.evaluation.rubricKind,
+        rubricBreakdown: result.evaluation.rubricBreakdown ?? null,
         seq: nextSeq(),
         ts: Date.now(),
       });
@@ -167,7 +149,13 @@ export async function runBench(opts: RunBenchOptions): Promise<{
     }
   }
 
-  const resultLikes = results.map(scenarioToLike);
+  const resultLikes: ScenarioLike[] = results.map((r) => ({
+    id: r.scenarioId,
+    category: r.category,
+    stage: "done" as const,
+    toolCalls: r.output.toolCalls,
+    result: r,
+  }));
   const { totalPoints, maxPoints } = computeRunTotals(resultLikes);
   const modelMetrics = mergeModelMetrics(results.map((r) => r.output.modelMetrics));
 
@@ -211,6 +199,51 @@ export async function runBench(opts: RunBenchOptions): Promise<{
   return { results, totalPoints, maxPoints, resultsPath };
 }
 
+function scenarioErrorKind(result: ScenarioResult): RuntimeErrorKind | undefined {
+  const fromMetrics = result.output.scenarioMetrics?.runtimeErrorKind;
+  if (typeof fromMetrics === "string" && RUNTIME_ERROR_KINDS.has(fromMetrics))
+    return fromMetrics as RuntimeErrorKind;
+  if (!result.output.error) return undefined;
+  return classifyRuntimeError(result.output.error).kind;
+}
+
+function mirrorScenarioState(runId: string, evt: PersistedEvent): void {
+  if (evt.type === "scenario_started") {
+    upsertScenarioRun({
+      run_id: runId,
+      scenario_id: evt.scenarioId,
+      category: evt.category,
+      family: evt.family ?? "regex-style",
+      status: "running",
+      started_at: evt.ts,
+      max_points: evt.maxPoints,
+      rubric_kind: evt.rubricKind ?? "10pt",
+    });
+  } else if (evt.type === "scenario_finished") {
+    const eval_ = evt.evaluation as ScenarioEvaluation;
+    upsertScenarioRun({
+      run_id: runId,
+      scenario_id: evt.scenarioId,
+      status: evt.status,
+      finished_at: evt.ts,
+      points: evt.points,
+      max_points: eval_?.maxPoints,
+      wall_time_ms: evt.wallTimeMs,
+      tool_call_count: evt.toolCallCount,
+      first_token_ms: evt.firstTokenMs,
+      rubric_kind: evt.rubricKind ?? "10pt",
+      correctness: evt.rubricBreakdown?.correctness ?? null,
+      scope: evt.rubricBreakdown?.scope ?? null,
+      pattern: evt.rubricBreakdown?.pattern ?? null,
+      verification: evt.rubricBreakdown?.verification ?? null,
+      cleanup: evt.rubricBreakdown?.cleanup ?? null,
+      evaluation_json: JSON.stringify(evt.evaluation),
+      error_kind: evt.errorKind ?? null,
+      model_metrics_json: evt.modelMetrics ? JSON.stringify(evt.modelMetrics) : null,
+    });
+  }
+}
+
 export interface StartRunRequest {
   scenarioIds: string[];
   modelId?: string;
@@ -219,6 +252,96 @@ export interface StartRunRequest {
   systemPrompt?: string;
   toolExecution?: ToolExecutionMode;
   timeoutMs?: number;
+}
+
+async function executeRun(
+  runId: string,
+  request: StartRunRequest,
+  controller: AbortController
+): Promise<void> {
+  try {
+    const { resultsPath, totalPoints, maxPoints } = await runBench({
+      runId,
+      scenarioIds: request.scenarioIds,
+      model: request.modelId,
+      endpoint: request.endpoint,
+      apiKey: request.apiKey,
+      systemPrompt: request.systemPrompt,
+      toolExecution: request.toolExecution,
+      timeoutMs: request.timeoutMs,
+      signal: controller.signal,
+      nextSeq: () => globalRegistry.nextSeq(runId),
+      onEvent: (evt) => {
+        globalBus.publish(evt);
+        insertEvent({
+          run_id: runId,
+          scenario_id: "scenarioId" in evt ? evt.scenarioId : null,
+          seq: evt.seq,
+          ts: evt.ts,
+          type: evt.type,
+          payload_json: JSON.stringify(evt),
+        });
+        mirrorScenarioState(runId, evt);
+      },
+    });
+
+    const finishEvent: PersistedEvent = {
+      type: "run_finished",
+      runId,
+      totalPoints,
+      maxPoints,
+      reportPath: resultsPath,
+      seq: globalRegistry.nextSeq(runId),
+      ts: Date.now(),
+    };
+    withTransaction(() => {
+      updateRun(runId, {
+        status: "done",
+        finished_at: finishEvent.ts,
+        total_points: totalPoints,
+        max_points: maxPoints,
+        report_path: resultsPath,
+      });
+      insertEvent({
+        run_id: runId,
+        scenario_id: null,
+        seq: finishEvent.seq,
+        ts: finishEvent.ts,
+        type: finishEvent.type,
+        payload_json: JSON.stringify(finishEvent),
+      });
+    });
+    globalBus.publish(finishEvent);
+  } catch (err) {
+    const isAbort = controller.signal.aborted;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const seq = globalRegistry.nextSeq(runId);
+    const ts = Date.now();
+
+    const stopOrFailEvent: PersistedEvent = isAbort
+      ? { type: "run_stopped", runId, reason: "user requested stop", seq, ts }
+      : { type: "run_failed", runId, error: errMsg, seq, ts };
+
+    withTransaction(() => {
+      updateRun(runId, {
+        status: isAbort ? "stopped" : "failed",
+        finished_at: ts,
+        ...(isAbort ? {} : { error: errMsg }),
+      });
+      insertEvent({
+        run_id: runId,
+        scenario_id: null,
+        seq,
+        ts,
+        type: stopOrFailEvent.type,
+        payload_json: JSON.stringify(stopOrFailEvent),
+      });
+    });
+    globalBus.publish(stopOrFailEvent);
+  } finally {
+    globalRegistry.delete(runId);
+    globalBus.cleanup(runId);
+  }
 }
 
 export async function startRun(request: StartRunRequest): Promise<{ runId: string }> {
@@ -292,130 +415,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     });
   }
 
-  void (async () => {
-    try {
-      const { resultsPath, totalPoints, maxPoints } = await runBench({
-        runId,
-        scenarioIds,
-        model: request.modelId,
-        endpoint: request.endpoint,
-        apiKey: request.apiKey,
-        systemPrompt: request.systemPrompt,
-        toolExecution: request.toolExecution,
-        timeoutMs: request.timeoutMs,
-        signal: controller.signal,
-        onEvent: (evt) => {
-          // Re-sequence with globalRegistry so run-level and scenario-level seq share one counter
-          const seq = globalRegistry.nextSeq(runId);
-          const resequenced = { ...evt, seq } as PersistedEvent;
-          globalBus.publish(resequenced);
-          insertEvent({
-            run_id: runId,
-            scenario_id: "scenarioId" in resequenced ? resequenced.scenarioId : null,
-            seq: resequenced.seq,
-            ts: resequenced.ts,
-            type: resequenced.type,
-            payload_json: JSON.stringify(resequenced),
-          });
-          if (resequenced.type === "scenario_started") {
-            upsertScenarioRun({
-              run_id: runId,
-              scenario_id: resequenced.scenarioId,
-              category: resequenced.category,
-              family: resequenced.family ?? "regex-style",
-              status: "running",
-              started_at: resequenced.ts,
-              max_points: resequenced.maxPoints,
-              rubric_kind: resequenced.rubricKind ?? "10pt",
-            });
-          } else if (resequenced.type === "scenario_finished") {
-            upsertScenarioRun({
-              run_id: runId,
-              scenario_id: resequenced.scenarioId,
-              status: resequenced.status,
-              finished_at: resequenced.ts,
-              points: resequenced.points,
-              max_points:
-                typeof (resequenced.evaluation as Record<string, unknown>).maxPoints === "number"
-                  ? ((resequenced.evaluation as Record<string, unknown>).maxPoints as number)
-                  : undefined,
-              wall_time_ms: resequenced.wallTimeMs,
-              tool_call_count: resequenced.toolCallCount,
-              first_token_ms: resequenced.firstTokenMs,
-              rubric_kind: resequenced.rubricKind ?? "10pt",
-              correctness: resequenced.rubricBreakdown?.correctness ?? null,
-              scope: resequenced.rubricBreakdown?.scope ?? null,
-              pattern: resequenced.rubricBreakdown?.pattern ?? null,
-              verification: resequenced.rubricBreakdown?.verification ?? null,
-              cleanup: resequenced.rubricBreakdown?.cleanup ?? null,
-              evaluation_json: JSON.stringify(resequenced.evaluation),
-              error_kind: resequenced.errorKind ?? null,
-              model_metrics_json: resequenced.modelMetrics
-                ? JSON.stringify(resequenced.modelMetrics)
-                : null,
-            });
-          }
-        },
-      });
-
-      const finishEvent: PersistedEvent = {
-        type: "run_finished",
-        runId,
-        totalPoints,
-        maxPoints,
-        reportPath: resultsPath,
-        seq: globalRegistry.nextSeq(runId),
-        ts: Date.now(),
-      };
-      withTransaction(() => {
-        updateRun(runId, {
-          status: "done",
-          finished_at: finishEvent.ts,
-          total_points: totalPoints,
-          max_points: maxPoints,
-          report_path: resultsPath,
-        });
-        insertEvent({
-          run_id: runId,
-          scenario_id: null,
-          seq: finishEvent.seq,
-          ts: finishEvent.ts,
-          type: finishEvent.type,
-          payload_json: JSON.stringify(finishEvent),
-        });
-      });
-      globalBus.publish(finishEvent);
-    } catch (err) {
-      const isAbort = controller.signal.aborted;
-      const errMsg = err instanceof Error ? err.message : String(err);
-      const seq = globalRegistry.nextSeq(runId);
-      const ts = Date.now();
-
-      const stopOrFailEvent: PersistedEvent = isAbort
-        ? { type: "run_stopped", runId, reason: "user requested stop", seq, ts }
-        : { type: "run_failed", runId, error: errMsg, seq, ts };
-
-      withTransaction(() => {
-        updateRun(runId, {
-          status: isAbort ? "stopped" : "failed",
-          finished_at: ts,
-          ...(isAbort ? {} : { error: errMsg }),
-        });
-        insertEvent({
-          run_id: runId,
-          scenario_id: null,
-          seq,
-          ts,
-          type: stopOrFailEvent.type,
-          payload_json: JSON.stringify(stopOrFailEvent),
-        });
-      });
-      globalBus.publish(stopOrFailEvent);
-    } finally {
-      globalRegistry.delete(runId);
-      globalBus.cleanup(runId);
-    }
-  })();
+  void executeRun(runId, request, controller);
 
   return { runId };
 }

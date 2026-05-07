@@ -143,6 +143,28 @@ describe("oneshot-state-reducer", () => {
     expect(resumed.prompts.p3.status).toBe("running");
   });
 
+  test("optimistic run start with negative seq does not suppress stream events", () => {
+    const optimistic = oneshotStateReducer(INITIAL_ONESHOT_STATE, {
+      type: "oneshot_run_started",
+      runId: "r1",
+      promptIds: ["p1"],
+      model: "m1",
+      seq: -1,
+    });
+
+    const streamed = oneshotStateReducer(optimistic, {
+      type: "oneshot_test_started",
+      runId: "r1",
+      promptId: "p1",
+      index: 0,
+      total: 1,
+      seq: 1,
+    });
+
+    expect(streamed.prompts.p1.status).toBe("running");
+    expect(streamed.lastSeenSeq).toBe(1);
+  });
+
   test("oneshot_run_failed marks run failed", () => {
     const next = oneshotStateReducer(seed(), {
       type: "oneshot_run_failed",
@@ -152,6 +174,17 @@ describe("oneshot-state-reducer", () => {
     });
 
     expect(next.status).toBe("failed");
+  });
+
+  test("oneshot_run_stopped marks run stopped", () => {
+    const next = oneshotStateReducer(seed(), {
+      type: "oneshot_run_stopped",
+      runId: "r1",
+      reason: "user requested stop",
+      seq: 9,
+    });
+
+    expect(next.status).toBe("stopped");
   });
 });
 

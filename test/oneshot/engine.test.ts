@@ -11,6 +11,8 @@ import { globalRegistry } from "../../server/run-registry.ts";
 import { STUB_ONESHOT_ENDPOINT } from "../_fixtures/endpoints.ts";
 
 describe("oneshot engine", () => {
+  const originalFetch = globalThis.fetch;
+
   beforeEach(() => {
     runMigrations();
     clearPreviousOneshot();
@@ -22,6 +24,7 @@ describe("oneshot engine", () => {
     clearPreviousOneshot();
     const active = globalRegistry.activeRunId();
     if (active) globalRegistry.delete(active);
+    globalThis.fetch = originalFetch;
   });
 
   test("startOneshotRun returns a runId", async () => {
@@ -114,6 +117,35 @@ describe("oneshot engine", () => {
     const latest = getLatestOneshotRun();
     expect(latest?.status).toBe("stopped");
     expect(events).toContain("oneshot_run_stopped");
+  });
+
+  test("bare endpoint is normalized to OpenAI chat completions path", async () => {
+    let requestedUrl = "";
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      requestedUrl = String(input);
+      return new Response(
+        [
+          'data: {"choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]}',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}',
+          "data: [DONE]",
+          "",
+        ].join("\n"),
+        {
+          headers: { "content-type": "text/event-stream" },
+        }
+      );
+    }) as typeof fetch;
+
+    const { runId } = await startOneshotRun({
+      promptIds: ["01-meadow-canvas"],
+      modelId: "test-model",
+      endpoint: "http://127.0.0.1:19000",
+    });
+
+    await waitForRunToFinish(runId);
+
+    expect(requestedUrl).toBe("http://127.0.0.1:19000/v1/chat/completions");
+    expect(getOneshotResults(runId)[0].output).toBe("ok");
   });
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/Header";
 import { StatusBar } from "@/components/StatusBar";
@@ -7,7 +7,7 @@ import { LogTerminal } from "@/components/LogTerminal";
 import { MetricsPanel } from "@/components/MetricsPanel";
 import { VerificationPanel } from "@/components/VerificationPanel";
 import { useSSE, type StreamDebugStats } from "@/hooks/useSSE";
-import { useRunState } from "@/hooks/useRunState";
+import { reducer, INITIAL_REDUCER_STATE } from "@/hooks/run-state-reducer";
 import { useElapsedTimer } from "@/hooks/useElapsedTimer";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { api } from "@/api/client";
@@ -63,7 +63,9 @@ export function Dashboard({
   historyHref,
   oneshotHref,
 }: DashboardProps) {
-  const { state, dispatch, focusScenario, resetRun } = useRunState();
+  const [state, dispatch] = useReducer(reducer, INITIAL_REDUCER_STATE);
+  const focusScenario = (id: string) => dispatch({ type: "_focus", id });
+  const _resetRun = () => dispatch({ type: "_reset" });
   const queryClient = useQueryClient();
   const apiStatus = useApiStatus();
   const [streamStats, setStreamStats] = useState<StreamDebugStats>({
@@ -85,20 +87,20 @@ export function Dashboard({
 
   useEffect(() => {
     if (isReplay) return;
-    resetRun();
-  }, [sseRunId, isReplay, resetRun]);
+    dispatch({ type: "_reset" });
+  }, [sseRunId, isReplay]);
 
   useEffect(() => {
     if (!initialRunId || !replayRun.data?.events) return;
     const controller = new AbortController();
-    resetRun();
+    dispatch({ type: "_reset" });
     const events = coalesceReplayDeltas(normalizeStoredRunEvents(replayRun.data.events));
     void dispatchReplayEvents(events, dispatch, {
       chunkSize: REPLAY_CHUNK_SIZE,
       signal: controller.signal,
     });
     return () => controller.abort();
-  }, [initialRunId, replayRun.data?.events, dispatch, resetRun]);
+  }, [initialRunId, replayRun.data?.events, dispatch]);
 
   const elapsed = useElapsedTimer(state.status, state.startedAt);
 

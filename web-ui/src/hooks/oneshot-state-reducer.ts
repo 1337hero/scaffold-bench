@@ -1,8 +1,6 @@
-import type { OneshotEvent } from "@/types";
+import type { OneshotEvent, OneshotLatestRun } from "@/types";
 
-const MAX_SEEN_SEQ = 5_000;
-
-export type OneshotPromptStatus = "pending" | "running" | "done" | "failed";
+export type OneshotPromptStatus = "pending" | "running" | "done" | "failed" | "stopped";
 
 export type OneshotPromptState = {
   id: string;
@@ -18,11 +16,11 @@ export type OneshotPromptState = {
 
 export type OneshotState = {
   runId: string | null;
-  status: "idle" | "running" | "done" | "failed";
+  status: "idle" | "running" | "done" | "failed" | "stopped";
   model: string | null;
   promptIds: string[];
   prompts: Record<string, OneshotPromptState>;
-  seenSeq: Set<number>;
+  lastSeenSeq: number;
 };
 
 export const INITIAL_ONESHOT_STATE: OneshotState = {
@@ -31,13 +29,70 @@ export const INITIAL_ONESHOT_STATE: OneshotState = {
   model: null,
   promptIds: [],
   prompts: {},
-  seenSeq: new Set<number>(),
+  lastSeenSeq: -1,
 };
 
-export function oneshotStateReducer(state: OneshotState, event: OneshotEvent): OneshotState {
-  if (event.type !== "oneshot_run_started" && state.seenSeq.has(event.seq)) return state;
+type HydrateAction = { type: "hydrate"; latest: OneshotLatestRun };
 
-  const nextSeen = rememberSeq(state.seenSeq, event.seq);
+export function oneshotStateReducer(
+  state: OneshotState,
+  event: OneshotEvent | HydrateAction
+): OneshotState {
+  if (event.type === "hydrate") {
+    const { latest } = event;
+    const prompts: Record<string, OneshotPromptState> = {};
+    for (const id of latest.promptIds) {
+      prompts[id] = { id, status: "pending", output: "" };
+    }
+    let lastSeenSeq = 0;
+    for (const row of latest.results) {
+      const hasStarted =
+        row.startedAt != null || row.status != null || row.output != null || row.error != null;
+      if (!hasStarted) continue;
+      prompts[row.promptId] = {
+        ...prompts[row.promptId],
+        id: row.promptId,
+        status: "running",
+        output: row.output ?? "",
+      };
+      const isFinished =
+        row.finishedAt != null ||
+        row.status === "done" ||
+        row.status === "failed" ||
+        row.error != null;
+      if (isFinished) {
+        prompts[row.promptId] = {
+          ...prompts[row.promptId],
+          status: row.error ? "failed" : "done",
+          output: row.output ?? "",
+          finishReason: row.finishReason ?? undefined,
+          wallTimeMs: row.wallTimeMs ?? undefined,
+          firstTokenMs: row.firstTokenMs ?? undefined,
+          promptTokens: row.promptTokens ?? undefined,
+          completionTokens: row.completionTokens ?? undefined,
+          error: row.error ?? undefined,
+        };
+      }
+      lastSeenSeq++;
+    }
+    return {
+      runId: latest.runId,
+      status:
+        latest.status === "done"
+          ? "done"
+          : latest.status === "failed"
+            ? "failed"
+            : latest.status === "stopped"
+              ? "stopped"
+              : "running",
+      model: latest.model,
+      promptIds: [...latest.promptIds],
+      prompts,
+      lastSeenSeq,
+    };
+  }
+
+  if (event.type !== "oneshot_run_started" && event.seq <= state.lastSeenSeq) return state;
 
   if (event.type === "oneshot_run_started") {
     const prompts: Record<string, OneshotPromptState> = {};
@@ -50,7 +105,7 @@ export function oneshotStateReducer(state: OneshotState, event: OneshotEvent): O
       model: event.model,
       promptIds: [...event.promptIds],
       prompts,
-      seenSeq: new Set([event.seq]),
+      lastSeenSeq: event.seq,
     };
   }
 
@@ -66,7 +121,7 @@ export function oneshotStateReducer(state: OneshotState, event: OneshotEvent): O
         ...state.prompts,
         [event.promptId]: { ...current, status: "running" },
       },
-      seenSeq: nextSeen,
+      lastSeenSeq: event.seq,
     };
   }
 
@@ -82,7 +137,7 @@ export function oneshotStateReducer(state: OneshotState, event: OneshotEvent): O
         ...state.prompts,
         [event.promptId]: { ...current, output: `${current.output}${event.content}` },
       },
-      seenSeq: nextSeen,
+      lastSeenSeq: event.seq,
     };
   }
 
@@ -109,29 +164,17 @@ export function oneshotStateReducer(state: OneshotState, event: OneshotEvent): O
           error: event.error,
         },
       },
-      seenSeq: nextSeen,
+      lastSeenSeq: event.seq,
     };
   }
 
   if (event.type === "oneshot_run_finished") {
-    return { ...state, status: "done", seenSeq: nextSeen };
+    return { ...state, status: "done", lastSeenSeq: event.seq };
   }
 
-  return { ...state, status: "failed", seenSeq: nextSeen };
-}
-
-function rememberSeq(previous: Set<number>, seq: number): Set<number> {
-  const next = new Set(previous);
-  next.add(seq);
-  const overflow = next.size - MAX_SEEN_SEQ;
-  if (overflow <= 0) return next;
-
-  let dropped = 0;
-  for (const value of next) {
-    next.delete(value);
-    dropped += 1;
-    if (dropped === overflow) break;
+  if (event.type === "oneshot_run_stopped") {
+    return { ...state, status: "stopped", lastSeenSeq: event.seq };
   }
 
-  return next;
+  return { ...state, status: "failed", lastSeenSeq: event.seq };
 }

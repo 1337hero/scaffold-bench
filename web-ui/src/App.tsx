@@ -6,7 +6,7 @@ import { OneShotLab } from "@/views/OneShotLab";
 import { StartRunModal } from "@/components/StartRunModal";
 import { api } from "@/api/client";
 import { useShortcuts } from "@/hooks/useShortcuts";
-import { parseUrl, pushUrl, replaceUrl, serializeUrl, type UrlViewState } from "@/lib/url-state";
+import { parseUrl, pushUrl, serializeUrl, type UrlViewState } from "@/lib/url-state";
 
 const ACTIVE_RUN_REFETCH_MS = 5_000;
 
@@ -18,7 +18,6 @@ export default function App() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    replaceUrl(parseUrl(window.location.search));
     const onPop = () => setView(parseUrl(window.location.search));
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -41,12 +40,14 @@ export default function App() {
     setView(next);
   };
 
-  const goHistory = () => navigate({ name: "history" });
-  const goDashboard = () => navigate({ name: "dashboard" });
-  const goOneshot = () => navigate({ name: "oneshot" });
-  const historyHref = serializeUrl({ name: "history" });
-  const dashboardHref = serializeUrl({ name: "dashboard" });
-  const oneshotHref = serializeUrl({ name: "oneshot" });
+  const link = (next: View) => ({
+    href: serializeUrl(next),
+    onClick: () => navigate(next),
+  });
+
+  const { href: historyHref, onClick: goHistory } = link({ name: "history" });
+  const { href: dashboardHref, onClick: goDashboard } = link({ name: "dashboard" });
+  const { href: oneshotHref, onClick: goOneshot } = link({ name: "oneshot" });
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 

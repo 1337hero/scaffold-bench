@@ -59,10 +59,6 @@ export function runMigrations(): void {
     }
   }
 
-  // For fresh DBs: 001_initial creates the full v2 schema directly.
-  // 002_oneshot creates oneshot tables.
-  // 003 and 004 are only for v1→v2 upgrade path (they modify/drop v1 tables).
-  // Since v1 upgrade archives the DB and starts fresh, only 001+002 are needed.
   const migrations: Array<{ name: string; sql: string }> = [
     {
       name: "001_initial",

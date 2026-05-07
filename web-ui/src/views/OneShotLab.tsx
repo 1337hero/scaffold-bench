@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState, type Dispatch } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Panel } from "@/components/Panel";
 import { api } from "@/api/client";
@@ -8,7 +8,6 @@ import { OneshotCanvas } from "@/components/OneshotCanvas";
 import { OneshotMetadata } from "@/components/OneshotMetadata";
 import { INITIAL_ONESHOT_STATE, oneshotStateReducer } from "@/hooks/oneshot-state-reducer";
 import { useOneshotSSE } from "@/hooks/useOneshotSSE";
-import type { OneshotEvent, OneshotLatestRun } from "@/types";
 
 export function OneShotLab() {
   const [state, dispatch] = useReducer(oneshotStateReducer, INITIAL_ONESHOT_STATE);
@@ -41,7 +40,7 @@ export function OneShotLab() {
   useEffect(() => {
     const latest = latestQuery.data;
     if (!latest || state.runId) return;
-    hydrateLatestRun(latest, dispatch);
+    dispatch({ type: "hydrate", latest });
   }, [latestQuery.data, state.runId]);
 
   useEffect(() => {
@@ -63,6 +62,11 @@ export function OneShotLab() {
     [modelsQuery.data]
   );
 
+  useEffect(() => {
+    if (selectedModelId || allModels.length === 0 || state.status === "running") return;
+    setSelectedModelId(allModels[0].id);
+  }, [allModels, selectedModelId, state.status]);
+
   const runMutation = useMutation({
     mutationFn: api.startOneshot,
     onSuccess: ({ runId }, variables) => {
@@ -71,7 +75,7 @@ export function OneShotLab() {
         runId,
         promptIds: variables.promptIds,
         model: variables.modelId,
-        seq: Date.now(),
+        seq: -1,
       });
       setFocusedPromptId(variables.promptIds[0] ?? null);
     },
@@ -146,81 +150,4 @@ export function OneShotLab() {
       </div>
     </div>
   );
-}
-
-function hydrateLatestRun(latest: OneshotLatestRun, dispatch: Dispatch<OneshotEvent>) {
-  dispatch({
-    type: "oneshot_run_started",
-    runId: latest.runId,
-    promptIds: latest.promptIds,
-    model: latest.model ?? "unknown",
-    seq: 1,
-  });
-
-  let seq = 2;
-
-  for (const [index, row] of latest.results.entries()) {
-    const hasStarted =
-      row.startedAt != null || row.status != null || row.output != null || row.error != null;
-    if (!hasStarted) continue;
-
-    dispatch({
-      type: "oneshot_test_started",
-      runId: latest.runId,
-      promptId: row.promptId,
-      index,
-      total: latest.promptIds.length,
-      seq: seq++,
-    });
-
-    if (row.output) {
-      dispatch({
-        type: "oneshot_delta",
-        runId: latest.runId,
-        promptId: row.promptId,
-        content: row.output,
-        seq: seq++,
-      });
-    }
-
-    const isFinished =
-      row.finishedAt != null ||
-      row.status === "done" ||
-      row.status === "failed" ||
-      row.error != null;
-    if (!isFinished) continue;
-
-    dispatch({
-      type: "oneshot_test_finished",
-      runId: latest.runId,
-      promptId: row.promptId,
-      output: row.output ?? "",
-      metrics:
-        row.promptTokens != null || row.completionTokens != null
-          ? {
-              promptTokens: row.promptTokens ?? 0,
-              completionTokens: row.completionTokens ?? 0,
-            }
-          : null,
-      finishReason: row.finishReason ?? "",
-      wallTimeMs: row.wallTimeMs ?? 0,
-      firstTokenMs: row.firstTokenMs ?? undefined,
-      error: row.error ?? undefined,
-      seq: seq++,
-    });
-  }
-
-  if (latest.status === "done") {
-    dispatch({ type: "oneshot_run_finished", runId: latest.runId, seq });
-    return;
-  }
-
-  if (latest.status === "failed") {
-    dispatch({
-      type: "oneshot_run_failed",
-      runId: latest.runId,
-      error: latest.error ?? "Run failed",
-      seq,
-    });
-  }
 }

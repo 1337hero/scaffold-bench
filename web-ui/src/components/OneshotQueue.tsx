@@ -1,6 +1,6 @@
 type PromptMeta = { id: string; title: string; category: string };
 
-type PromptStatus = "pending" | "running" | "done" | "failed";
+type PromptStatus = "pending" | "running" | "done" | "failed" | "stopped";
 
 type PromptRow = {
   id: string;
@@ -12,6 +12,7 @@ const STATUS_COLORS: Record<PromptStatus, string> = {
   running: "text-gold border-gold",
   done: "text-green-main border-green-main",
   failed: "text-red-main border-red-main",
+  stopped: "text-text-dim border-border-main",
 };
 
 interface OneshotQueueProps {

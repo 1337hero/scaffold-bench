@@ -95,8 +95,7 @@ function applyLocalEvent(event: LocalEvent, state: RunState, ctx: RuntimeSession
       return;
     }
     default: {
-      const _exhaustive: never = event;
-      throw new Error(`unhandled event type: ${(_exhaustive as LocalEvent).type}`);
+      throw new Error(`unhandled event type: ${(event satisfies never as LocalEvent).type}`);
     }
   }
 }

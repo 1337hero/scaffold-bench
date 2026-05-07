@@ -1,8 +1,22 @@
+import type { Database } from "bun:sqlite";
 import { getDb } from "./migrations.ts";
 
 export function withTransaction<T>(fn: () => T): T {
   const db = getDb();
   return db.transaction(fn)();
+}
+
+export function updateRow(
+  table: string,
+  id: string,
+  updates: Record<string, unknown>,
+  db: Database = getDb()
+): void {
+  const entries = Object.entries(updates).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return;
+  const set = entries.map(([k]) => `${k} = ?`).join(", ");
+  const values = entries.map(([, v]) => v as string | number | null);
+  db.run(`UPDATE ${table} SET ${set} WHERE id = ?`, [...values, id]);
 }
 
 export interface RunRow {
@@ -108,12 +122,7 @@ export function updateRun(
     Pick<RunRow, "finished_at" | "status" | "total_points" | "max_points" | "report_path" | "error">
   >
 ): void {
-  const db = getDb();
-  const entries = Object.entries(updates).filter(([, v]) => v !== undefined);
-  if (entries.length === 0) return;
-  const setClauses = entries.map(([k]) => `${k} = ?`).join(", ");
-  const values = entries.map(([, v]) => v as string | number | null);
-  db.run(`UPDATE runs SET ${setClauses} WHERE id = ?`, [...values, id]);
+  updateRow("runs", id, updates);
 }
 
 export function upsertScenarioRun(

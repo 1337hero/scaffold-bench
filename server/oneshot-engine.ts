@@ -1,4 +1,4 @@
-import { callModel } from "../lib/runtimes/local-model.ts";
+import { callModel, normalizeEndpoint } from "../lib/runtimes/local-model.ts";
 import { loadOneshotPrompts, type OneshotPrompt } from "../lib/oneshot/loader.ts";
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
@@ -8,7 +8,7 @@ import {
   updateOneshotRun,
   upsertOneshotResult,
 } from "./db/oneshot-queries.ts";
-import type { OneshotEvent } from "./contracts/oneshot-events.ts";
+import type { OneshotEvent } from "./contracts/events.ts";
 
 export interface OneshotEngineOptions {
   promptIds: string[];
@@ -191,7 +191,7 @@ async function runPrompt(params: {
       [{ role: "user", content: params.prompt.prompt }],
       deadline,
       {
-        endpoint: params.opts.endpoint,
+        endpoint: normalizeEndpoint(params.opts.endpoint),
         model: params.opts.modelId,
         apiKey: params.opts.apiKey,
         signal: params.signal,

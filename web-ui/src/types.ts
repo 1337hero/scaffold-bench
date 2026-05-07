@@ -283,6 +283,7 @@ export type OneshotEvent =
       seq: number;
     }
   | { type: "oneshot_run_finished"; runId: string; seq: number }
+  | { type: "oneshot_run_stopped"; runId: string; reason?: string; seq: number }
   | { type: "oneshot_run_failed"; runId: string; error: string; seq: number };
 
 export type ReportSource = "local" | "api";
