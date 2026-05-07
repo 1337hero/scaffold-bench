@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/api/client";
 import type { ScenarioInfo } from "@/types";
@@ -20,16 +20,19 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
   });
 
   const scenarios = scenariosQuery.data ?? [];
+  const scenariosRef = useRef(scenarios);
+  scenariosRef.current = scenarios;
+  
   const localModels = modelsQuery.data?.local ?? [];
   const remoteModels = modelsQuery.data?.remote ?? [];
   const loading = scenariosQuery.isLoading || modelsQuery.isLoading;
   const loadError = scenariosQuery.isError || modelsQuery.isError;
 
-  const defaultSelectedIds = useMemo(() => new Set(scenarios.map((s) => s.id)), [scenarios]);
+  const defaultSelectedIds = useCallback(() => new Set(scenariosRef.current.map((s) => s.id)), []);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [userEdited, setUserEdited] = useState(false);
-  const effectiveSelectedIds = userEdited ? selectedIds : defaultSelectedIds;
+  const effectiveSelectedIds = userEdited ? selectedIds : defaultSelectedIds();
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [timeoutSecs, setTimeoutSecs] = useState(600);

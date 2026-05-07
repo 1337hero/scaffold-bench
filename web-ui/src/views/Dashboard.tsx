@@ -65,7 +65,7 @@ export function Dashboard({
 }: DashboardProps) {
   const [state, dispatch] = useReducer(reducer, INITIAL_REDUCER_STATE);
   const focusScenario = (id: string) => dispatch({ type: "_focus", id });
-  const resetRun = () => dispatch({ type: "_reset" });
+  const _resetRun = () => dispatch({ type: "_reset" });
   const queryClient = useQueryClient();
   const apiStatus = useApiStatus();
   const [streamStats, setStreamStats] = useState<StreamDebugStats>({

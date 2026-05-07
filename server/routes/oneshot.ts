@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { parseBody } from "../lib/parse-body.ts";
 import { OneshotStartRequestSchema } from "../contracts/api.ts";
 import { startOneshotRun } from "../oneshot-engine.ts";
-import { globalRegistry, RunInProgressError } from "../run-registry.ts";
+import { RunInProgressError } from "../run-registry.ts";
 import { getRemoteApiKey, resolveModel } from "../models/discovery.ts";
 import { loadOneshotPrompts } from "../../lib/oneshot/loader.ts";
 import { getLatestOneshotRun, getOneshotResults } from "../db/oneshot-queries.ts";
