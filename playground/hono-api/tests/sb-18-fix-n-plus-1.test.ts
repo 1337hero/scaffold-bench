@@ -8,9 +8,8 @@ import type { DB } from "../src/db";
  * separate ticket — so this oracle validates the simple { items: [...] }
  * shape and the correctness of the joined data, not pagination.
  *
- * Query-count detection is intentionally not done here via a runtime spy
- * (model-side query API choices vary). The scenario evaluator's regex check
- * for JOIN/absence of per-row SELECT is the authoritative signal for that.
+ * Query-count detection is done via a lightweight runtime spy in the test
+ * so the oracle catches N+1 without relying on regex alone.
  */
 describe("SB-18: Fix N+1 query in GET /items", () => {
   let ctx: ReturnType<typeof testClient>;
@@ -112,6 +111,31 @@ describe("SB-18: Fix N+1 query in GET /items", () => {
       for (const item of items) {
         expect(item.owner_email).toBe(expected.get(item.id) ?? null);
       }
+    });
+  });
+
+  describe("query count (N+1 detection)", () => {
+    test("uses O(1) queries for 50 items (no N+1 per-row lookups)", async () => {
+      for (let i = 0; i < 50; i++) {
+        factory.createItem(otherIds[i % otherIds.length], `item-${i}`);
+      }
+
+      const originalQuery = (db as any).query;
+      let queryCallCount = 0;
+      (db as any).query = function (...args: unknown[]) {
+        queryCallCount++;
+        return originalQuery.apply(db, args);
+      };
+
+      try {
+        await fetchItems();
+      } finally {
+        (db as any).query = originalQuery;
+      }
+
+      // With a JOIN we expect ~2 calls (auth + one JOINed items query).
+      // N+1 uses 1 + N per-row lookups, so >50 calls.
+      expect(queryCallCount).toBeLessThanOrEqual(5);
     });
   });
 

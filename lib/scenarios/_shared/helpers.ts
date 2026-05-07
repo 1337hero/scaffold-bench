@@ -1,5 +1,5 @@
 import { Either, Schema } from "effect";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir, stat, symlink } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import {
   BashArgsSchema,
@@ -356,5 +356,40 @@ export async function noFilesChanged(input: {
     pass,
     changed,
     detail: pass ? "no files changed" : `changed: ${changed.join(", ")}`,
+  };
+}
+
+export function bunAvailable(): boolean {
+  const result = Bun.spawnSync(["bun", "--version"], { stdout: "pipe", stderr: "pipe" });
+  return result.exitCode === 0;
+}
+
+export async function runBunTest(
+  fixtureDir: string,
+  testFile: string
+): Promise<{
+  pass: boolean;
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}> {
+  const nmPath = join(fixtureDir, "node_modules");
+  try {
+    await stat(nmPath);
+  } catch {
+    await symlink(join(PLAYGROUND_SRC, "..", "node_modules"), nmPath);
+  }
+
+  const result = Bun.spawnSync(["bun", "test", testFile], {
+    cwd: fixtureDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  return {
+    pass: result.exitCode === 0,
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
   };
 }
