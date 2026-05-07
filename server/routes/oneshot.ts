@@ -5,8 +5,9 @@ import { startOneshotRun } from "../oneshot-engine.ts";
 import { RunInProgressError } from "../run-registry.ts";
 import { getRemoteApiKey, resolveModel } from "../models/discovery.ts";
 import { loadOneshotPrompts } from "../../lib/oneshot/loader.ts";
-import { getLatestOneshotRun, getOneshotResults } from "../db/oneshot-queries.ts";
+import { getLatestOneshotRun, getOneshotResults, updateOneshotRun } from "../db/oneshot-queries.ts";
 import { streamRunEvents } from "../lib/sse-stream.ts";
+import { globalRegistry } from "../run-registry.ts";
 
 export const oneshotRouter = new Hono();
 
@@ -54,6 +55,17 @@ oneshotRouter.get("/runs/:id/stream", (c) => {
 oneshotRouter.get("/runs/latest", (c) => {
   const run = getLatestOneshotRun();
   if (!run) return c.json(null);
+
+  if (run.status === "running" && !globalRegistry.get(run.id)) {
+    run.status = "failed";
+    run.finished_at = Date.now();
+    run.error = "stale_running_run";
+    updateOneshotRun(run.id, {
+      status: "failed",
+      finished_at: run.finished_at,
+      error: run.error,
+    });
+  }
 
   const results = getOneshotResults(run.id);
   return c.json({

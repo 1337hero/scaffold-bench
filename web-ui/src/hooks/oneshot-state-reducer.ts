@@ -1,6 +1,6 @@
 import type { OneshotEvent, OneshotLatestRun } from "@/types";
 
-export type OneshotPromptStatus = "pending" | "running" | "done" | "failed";
+export type OneshotPromptStatus = "pending" | "running" | "done" | "failed" | "stopped";
 
 export type OneshotPromptState = {
   id: string;
@@ -16,7 +16,7 @@ export type OneshotPromptState = {
 
 export type OneshotState = {
   runId: string | null;
-  status: "idle" | "running" | "done" | "failed";
+  status: "idle" | "running" | "done" | "failed" | "stopped";
   model: string | null;
   promptIds: string[];
   prompts: Record<string, OneshotPromptState>;
@@ -77,7 +77,14 @@ export function oneshotStateReducer(
     }
     return {
       runId: latest.runId,
-      status: latest.status === "done" ? "done" : latest.status === "failed" ? "failed" : "running",
+      status:
+        latest.status === "done"
+          ? "done"
+          : latest.status === "failed"
+            ? "failed"
+            : latest.status === "stopped"
+              ? "stopped"
+              : "running",
       model: latest.model,
       promptIds: [...latest.promptIds],
       prompts,
@@ -163,6 +170,10 @@ export function oneshotStateReducer(
 
   if (event.type === "oneshot_run_finished") {
     return { ...state, status: "done", lastSeenSeq: event.seq };
+  }
+
+  if (event.type === "oneshot_run_stopped") {
+    return { ...state, status: "stopped", lastSeenSeq: event.seq };
   }
 
   return { ...state, status: "failed", lastSeenSeq: event.seq };

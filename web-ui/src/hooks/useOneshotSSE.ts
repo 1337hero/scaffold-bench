@@ -7,6 +7,7 @@ const EVENT_TYPES: OneshotEvent["type"][] = [
   "oneshot_delta",
   "oneshot_test_finished",
   "oneshot_run_finished",
+  "oneshot_run_stopped",
   "oneshot_run_failed",
 ];
 

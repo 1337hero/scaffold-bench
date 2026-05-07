@@ -62,6 +62,11 @@ export function OneShotLab() {
     [modelsQuery.data]
   );
 
+  useEffect(() => {
+    if (selectedModelId || allModels.length === 0 || state.status === "running") return;
+    setSelectedModelId(allModels[0].id);
+  }, [allModels, selectedModelId, state.status]);
+
   const runMutation = useMutation({
     mutationFn: api.startOneshot,
     onSuccess: ({ runId }, variables) => {
@@ -70,7 +75,7 @@ export function OneShotLab() {
         runId,
         promptIds: variables.promptIds,
         model: variables.modelId,
-        seq: Date.now(),
+        seq: -1,
       });
       setFocusedPromptId(variables.promptIds[0] ?? null);
     },

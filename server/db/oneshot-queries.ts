@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { getDb } from "./migrations.ts";
 import { updateRow } from "./queries.ts";
 
@@ -27,21 +28,22 @@ export interface OneshotResultRow {
   error: string | null;
 }
 
-export function clearPreviousOneshot(): void {
-  const db = getDb();
+export function clearPreviousOneshot(db: Database = getDb()): void {
   db.run("DELETE FROM oneshot_results");
   db.run("DELETE FROM oneshot_runs");
 }
 
-export function insertOneshotRun(params: {
-  id: string;
-  started_at: number;
-  status: "running" | "done" | "failed" | "stopped";
-  model: string | null;
-  endpoint: string | null;
-  prompt_ids: string;
-}): string {
-  const db = getDb();
+export function insertOneshotRun(
+  params: {
+    id: string;
+    started_at: number;
+    status: "running" | "done" | "failed" | "stopped";
+    model: string | null;
+    endpoint: string | null;
+    prompt_ids: string;
+  },
+  db: Database = getDb()
+): string {
   db.run(
     `INSERT INTO oneshot_runs (id, started_at, status, model, endpoint, prompt_ids)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -52,15 +54,16 @@ export function insertOneshotRun(params: {
 
 export function updateOneshotRun(
   id: string,
-  updates: Partial<Pick<OneshotRunRow, "finished_at" | "status" | "error">>
+  updates: Partial<Pick<OneshotRunRow, "finished_at" | "status" | "error">>,
+  db: Database = getDb()
 ): void {
-  updateRow("oneshot_runs", id, updates);
+  updateRow("oneshot_runs", id, updates, db);
 }
 
 export function upsertOneshotResult(
-  row: Partial<OneshotResultRow> & { run_id: string; prompt_id: string }
+  row: Partial<OneshotResultRow> & { run_id: string; prompt_id: string },
+  db: Database = getDb()
 ): void {
-  const db = getDb();
   db.run(
     `INSERT INTO oneshot_results (run_id, prompt_id, started_at, finished_at, status, output, finish_reason, wall_time_ms, first_token_ms, prompt_tokens, completion_tokens, error)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -92,15 +95,13 @@ export function upsertOneshotResult(
   );
 }
 
-export function getLatestOneshotRun(): OneshotRunRow | null {
-  const db = getDb();
+export function getLatestOneshotRun(db: Database = getDb()): OneshotRunRow | null {
   return db
     .query<OneshotRunRow, []>("SELECT * FROM oneshot_runs ORDER BY started_at DESC LIMIT 1")
     .get();
 }
 
-export function getOneshotResults(runId: string): OneshotResultRow[] {
-  const db = getDb();
+export function getOneshotResults(runId: string, db: Database = getDb()): OneshotResultRow[] {
   return db
     .query<
       OneshotResultRow,
@@ -109,7 +110,6 @@ export function getOneshotResults(runId: string): OneshotResultRow[] {
     .all(runId);
 }
 
-export function getOneshotRun(id: string): OneshotRunRow | null {
-  const db = getDb();
+export function getOneshotRun(id: string, db: Database = getDb()): OneshotRunRow | null {
   return db.query<OneshotRunRow, [string]>("SELECT * FROM oneshot_runs WHERE id = ?").get(id);
 }
