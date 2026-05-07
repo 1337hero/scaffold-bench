@@ -8,7 +8,7 @@ import {
   updateOneshotRun,
   upsertOneshotResult,
 } from "./db/oneshot-queries.ts";
-import type { OneshotEvent } from "./contracts/oneshot-events.ts";
+import type { OneshotEvent } from "./contracts/events.ts";
 
 export interface OneshotEngineOptions {
   promptIds: string[];

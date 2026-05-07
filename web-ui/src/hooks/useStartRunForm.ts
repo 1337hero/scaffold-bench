@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import type { ScenarioInfo } from "@/types";
 
 interface UseStartRunFormArgs {
@@ -11,13 +11,15 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
   const scenariosQuery = useQuery({
     queryKey: ["scenarios"],
     queryFn: ({ signal }) => api.getScenarios(signal),
+    staleTime: 5 * 60_000,
   });
   const modelsQuery = useQuery({
     queryKey: ["models"],
     queryFn: ({ signal }) => api.getModels(signal),
+    staleTime: 5 * 60_000,
   });
 
-  const scenarios = useMemo(() => scenariosQuery.data ?? [], [scenariosQuery.data]);
+  const scenarios = scenariosQuery.data ?? [];
   const localModels = modelsQuery.data?.local ?? [];
   const remoteModels = modelsQuery.data?.remote ?? [];
   const loading = scenariosQuery.isLoading || modelsQuery.isLoading;
@@ -25,18 +27,15 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
 
   const defaultSelectedIds = useMemo(() => new Set(scenarios.map((s) => s.id)), [scenarios]);
 
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => defaultSelectedIds);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [userEdited, setUserEdited] = useState(false);
+  const effectiveSelectedIds = userEdited ? selectedIds : defaultSelectedIds;
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [timeoutSecs, setTimeoutSecs] = useState(600);
   const [toolExecution, setToolExecution] = useState<"sequential" | "parallel">("sequential");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userEdited) setSelectedIds(defaultSelectedIds);
-  }, [defaultSelectedIds, userEdited]);
 
   useEffect(() => {
     if (selectedModel) return;
@@ -50,10 +49,9 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
       onLaunch(runId, variables.scenarioIds);
     },
     onError: (err) => {
-      const e = err as Error & { activeRunId?: string };
-      const message = e.activeRunId
-        ? `A run is already in progress (${e.activeRunId})`
-        : (e.message ?? "Failed to start run");
+      const message = err instanceof ApiError && err.activeRunId
+        ? `A run is already in progress (${err.activeRunId})`
+        : (err.message ?? "Failed to start run");
       setError(message);
     },
   });
@@ -93,13 +91,13 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (selectedIds.size === 0) {
+    if (effectiveSelectedIds.size === 0) {
       setError("Select at least one scenario");
       return;
     }
     setError(null);
     createRunMutation.mutate({
-      scenarioIds: [...selectedIds],
+      scenarioIds: [...effectiveSelectedIds],
       modelId: selectedModel || undefined,
       systemPrompt: systemPrompt || undefined,
       toolExecution,
@@ -113,7 +111,7 @@ export function useStartRunForm({ onLaunch }: UseStartRunFormArgs) {
     localModels,
     remoteModels,
     scenariosByCategory,
-    selectedIds,
+    selectedIds: effectiveSelectedIds,
     selectedModel,
     setSelectedModel,
     systemPrompt,

@@ -1,12 +1,10 @@
 import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import { parseBody } from "../lib/parse-body.ts";
 import { CreateRunRequestSchema } from "../contracts/api.ts";
 import { startRun } from "../run-engine.ts";
 import { globalRegistry, RunInProgressError } from "../run-registry.ts";
-import { globalBus } from "../event-bus.ts";
 import { getRemoteApiKey, resolveModel } from "../models/discovery.ts";
-import type { PersistedEvent } from "../contracts/events.ts";
+import { streamRunEvents } from "../lib/sse-stream.ts";
 import {
   listRuns,
   getRun,
@@ -17,6 +15,11 @@ import {
 } from "../db/queries.ts";
 
 export const runsRouter = new Hono();
+
+function clampInt(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const n = Number.parseInt(raw ?? String(fallback), 10);
+  return Number.isFinite(n) ? Math.max(min, Math.min(n, max)) : fallback;
+}
 
 runsRouter.get("/active", (c) => {
   return c.json({ runId: globalRegistry.activeRunId() });
@@ -85,14 +88,9 @@ runsRouter.get("/:id", (c) => {
 
   const scenarioRuns = getScenarioRuns(id);
   const withEvents = c.req.query("withEvents") === "true";
-  const fromSeq = Number.parseInt(c.req.query("fromSeq") ?? "0", 10);
-  const requestedLimit = Number.parseInt(c.req.query("limit") ?? "500", 10);
-  const limit = Number.isFinite(requestedLimit)
-    ? Math.max(1, Math.min(requestedLimit, 5_000))
-    : 500;
-  const events = withEvents
-    ? getRunEvents(id, Number.isFinite(fromSeq) ? Math.max(0, fromSeq) : 0, limit)
-    : undefined;
+  const fromSeq = clampInt(c.req.query("fromSeq"), 0, 0, Infinity);
+  const limit = clampInt(c.req.query("limit"), 500, 1, 5_000);
+  const events = withEvents ? getRunEvents(id, fromSeq, limit) : undefined;
 
   return c.json({
     id: run.id,
@@ -133,12 +131,8 @@ runsRouter.get("/:id", (c) => {
 runsRouter.get("/:id/scenarios/:scenarioId/events", (c) => {
   const runId = c.req.param("id");
   const scenarioId = c.req.param("scenarioId");
-  const fromSeqRaw = Number.parseInt(c.req.query("fromSeq") ?? "0", 10);
-  const fromSeq = Number.isFinite(fromSeqRaw) ? Math.max(0, fromSeqRaw) : 0;
-  const requestedLimit = Number.parseInt(c.req.query("limit") ?? "500", 10);
-  const limit = Number.isFinite(requestedLimit)
-    ? Math.max(1, Math.min(requestedLimit, 5_000))
-    : 500;
+  const fromSeq = clampInt(c.req.query("fromSeq"), 0, 0, Infinity);
+  const limit = clampInt(c.req.query("limit"), 500, 1, 5_000);
   const events = getScenarioEvents(runId, scenarioId, fromSeq, limit);
   return c.json(
     events.map((e) => ({
@@ -163,78 +157,30 @@ runsRouter.post("/:id/stop", (c) => {
 runsRouter.get("/:id/stream", (c) => {
   const runId = c.req.param("id");
   const scenarioId = c.req.query("scenarioId");
+  const lastEventId = c.req.header("last-event-id");
   const fromSeqParam = Number.parseInt(c.req.query("fromSeq") ?? "-1", 10);
-  const lastEventIdHeader = c.req.header("last-event-id");
-  const fromLastEventId = lastEventIdHeader ? Number.parseInt(lastEventIdHeader, 10) : Number.NaN;
-  const fromSeq = Number.isFinite(fromLastEventId)
-    ? fromLastEventId + 1
+  const fromSeq = lastEventId
+    ? Number.parseInt(lastEventId, 10) + 1
     : Number.isFinite(fromSeqParam)
       ? fromSeqParam
       : -1;
 
-  return streamSSE(c, async (stream) => {
-    if (fromSeq >= 0) {
-      const historical = scenarioId
+  const history = fromSeq >= 0
+    ? (scenarioId
         ? getScenarioEvents(runId, scenarioId, fromSeq)
-        : getRunEvents(runId, fromSeq);
-      for (const e of historical) {
-        await stream.writeSSE({ id: String(e.seq), event: e.type, data: e.payload_json });
-      }
-    }
+        : getRunEvents(runId, fromSeq))
+    : [];
 
-    if (!globalRegistry.get(runId)) return;
-
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        clearInterval(heartbeat);
-        unsubscribe();
-        resolve();
-      };
-
-      const handler = async (evt: PersistedEvent | { type: string }) => {
-        if (evt.type.startsWith("oneshot_")) return;
-        if (scenarioId && "scenarioId" in evt && evt.scenarioId !== scenarioId) return;
-        try {
-          if ("seq" in evt && typeof evt.seq === "number") {
-            await stream.writeSSE({
-              id: String(evt.seq),
-              event: evt.type,
-              data: JSON.stringify(evt),
-            });
-          } else {
-            await stream.writeSSE({ event: evt.type, data: JSON.stringify(evt) });
-          }
-        } catch {
-          finish();
-          return;
-        }
-        if (
-          evt.type === "run_finished" ||
-          evt.type === "run_stopped" ||
-          evt.type === "run_failed"
-        ) {
-          finish();
-        }
-      };
-
-      const unsubscribe = scenarioId
-        ? globalBus.subscribeScenario(runId, scenarioId, handler)
-        : globalBus.subscribe(runId, handler);
-
-      const heartbeat = setInterval(async () => {
-        try {
-          await stream.write(": keepalive\n\n");
-        } catch {
-          finish();
-        }
-      }, 15_000);
-
-      stream.onAbort(() => {
-        finish();
-      });
-    });
+  return streamRunEvents(c, {
+    runId,
+    scenarioId,
+    history,
+    accept: (e) => {
+      if (e.type.startsWith("oneshot_")) return false;
+      if (scenarioId && "scenarioId" in e && (e as { scenarioId: string }).scenarioId !== scenarioId) return false;
+      return true;
+    },
+    isTerminal: (type) =>
+      type === "run_finished" || type === "run_stopped" || type === "run_failed",
   });
 });

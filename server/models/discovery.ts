@@ -55,7 +55,7 @@ export async function listModels(): Promise<{ local: Model[]; remote: Model[] }>
   const { localEndpoint } = readEnv();
   const [local, remote] = await Promise.all([
     probeLocalModels(localEndpoint),
-    Promise.resolve(getRemoteModels()),
+    getRemoteModels(),
   ]);
   return { local: dedupeById(local), remote: dedupeById(remote) };
 }

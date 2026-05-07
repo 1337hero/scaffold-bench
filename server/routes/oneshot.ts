@@ -1,14 +1,12 @@
 import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import { parseBody } from "../lib/parse-body.ts";
 import { OneshotStartRequestSchema } from "../contracts/api.ts";
 import { startOneshotRun } from "../oneshot-engine.ts";
-import { globalBus } from "../event-bus.ts";
 import { globalRegistry, RunInProgressError } from "../run-registry.ts";
 import { getRemoteApiKey, resolveModel } from "../models/discovery.ts";
 import { loadOneshotPrompts } from "../../lib/oneshot/loader.ts";
 import { getLatestOneshotRun, getOneshotResults } from "../db/oneshot-queries.ts";
-import type { OneshotEvent } from "../contracts/oneshot-events.ts";
+import { streamRunEvents } from "../lib/sse-stream.ts";
 
 export const oneshotRouter = new Hono();
 
@@ -43,57 +41,13 @@ oneshotRouter.post("/runs", async (c) => {
 
 oneshotRouter.get("/runs/:id/stream", (c) => {
   const runId = c.req.param("id");
-
-  return streamSSE(c, async (stream) => {
-    if (!globalRegistry.get(runId)) return;
-
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        clearInterval(heartbeat);
-        unsubscribe();
-        resolve();
-      };
-
-      const handler = async (event: OneshotEvent | { type: string }) => {
-        if (!event.type.startsWith("oneshot_")) return;
-        try {
-          if ("seq" in event && typeof event.seq === "number") {
-            await stream.writeSSE({
-              id: String(event.seq),
-              event: event.type,
-              data: JSON.stringify(event),
-            });
-          } else {
-            await stream.writeSSE({ event: event.type, data: JSON.stringify(event) });
-          }
-        } catch {
-          finish();
-          return;
-        }
-
-        if (
-          event.type === "oneshot_run_finished" ||
-          event.type === "oneshot_run_failed" ||
-          event.type === "oneshot_run_stopped"
-        ) {
-          finish();
-        }
-      };
-
-      const unsubscribe = globalBus.subscribe(runId, handler);
-      const heartbeat = setInterval(async () => {
-        try {
-          await stream.write(": keepalive\n\n");
-        } catch {
-          finish();
-        }
-      }, 15_000);
-
-      stream.onAbort(() => finish());
-    });
+  return streamRunEvents(c, {
+    runId,
+    accept: (e) => e.type.startsWith("oneshot_"),
+    isTerminal: (type) =>
+      type === "oneshot_run_finished" ||
+      type === "oneshot_run_failed" ||
+      type === "oneshot_run_stopped",
   });
 });
 

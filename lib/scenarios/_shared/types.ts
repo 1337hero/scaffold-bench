@@ -67,6 +67,7 @@ export type ScenarioBase = {
   name: string;
   category: Category;
   family: Family;
+  rubricKind?: RubricKind;
   prompt: string;
   maxPoints?: number;
   buildPrompt?(input: { playgroundDir: string }): Promise<string>;

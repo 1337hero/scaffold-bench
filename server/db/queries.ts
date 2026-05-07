@@ -5,6 +5,14 @@ export function withTransaction<T>(fn: () => T): T {
   return db.transaction(fn)();
 }
 
+export function updateRow(table: string, id: string, updates: Record<string, unknown>): void {
+  const entries = Object.entries(updates).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return;
+  const set = entries.map(([k]) => `${k} = ?`).join(", ");
+  const values = entries.map(([, v]) => v as string | number | null);
+  getDb().run(`UPDATE ${table} SET ${set} WHERE id = ?`, [...values, id]);
+}
+
 export interface RunRow {
   id: string;
   started_at: number;
@@ -108,12 +116,7 @@ export function updateRun(
     Pick<RunRow, "finished_at" | "status" | "total_points" | "max_points" | "report_path" | "error">
   >
 ): void {
-  const db = getDb();
-  const entries = Object.entries(updates).filter(([, v]) => v !== undefined);
-  if (entries.length === 0) return;
-  const setClauses = entries.map(([k]) => `${k} = ?`).join(", ");
-  const values = entries.map(([, v]) => v as string | number | null);
-  db.run(`UPDATE runs SET ${setClauses} WHERE id = ?`, [...values, id]);
+  updateRow("runs", id, updates);
 }
 
 export function upsertScenarioRun(

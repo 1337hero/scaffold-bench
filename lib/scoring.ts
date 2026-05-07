@@ -222,76 +222,50 @@ export function sumScenarioMaxPoints(
   return evaluations.reduce((sum, evaluation) => sum + (evaluation?.maxPoints ?? 0), 0);
 }
 
+const SUM_KEYS = [
+  "promptTokens",
+  "completionTokens",
+  "totalTokens",
+  "totalRequestTimeMs",
+  "requestCount",
+] as const;
+
+const PAIRED_KEYS = [
+  ["promptEvalTokens", "promptEvalTimeMs"] as const,
+  ["completionEvalTokens", "completionEvalTimeMs"] as const,
+];
+
 export function mergeModelMetrics(
   metrics: Array<ModelMetrics | undefined>
 ): ModelMetrics | undefined {
-  const defined = metrics.filter((metric): metric is ModelMetrics => metric !== undefined);
+  const defined = metrics.filter((m): m is ModelMetrics => m !== undefined);
   if (defined.length === 0) return undefined;
 
-  const models = [...new Set(defined.map((metric) => metric.model).filter(Boolean))];
-  let promptEvalTokens = 0;
-  let promptEvalTimeMs = 0;
-  let completionEvalTokens = 0;
-  let completionEvalTimeMs = 0;
-  let hasPromptTiming = false;
-  let hasCompletionTiming = false;
+  const sum = (key: keyof ModelMetrics) =>
+    defined.reduce((acc, m) => acc + ((m[key] as number | undefined) ?? 0), 0);
 
-  for (const metric of defined) {
-    if (metric.promptEvalTokens !== undefined && metric.promptEvalTimeMs !== undefined) {
-      promptEvalTokens += metric.promptEvalTokens;
-      promptEvalTimeMs += metric.promptEvalTimeMs;
-      hasPromptTiming = true;
-    }
-    if (metric.completionEvalTokens !== undefined && metric.completionEvalTimeMs !== undefined) {
-      completionEvalTokens += metric.completionEvalTokens;
-      completionEvalTimeMs += metric.completionEvalTimeMs;
-      hasCompletionTiming = true;
-    }
-  }
+  const models = new Set(defined.map((m) => m.model).filter(Boolean));
+  const base = Object.fromEntries(SUM_KEYS.map((k) => [k, sum(k)]));
+
+  const paired = PAIRED_KEYS.flatMap(([tokenKey, timeKey]) => {
+    const present = defined.filter(
+      (m) => m[tokenKey] !== undefined && m[timeKey] !== undefined
+    );
+    return present.length === 0 ? [] : [[tokenKey, sum(tokenKey)], [timeKey, sum(timeKey)]];
+  });
 
   return {
-    model: models.length === 1 ? models[0] : undefined,
-    requestCount: defined.reduce((sum, metric) => sum + metric.requestCount, 0),
-    promptTokens: defined.reduce((sum, metric) => sum + metric.promptTokens, 0) as TokenCount,
-    completionTokens: defined.reduce(
-      (sum, metric) => sum + metric.completionTokens,
-      0
-    ) as TokenCount,
-    totalTokens: defined.reduce((sum, metric) => sum + metric.totalTokens, 0) as TokenCount,
-    totalRequestTimeMs: defined.reduce((sum, metric) => sum + metric.totalRequestTimeMs, 0) as Ms,
-    ...(hasPromptTiming
-      ? {
-          promptEvalTokens: promptEvalTokens as TokenCount,
-          promptEvalTimeMs: promptEvalTimeMs as Ms,
-        }
-      : {}),
-    ...(hasCompletionTiming
-      ? {
-          completionEvalTokens: completionEvalTokens as TokenCount,
-          completionEvalTimeMs: completionEvalTimeMs as Ms,
-        }
-      : {}),
-  };
+    model: models.size === 1 ? [...models][0] : undefined,
+    ...base,
+    ...Object.fromEntries(paired),
+  } as ModelMetrics;
 }
 
-export function promptTokensPerSecond(metrics: ModelMetrics): number | undefined {
-  if (
-    metrics.promptEvalTokens === undefined ||
-    metrics.promptEvalTimeMs === undefined ||
-    metrics.promptEvalTimeMs <= 0
-  ) {
-    return undefined;
-  }
-  return metrics.promptEvalTokens / (metrics.promptEvalTimeMs / 1000);
-}
+const tokensPerSecond = (tokens?: number, ms?: number): number | undefined =>
+  tokens !== undefined && ms !== undefined && ms > 0 ? tokens / (ms / 1000) : undefined;
 
-export function completionTokensPerSecond(metrics: ModelMetrics): number | undefined {
-  if (
-    metrics.completionEvalTokens === undefined ||
-    metrics.completionEvalTimeMs === undefined ||
-    metrics.completionEvalTimeMs <= 0
-  ) {
-    return undefined;
-  }
-  return metrics.completionEvalTokens / (metrics.completionEvalTimeMs / 1000);
-}
+export const promptTokensPerSecond = (m: ModelMetrics): number | undefined =>
+  tokensPerSecond(m.promptEvalTokens, m.promptEvalTimeMs);
+
+export const completionTokensPerSecond = (m: ModelMetrics): number | undefined =>
+  tokensPerSecond(m.completionEvalTokens, m.completionEvalTimeMs);

@@ -30,7 +30,9 @@ export function useOneshotSSE(
     const handle = (evt: MessageEvent<string>) => {
       try {
         onEventRef.current(JSON.parse(evt.data) as OneshotEvent);
-      } catch {}
+      } catch (error) {
+        console.warn("Ignoring malformed oneshot SSE event", error);
+      }
     };
 
     const handleOpen = () => {

@@ -2,8 +2,8 @@ import { cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.ts";
-import type { Scenario } from "./scenarios.ts";
-import { PLAYGROUND_SRC } from "./scenarios.ts";
+import type { Scenario } from "./scenarios/index.js";
+import { PLAYGROUND_SRC } from "./scenarios/index.js";
 import type { Ms } from "./schemas/brands.js";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "./scoring.ts";
 import type { RuntimeOutput, ScenarioEvaluation, ScenarioResult } from "./scoring.ts";
@@ -26,24 +26,17 @@ export interface RunOptions {
 function withToolExecution(runtime: Runtime, mode?: ToolExecutionMode): Runtime {
   if (!mode) return runtime;
 
-  const startSession = runtime.startSession;
-  if (!startSession) {
-    return {
-      ...runtime,
-      async run(ctx) {
-        return runtime.run({ ...ctx, toolExecution: ctx.toolExecution ?? mode });
-      },
-    };
-  }
+  const inject = <T extends { toolExecution?: ToolExecutionMode }>(ctx: T): T => ({
+    ...ctx,
+    toolExecution: ctx.toolExecution ?? mode,
+  });
 
   return {
     ...runtime,
-    async run(ctx) {
-      return runtime.run({ ...ctx, toolExecution: ctx.toolExecution ?? mode });
-    },
-    async startSession(ctx) {
-      return startSession({ ...ctx, toolExecution: ctx.toolExecution ?? mode });
-    },
+    run: (ctx) => runtime.run(inject(ctx)),
+    ...(runtime.startSession
+      ? { startSession: (ctx) => runtime.startSession!(inject(ctx)) }
+      : {}),
   };
 }
 

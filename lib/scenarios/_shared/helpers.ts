@@ -94,11 +94,11 @@ export function countMatches(source: string, pattern: RegExp): number {
 }
 
 export function firstChangeTurn(calls: ToolCall[]): number | undefined {
-  const editTurn = firstTurn(calls, "edit");
-  const writeTurn = firstTurn(calls, "write");
-  if (editTurn === undefined) return writeTurn;
-  if (writeTurn === undefined) return editTurn;
-  return Math.min(editTurn, writeTurn);
+  const turns = (["edit", "write"] as const)
+    .map((name) => firstTurn(calls, name))
+    .filter((t): t is number => t !== undefined);
+  if (turns.length === 0) return undefined;
+  return Math.min(...turns);
 }
 
 export function readTurnsForPath(calls: ToolCall[], path: string): number[] {

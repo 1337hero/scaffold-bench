@@ -1,7 +1,7 @@
 import type { ModelMetrics, RuntimeErrorKind, ToolCall } from "../../lib/scoring.ts";
 import type { RuntimeEvent } from "../../lib/runtimes/types.ts";
 
-interface EventBase {
+export interface EventBase {
   seq: number;
   ts: number;
 }
@@ -108,6 +108,36 @@ export type PersistedEvent =
       scenarioId: string;
       metrics: ModelMetrics;
     });
+
+export type OneshotEvent =
+  | (EventBase & {
+      type: "oneshot_run_started";
+      runId: string;
+      promptIds: string[];
+      model: string;
+    })
+  | (EventBase & {
+      type: "oneshot_test_started";
+      runId: string;
+      promptId: string;
+      index: number;
+      total: number;
+    })
+  | (EventBase & { type: "oneshot_delta"; runId: string; promptId: string; content: string })
+  | (EventBase & {
+      type: "oneshot_test_finished";
+      runId: string;
+      promptId: string;
+      output: string;
+      metrics: { promptTokens: number; completionTokens: number } | null;
+      finishReason: string;
+      wallTimeMs: number;
+      firstTokenMs?: number;
+      error?: string;
+    })
+  | (EventBase & { type: "oneshot_run_finished"; runId: string })
+  | (EventBase & { type: "oneshot_run_stopped"; runId: string; reason?: string })
+  | (EventBase & { type: "oneshot_run_failed"; runId: string; error: string });
 
 export interface RuntimeEventContext {
   runId: string;
