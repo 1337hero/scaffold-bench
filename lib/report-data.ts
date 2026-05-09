@@ -6,7 +6,6 @@ export const REPORT_CATEGORIES = [
   "verify-and-repair",
   "implementation",
   "read-only-analysis",
-  "audit",
   "responsiveness",
   "long-context",
 ] as const;

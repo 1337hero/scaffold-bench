@@ -18,12 +18,13 @@ export function formatSeconds(value: number | null, digits: number): string {
 
 export function formatDuration(startedAt: number, finishedAt: number | null): string {
   if (!finishedAt) return "—";
-  const total = Math.floor((finishedAt - startedAt) / 1000);
-  const minutes = Math.floor(total / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (total % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
+  const totalSec = Math.floor((finishedAt - startedAt) / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const hours = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
 }
 
 export function formatRelative(ts: number): string {

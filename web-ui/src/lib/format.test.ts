@@ -48,8 +48,14 @@ describe("formatDuration", () => {
   test("null finishedAt renders em-dash", () => {
     expect(formatDuration(0, null)).toBe("—");
   });
-  test("formats elapsed delta as MM:SS", () => {
-    expect(formatDuration(0, 65_000)).toBe("01:05");
+  test("under 60 seconds shows seconds", () => {
+    expect(formatDuration(0, 45_000)).toBe("45s");
+  });
+  test("60+ seconds shows minutes and seconds", () => {
+    expect(formatDuration(0, 65_000)).toBe("1m 05s");
+  });
+  test("60+ minutes shows hours and minutes", () => {
+    expect(formatDuration(0, 5010_000)).toBe("1h 23m");
   });
 });
 

@@ -1,5 +1,5 @@
 import type { ReportModelAggregate } from "@/types";
-import { formatSeconds, formatTps } from "@/lib/format";
+import { formatElapsed, formatSeconds, formatTps } from "@/lib/format";
 import { scoreTextColor } from "@/lib/score-color";
 import { SectionTitle } from "./SectionTitle";
 import { SourceBadge } from "./ReportHeader";
@@ -19,7 +19,7 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-right py-2 px-2">Pts/run</th>
               <th className="text-right py-2 px-2">Gen TPS</th>
               <th className="text-right py-2 px-2">Prompt TPS</th>
-              <th className="text-right py-2 px-2">Scen Avg</th>
+              <th className="text-right py-2 px-2">Wall</th>
               <th className="text-right py-2 px-2">TTFT</th>
               <th className="text-right py-2 px-2">Tools</th>
               <th className="text-right py-2 px-2">Requests</th>
@@ -29,7 +29,7 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
           <tbody>
             {models.map((model, index) => (
               <tr key={model.model} className="border-b border-border-main hover:bg-prompt-bg">
-                <td className="py-2 px-2 text-text-dim">{index + 1}</td>
+                <td className="py-2 px-2 text-text-main">{index + 1}</td>
                 <td className="py-2 px-2 text-text-main font-bold max-w-[260px] truncate">
                   {model.model}
                 </td>
@@ -39,24 +39,24 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                 <td className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.scorePct)}`}>
                   {model.scorePct.toFixed(1)}%
                 </td>
-                <td className="py-2 px-2 text-right text-text-dim">
+                <td className="py-2 px-2 text-right text-text-main">
                   {model.pointsAvg.toFixed(1)} / {model.maxAvg.toFixed(0)}
                 </td>
-                <td className="py-2 px-2 text-right text-text-dim">
+                <td className="py-2 px-2 text-right text-text-main">
                   {formatTps(model.completionTps, model.completionTpsApprox, 1)}
                 </td>
-                <td className="py-2 px-2 text-right text-text-dim">
+                <td className="py-2 px-2 text-right text-text-main">
                   {formatTps(model.promptTps, model.promptTpsApprox, 0)}
                 </td>
-                <td className="py-2 px-2 text-right text-text-dim">
-                  {model.avgScenarioSeconds.toFixed(1)}s
+                <td className="py-2 px-2 text-right text-text-main">
+                  {formatElapsed(model.totalWallSeconds * 1000)}
                 </td>
-                <td className="py-2 px-2 text-right text-text-dim">
+                <td className="py-2 px-2 text-right text-text-main">
                   {formatSeconds(model.avgFirstTokenSeconds, 2)}
                 </td>
-                <td className="py-2 px-2 text-right text-text-dim">{model.toolCallsTotal}</td>
-                <td className="py-2 px-2 text-right text-text-dim">{model.requests}</td>
-                <td className="py-2 px-2 text-right text-text-dim">{model.runs}</td>
+                <td className="py-2 px-2 text-right text-text-main">{model.toolCallsTotal}</td>
+                <td className="py-2 px-2 text-right text-text-main">{model.requests}</td>
+                <td className="py-2 px-2 text-right text-text-main">{model.runs}</td>
               </tr>
             ))}
           </tbody>

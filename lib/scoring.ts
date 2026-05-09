@@ -13,7 +13,6 @@ export type {
 
 export type Category =
   | "surgical-edit"
-  | "audit"
   | "scope-discipline"
   | "read-only-analysis"
   | "verify-and-repair"
