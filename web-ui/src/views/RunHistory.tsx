@@ -16,12 +16,11 @@ import type { ReportModelAggregate, ReportSourceFilter } from "@/types";
 const REPORT_REFETCH_MS = 10_000;
 
 interface RunHistoryProps {
-  onReplay: (runId: string) => void;
   onBack: () => void;
   backHref: string;
 }
 
-export function RunHistory({ onReplay, onBack, backHref }: RunHistoryProps) {
+export function RunHistory({ onBack, backHref }: RunHistoryProps) {
   const queryClient = useQueryClient();
   const [sourceFilter, setSourceFilter] = useState<ReportSourceFilter>("all");
   const [armed, setArmed] = useState(false);
@@ -154,7 +153,7 @@ export function RunHistory({ onReplay, onBack, backHref }: RunHistoryProps) {
         ) : runsQuery.isError ? (
           <div className="text-red-main text-center py-12">Failed to load runs</div>
         ) : runs.length === 0 ? null : (
-          <RecentRunsTable runs={runs} onReplay={onReplay} />
+          <RecentRunsTable runs={runs} />
         )}
       </div>
 

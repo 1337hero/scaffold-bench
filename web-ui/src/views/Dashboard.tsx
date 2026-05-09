@@ -11,7 +11,6 @@ import { reducer, INITIAL_REDUCER_STATE } from "@/hooks/run-state-reducer";
 import { useElapsedTimer } from "@/hooks/useElapsedTimer";
 import { useShortcuts } from "@/hooks/useShortcuts";
 import { api } from "@/api/client";
-import { coalesceReplayDeltas, dispatchReplayEvents, normalizeStoredRunEvents } from "@/lib/replay";
 import {
   getFocusedScenario,
   getCategoryRollups,
@@ -21,7 +20,6 @@ import {
   isRunComplete,
 } from "./dashboard-selectors";
 
-const REPLAY_CHUNK_SIZE = 250;
 const HEALTH_REFETCH_MS = 5_000;
 
 function useApiStatus(): "checking" | "ok" | "error" {
@@ -49,7 +47,6 @@ interface DashboardProps {
   onOneshot: () => void;
   onStartRun: () => void;
   activeRunId: string | null;
-  initialRunId?: string;
   historyHref: string;
   oneshotHref: string;
 }
@@ -59,13 +56,11 @@ export function Dashboard({
   onOneshot,
   onStartRun,
   activeRunId,
-  initialRunId,
   historyHref,
   oneshotHref,
 }: DashboardProps) {
   const [state, dispatch] = useReducer(reducer, INITIAL_REDUCER_STATE);
   const focusScenario = (id: string) => dispatch({ type: "_focus", id });
-  const _resetRun = () => dispatch({ type: "_reset" });
   const queryClient = useQueryClient();
   const apiStatus = useApiStatus();
   const [streamStats, setStreamStats] = useState<StreamDebugStats>({
@@ -75,32 +70,11 @@ export function Dashboard({
     connectionState: "idle",
   });
 
-  const isReplay = !!initialRunId;
-  const sseRunId = isReplay ? null : activeRunId;
-  const replayRun = useQuery({
-    queryKey: ["run", initialRunId, "events"],
-    queryFn: ({ signal }) => api.getRun(initialRunId!, true, signal),
-    enabled: isReplay,
-  });
-
-  useSSE(sseRunId, dispatch, setStreamStats);
+  useSSE(activeRunId, dispatch, setStreamStats);
 
   useEffect(() => {
-    if (isReplay) return;
     dispatch({ type: "_reset" });
-  }, [sseRunId, isReplay]);
-
-  useEffect(() => {
-    if (!initialRunId || !replayRun.data?.events) return;
-    const controller = new AbortController();
-    dispatch({ type: "_reset" });
-    const events = coalesceReplayDeltas(normalizeStoredRunEvents(replayRun.data.events));
-    void dispatchReplayEvents(events, dispatch, {
-      chunkSize: REPLAY_CHUNK_SIZE,
-      signal: controller.signal,
-    });
-    return () => controller.abort();
-  }, [initialRunId, replayRun.data?.events, dispatch]);
+  }, [activeRunId]);
 
   const elapsed = useElapsedTimer(state.status, state.startedAt);
 

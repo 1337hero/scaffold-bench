@@ -3,25 +3,16 @@ import { parseUrl, serializeUrl } from "./url-state";
 
 describe("parseUrl", () => {
   test("empty search returns dashboard view", () => {
-    expect(parseUrl("")).toEqual({ name: "dashboard", replayRunId: undefined });
+    expect(parseUrl("")).toEqual({ name: "dashboard" });
   });
   test("view=history returns history view", () => {
     expect(parseUrl("?view=history")).toEqual({ name: "history" });
   });
-  test("replayRunId attaches to dashboard view", () => {
-    expect(parseUrl("?replayRunId=run-42")).toEqual({
-      name: "dashboard",
-      replayRunId: "run-42",
-    });
-  });
-  test("view=history wins over replayRunId", () => {
-    expect(parseUrl("?view=history&replayRunId=run-42")).toEqual({ name: "history" });
-  });
   test("view=oneshot returns oneshot view", () => {
     expect(parseUrl("?view=oneshot")).toEqual({ name: "oneshot" });
   });
-  test("view=oneshot wins over replayRunId", () => {
-    expect(parseUrl("?view=oneshot&replayRunId=run-42")).toEqual({ name: "oneshot" });
+  test("unknown params return dashboard view", () => {
+    expect(parseUrl("?replayRunId=run-42")).toEqual({ name: "dashboard" });
   });
 });
 
@@ -45,18 +36,11 @@ describe("serializeUrl", () => {
   test("history view becomes ?view=history", () => {
     expect(serializeUrl({ name: "history" })).toBe("?view=history");
   });
-  test("dashboard with no replay returns pathname", () => {
+  test("dashboard returns pathname", () => {
     expect(serializeUrl({ name: "dashboard" })).toBe("/");
-  });
-  test("dashboard with replay encodes replayRunId", () => {
-    expect(serializeUrl({ name: "dashboard", replayRunId: "run-7" })).toBe("?replayRunId=run-7");
   });
   test("parseUrl(serializeUrl(x)) is identity for history", () => {
     const view = { name: "history" } as const;
-    expect(parseUrl(serializeUrl(view))).toEqual(view);
-  });
-  test("parseUrl(serializeUrl(x)) is identity for dashboard with replay", () => {
-    const view = { name: "dashboard", replayRunId: "run-7" } as const;
     expect(parseUrl(serializeUrl(view))).toEqual(view);
   });
   test("oneshot view becomes ?view=oneshot", () => {
@@ -64,6 +48,10 @@ describe("serializeUrl", () => {
   });
   test("parseUrl(serializeUrl(x)) is identity for oneshot", () => {
     const view = { name: "oneshot" } as const;
+    expect(parseUrl(serializeUrl(view))).toEqual(view);
+  });
+  test("parseUrl(serializeUrl(x)) is identity for dashboard", () => {
+    const view = { name: "dashboard" } as const;
     expect(parseUrl(serializeUrl(view))).toEqual(view);
   });
 });

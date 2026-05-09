@@ -3,15 +3,8 @@ import { formatDuration, formatRelative } from "@/lib/format";
 import { scoreBarColor } from "@/lib/score-color";
 import { SectionTitle } from "./SectionTitle";
 import { RunStatusBadge } from "./Leaderboard";
-import { serializeUrl } from "@/lib/url-state";
 
-export function RecentRunsTable({
-  runs,
-  onReplay,
-}: {
-  runs: RunSummary[];
-  onReplay: (runId: string) => void;
-}) {
+export function RecentRunsTable({ runs }: { runs: RunSummary[] }) {
   return (
     <section className="mt-8">
       <SectionTitle>Recent Runs</SectionTitle>
@@ -26,7 +19,6 @@ export function RecentRunsTable({
               <th className="text-left py-2 px-3">Score</th>
               <th className="text-left py-2 px-3">Time</th>
               <th className="text-left py-2 px-3">Started</th>
-              <th className="text-left py-2 px-3">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -50,18 +42,6 @@ export function RecentRunsTable({
                   {formatDuration(run.startedAt, run.finishedAt)}
                 </td>
                 <td className="py-2.5 px-3 text-text-dim">{formatRelative(run.startedAt)}</td>
-                <td className="py-2.5 px-3">
-                  <a
-                    href={serializeUrl({ name: "dashboard", replayRunId: run.id })}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onReplay(run.id);
-                    }}
-                    className="text-gold hover:underline"
-                  >
-                    Open
-                  </a>
-                </td>
               </tr>
             ))}
           </tbody>

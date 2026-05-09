@@ -57,8 +57,6 @@ export default function App() {
     navigate({ name: "dashboard" });
   };
 
-  const handleReplay = (runId: string) => navigate({ name: "dashboard", replayRunId: runId });
-
   useShortcuts({
     r: () => {
       if (!isModalOpen) setIsModalOpen(true);
@@ -84,7 +82,6 @@ export default function App() {
             onOneshot={goOneshot}
             onStartRun={openModal}
             activeRunId={activeRunId}
-            initialRunId={view.replayRunId}
             historyHref={historyHref}
             oneshotHref={oneshotHref}
           />
@@ -95,6 +92,6 @@ export default function App() {
       return <OneShotLab />;
     case "history":
     default:
-      return <RunHistory onReplay={handleReplay} onBack={goDashboard} backHref={dashboardHref} />;
+      return <RunHistory onBack={goDashboard} backHref={dashboardHref} />;
   }
 }

@@ -17,16 +17,15 @@ function makeClient() {
 
 function renderHistory(props: Partial<ComponentProps<typeof RunHistory>> = {}) {
   const queryClient = makeClient();
-  const onReplay = props.onReplay ?? mock(() => {});
   const onBack = props.onBack ?? mock(() => {});
 
   render(
     <QueryClientProvider client={queryClient}>
-      <RunHistory onReplay={onReplay} onBack={onBack} backHref={props.backHref ?? "/"} />
+      <RunHistory onBack={onBack} backHref={props.backHref ?? "/"} />
     </QueryClientProvider>
   );
 
-  return { onReplay, onBack, queryClient };
+  return { onBack, queryClient };
 }
 
 const reportPayload: ReportData = {
@@ -70,17 +69,6 @@ describe("RunHistory user flows", () => {
 
   afterEach(() => {
     cleanup();
-  });
-
-  test("replay action calls onReplay with selected run id", async () => {
-    const user = userEvent.setup();
-    const onReplay = mock(() => {});
-    renderHistory({ onReplay });
-
-    const openLink = await screen.findByRole("link", { name: "Open" });
-    await user.click(openLink);
-
-    expect(onReplay).toHaveBeenCalledWith("run-123");
   });
 
   test("clear logs requires confirmation click before mutation", async () => {

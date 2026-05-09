@@ -6,7 +6,6 @@ import type {
   OneshotLatestRun,
   OneshotTestSummary,
 } from "@/types";
-import type { StoredRunEvent } from "@/lib/replay";
 
 const BASE = "/api";
 
@@ -48,11 +47,8 @@ export const api = {
   listRuns: (signal?: AbortSignal) => get<RunSummary[]>("/runs", signal),
   getReportData: (signal?: AbortSignal) => get<ReportData>("/bench-report/data", signal),
   activeRun: (signal?: AbortSignal) => get<{ runId: string | null }>("/runs/active", signal),
-  getRun: (id: string, withEvents = false, signal?: AbortSignal) =>
-    get<RunSummary & { scenarioRuns: unknown[]; events?: StoredRunEvent[] }>(
-      `/runs/${id}${withEvents ? "?withEvents=true" : ""}`,
-      signal
-    ),
+  getRun: (id: string, signal?: AbortSignal) =>
+    get<RunSummary & { scenarioRuns: unknown[] }>(`/runs/${id}`, signal),
   getScenarioEvents: (runId: string, scenarioId: string, signal?: AbortSignal) =>
     get<Array<{ seq: number; ts: number; type: string; payload: unknown }>>(
       `/runs/${runId}/scenarios/${scenarioId}/events`,
