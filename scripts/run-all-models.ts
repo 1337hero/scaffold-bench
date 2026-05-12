@@ -1,12 +1,27 @@
 #!/usr/bin/env bun
 /**
- * Unattended batch runner — starts the server, runs every discovered model
+ * Unattended batch runner — starts the server, runs the specified models
  * N times through the full scenario suite, then shuts down cleanly.
  *
- * Usage:
+ * Edit RUNS_PER_MODEL and MODELS below, or override via CLI:
  *   bun scripts/run-all-models.ts [--runs=2] [--warmup=15]
+ *
+ * MODELS: list of model IDs to benchmark (as seen by llama-swap / remote provider).
+ *         Leave empty ([]) to run ALL discovered models.
  */
 import { spawn, type Subprocess } from "bun";
+
+// ── config ────────────────────────────────────────────────────────────────────
+// Edit these before running.
+
+const RUNS_PER_MODEL = 3;
+
+const MODELS: string[] = [
+  "Qwen3.6-27B",
+  // "anthropic/claude-sonnet-4.6",
+];
+
+// ── end config ────────────────────────────────────────────────────────────────
 
 const PORT = Number(Bun.env.SCAFFOLD_WEB_PORT ?? 4317);
 const BASE = `http://localhost:${PORT}`;
@@ -25,8 +40,8 @@ function parseArg(name: string, fallback: number): number {
   return flag ? Number(flag.split("=")[1]) : fallback;
 }
 
-const RUNS_PER_MODEL = parseArg("runs", 2);
-const WARMUP_WAIT_S = parseArg("warmup", 15);
+const RUNS_FLAG = parseArg("runs", 0); // 0 = use const above
+const WARMUP_WAIT_S = parseArg("warmup", 25);
 
 // ── server lifecycle ──────────────────────────────────────────────────────────
 
@@ -137,7 +152,7 @@ process.on("SIGTERM", () => {
 
 console.log(`\n${hr()}`);
 console.log(`  scaffold-bench — all-models batch runner`);
-console.log(`  Runs per model : ${RUNS_PER_MODEL}`);
+console.log(`  Runs per model : ${RUNS_FLAG > 0 ? `${runsPerModel} (via --runs)` : RUNS_PER_MODEL}`);
 console.log(`  Warmup wait    : ${WARMUP_WAIT_S}s`);
 console.log(`  Server port    : ${PORT}`);
 console.log(hr());
@@ -151,20 +166,33 @@ const [modelsByGroup, scenarios] = await Promise.all([
   getJSON<{ id: string }[]>("/api/scenarios"),
 ]);
 
-const models = [...modelsByGroup.local, ...modelsByGroup.remote];
+const allModels = [...modelsByGroup.local, ...modelsByGroup.remote];
+const runsPerModel = RUNS_FLAG > 0 ? RUNS_FLAG : RUNS_PER_MODEL;
+
+const models = MODELS.length > 0
+  ? allModels.filter((m) => MODELS.includes(m.id))
+  : allModels;
 
 if (models.length === 0) {
-  console.error(
-    `${RED}No models discovered — is your local model server running, or SCAFFOLD_REMOTE_* set?${RESET}`
-  );
+  if (MODELS.length > 0) {
+    console.error(
+      `${RED}None of the configured models (${MODELS.join(", ")}) were found.${RESET}`
+    );
+    console.error(`Available: ${allModels.map((m) => m.id).join(", ") || "(none)"}`);
+  } else {
+    console.error(
+      `${RED}No models discovered — is your local model server running, or SCAFFOLD_REMOTE_* set?${RESET}`
+    );
+  }
   server.kill();
   process.exit(1);
 }
 
 const scenarioIds = scenarios.map((s) => s.id);
 
+const filteredNote = MODELS.length > 0 ? ` (filtered from ${allModels.length} discovered)` : "";
 console.log(
-  `Found ${CYAN}${models.length} model(s)${RESET}, ${CYAN}${scenarioIds.length} scenario(s)${RESET}.\n`
+  `Found ${CYAN}${models.length} model(s)${filteredNote}${RESET}, ${CYAN}${scenarioIds.length} scenario(s)${RESET}, ${CYAN}${runsPerModel} run(s) per model${RESET}.\n`
 );
 
 const results: {
@@ -181,7 +209,7 @@ for (let mi = 0; mi < models.length; mi++) {
   console.log(`  Model ${mi + 1}/${models.length}: ${GOLD}${model.id}${RESET}`);
   console.log(hr());
 
-  for (let run = 1; run <= RUNS_PER_MODEL; run++) {
+  for (let run = 1; run <= runsPerModel; run++) {
     if (mi > 0 || run > 1) {
       process.stdout.write(`  Warmup wait ${WARMUP_WAIT_S}s...`);
       await Bun.sleep(WARMUP_WAIT_S * 1_000);
