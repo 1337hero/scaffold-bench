@@ -6,6 +6,7 @@ import {
   formatDuration,
   formatRelative,
   formatNowHHMMSS,
+  formatWallTime,
 } from "./format";
 
 describe("formatElapsed", () => {
@@ -20,6 +21,24 @@ describe("formatElapsed", () => {
   });
   test("rounds down sub-second remainder", () => {
     expect(formatElapsed(59_999)).toBe("00:59");
+  });
+});
+
+describe("formatWallTime", () => {
+  test("under 60 seconds shows seconds only", () => {
+    expect(formatWallTime(45)).toBe("45s");
+  });
+  test("zero is 0s", () => {
+    expect(formatWallTime(0)).toBe("0s");
+  });
+  test("60+ seconds shows minutes and seconds", () => {
+    expect(formatWallTime(1220)).toBe("20m 20s");
+  });
+  test("60+ minutes shows hours and minutes", () => {
+    expect(formatWallTime(12090)).toBe("3h 21m");
+  });
+  test("rounds down sub-second remainder", () => {
+    expect(formatWallTime(59.9)).toBe("59s");
   });
 });
 

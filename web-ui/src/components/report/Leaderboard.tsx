@@ -1,5 +1,5 @@
 import type { ReportModelAggregate } from "@/types";
-import { formatElapsed, formatSeconds, formatTps } from "@/lib/format";
+import { formatSeconds, formatTps, formatWallTime } from "@/lib/format";
 import { scoreTextColor } from "@/lib/score-color";
 import { SectionTitle } from "./SectionTitle";
 import { SourceBadge } from "./ReportHeader";
@@ -19,7 +19,8 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-right py-2 px-2">Pts/run</th>
               <th className="text-right py-2 px-2">Gen TPS</th>
               <th className="text-right py-2 px-2">Prompt TPS</th>
-              <th className="text-right py-2 px-2">Wall</th>
+              <th className="text-right py-2 px-2">Scen Avg</th>
+              <th className="text-right py-2 px-2">Total Wall</th>
               <th className="text-right py-2 px-2">TTFT</th>
               <th className="text-right py-2 px-2">Tools</th>
               <th className="text-right py-2 px-2">Requests</th>
@@ -49,7 +50,10 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                   {formatTps(model.promptTps, model.promptTpsApprox, 0)}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
-                  {formatElapsed(model.totalWallSeconds * 1000)}
+                  {model.avgScenarioSeconds.toFixed(1)}s
+                </td>
+                <td className="py-2 px-2 text-right text-text-main">
+                  {formatWallTime(model.totalWallSeconds)}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {formatSeconds(model.avgFirstTokenSeconds, 2)}

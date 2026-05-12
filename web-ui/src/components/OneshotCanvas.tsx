@@ -1,100 +1,47 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { wrapText } from "@/lib/canvas-text";
+import { useMemo, useState } from "react";
+import { extractHtml } from "@/lib/extract-html";
 
 interface OneshotCanvasProps {
   text: string;
 }
 
 export function OneshotCanvas({ text }: OneshotCanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showRaw, setShowRaw] = useState(false);
-  const [canvasWidth, setCanvasWidth] = useState(0);
 
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-
-    const updateWidth = () => setCanvasWidth(element.clientWidth);
-    updateWidth();
-
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  const lines = useMemo(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || canvasWidth <= 0) return text.split("\n");
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return text.split("\n");
-
-    ctx.font = '13px "CommitMono", monospace';
-    return wrapText((s) => ctx.measureText(s).width, text, Math.max(100, canvasWidth - 24));
-  }, [text, canvasWidth]);
-
-  useEffect(() => {
-    if (showRaw) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const lineHeight = 18;
-    const visible = Math.max(1, Math.floor((height - 16) / lineHeight));
-    const start = Math.max(0, lines.length - visible);
-
-    const raf = requestAnimationFrame(() => {
-      ctx.fillStyle = "#0f1115";
-      ctx.fillRect(0, 0, width, height);
-      ctx.font = '13px "CommitMono", monospace';
-      ctx.fillStyle = "#d0d5df";
-      ctx.textBaseline = "top";
-
-      let y = 8;
-      for (let i = start; i < lines.length; i++) {
-        ctx.fillText(lines[i], 12, y);
-        y += lineHeight;
-      }
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [lines, showRaw]);
+  const extraction = useMemo(() => extractHtml(text), [text]);
+  const isComplete = extraction !== null && /<\/html>/i.test(extraction.html);
 
   const copyRaw = async () => {
     await navigator.clipboard.writeText(text);
   };
 
+  const sourceLabel =
+    extraction?.source === "fence" ? "from ```html fence" : extraction ? "from raw text" : null;
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center justify-between px-2 py-1 border-b border-border-main text-[11px] text-text-dim">
-        <button
-          onClick={() => setShowRaw((v) => !v)}
-          className="px-2 py-0.5 border border-border-main rounded-sm hover:border-gold hover:text-gold"
-        >
-          {showRaw ? "Show canvas" : "Show raw text"}
-        </button>
-        {showRaw ? (
+        <div className="flex items-center gap-2">
           <button
-            onClick={copyRaw}
-            className="px-2 py-0.5 border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main"
+            onClick={() => setShowRaw((v) => !v)}
+            className="px-2 py-0.5 border border-border-main rounded-sm hover:border-gold hover:text-gold"
           >
-            Copy
+            {showRaw ? "Show artifact" : "Show raw text"}
           </button>
-        ) : null}
+          {!showRaw && sourceLabel ? (
+            <span className="text-text-dim">{sourceLabel}</span>
+          ) : null}
+        </div>
+        <button
+          onClick={copyRaw}
+          disabled={text.length === 0}
+          className="px-2 py-0.5 border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Copy
+        </button>
       </div>
 
-      <div ref={containerRef} className="flex-1 min-h-[52vh] bg-bg-main">
+      <div className="flex-1 min-h-[52vh] bg-bg-main">
         {showRaw ? (
           <pre className="h-full overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
             {text || "(no output yet)"}
@@ -103,8 +50,27 @@ export function OneshotCanvas({ text }: OneshotCanvasProps) {
           <div className="h-full flex items-center justify-center text-xs text-text-dim">
             Waiting for model output…
           </div>
+        ) : extraction && isComplete ? (
+          <iframe
+            title="Model artifact"
+            srcDoc={extraction.html}
+            sandbox="allow-scripts"
+            className="w-full h-full block bg-white"
+          />
+        ) : extraction ? (
+          <div className="h-full flex items-center justify-center text-xs text-text-dim">
+            Streaming artifact… renders when the document closes.
+          </div>
         ) : (
-          <canvas ref={canvasRef} className="w-full h-full block" />
+          <div className="h-full flex flex-col items-center justify-center gap-2 text-xs text-text-dim">
+            <div>No renderable HTML found in the model output.</div>
+            <button
+              onClick={() => setShowRaw(true)}
+              className="px-2 py-0.5 border border-border-main rounded-sm hover:border-gold hover:text-gold"
+            >
+              Show raw text
+            </button>
+          </div>
         )}
       </div>
     </div>
