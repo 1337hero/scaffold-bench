@@ -12,7 +12,7 @@
 
 Hands a model 25 real coding tasks in real codebases — backend APIs, frontend apps, bug fixes, refactors, small features. The model gets 5 tools (`read`, `ls`, `edit`, `write`, `bash`) and up to 20 turns to land the change.
 
-Then it scores not just *did the code work*, but *how did the model behave*:
+Then it scores not just _did the code work_, but _how did the model behave_:
 
 - Did it touch only what it should?
 - Did it follow the existing stack and patterns?
@@ -60,13 +60,13 @@ Works with anything OpenAI-compatible: Ollama (`11434`), llama.cpp / llama-swap 
 
 Each scenario is graded 0–10:
 
-| Dimension             | Pts | Question                                    |
-| --------------------- | --- | ------------------------------------------- |
-| **Correctness**       | 3   | Did the change solve the problem?           |
-| **Scope**             | 2   | Did it touch only what it should?           |
-| **Pattern adherence** | 2   | Did it use existing stack and idioms?       |
-| **Verification**      | 1   | Did it run the right command to confirm?    |
-| **Cleanup cost**      | 2   | How much cleanup would a reviewer need?     |
+| Dimension             | Pts | Question                                 |
+| --------------------- | --- | ---------------------------------------- |
+| **Correctness**       | 3   | Did the change solve the problem?        |
+| **Scope**             | 2   | Did it touch only what it should?        |
+| **Pattern adherence** | 2   | Did it use existing stack and idioms?    |
+| **Verification**      | 1   | Did it run the right command to confirm? |
+| **Cleanup cost**      | 2   | How much cleanup would a reviewer need?  |
 
 **≥9 → pass · 5–8 → partial · ≤4 → fail**
 
@@ -82,7 +82,7 @@ Scope is checked from a real filesystem diff, so changes made through `bash` (e.
 - Smallest correct change
 - Reusing existing helpers and patterns
 - Running focused verification commands
-- Knowing when *not* to edit
+- Knowing when _not_ to edit
 - Recovering cleanly from failed edits or red tests
 
 ## What it punishes
@@ -97,15 +97,15 @@ Scope is checked from a real filesystem diff, so changes made through `bash` (e.
 
 ## Scenario categories
 
-| Category             | What it probes                                          |
-| -------------------- | ------------------------------------------------------- |
-| `surgical-edit`      | Fix exactly the broken thing. Don't touch the rest.     |
-| `scope-discipline`   | Make the requested change. Nothing else.                |
-| `read-only-analysis` | Answer a question. Don't reach for the edit tool.       |
-| `verify-and-repair`  | Reproduce, fix, verify, recover.                        |
-| `implementation`     | Read a spec, build the feature. Multi-file.             |
-| `responsiveness`     | Stay fast in a tight edit loop.                         |
-| `long-context`       | Find the right answer in a huge inline blob.            |
+| Category             | What it probes                                      |
+| -------------------- | --------------------------------------------------- |
+| `surgical-edit`      | Fix exactly the broken thing. Don't touch the rest. |
+| `scope-discipline`   | Make the requested change. Nothing else.            |
+| `read-only-analysis` | Answer a question. Don't reach for the edit tool.   |
+| `verify-and-repair`  | Reproduce, fix, verify, recover.                    |
+| `implementation`     | Read a spec, build the feature. Multi-file.         |
+| `responsiveness`     | Stay fast in a tight edit loop.                     |
+| `long-context`       | Find the right answer in a huge inline blob.        |
 
 ## Current scenarios (25 active)
 
@@ -159,12 +159,12 @@ Implement the `Runtime` interface in `lib/runtimes/types.ts`, register it in the
 
 ## Troubleshooting
 
-| Issue                           | Fix                                                                              |
-| ------------------------------- | -------------------------------------------------------------------------------- |
+| Issue                           | Fix                                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
 | Model server connection refused | Check `SCAFFOLD_LOCAL_ENDPOINT`; test with `curl $SCAFFOLD_LOCAL_ENDPOINT/v1/models` |
-| Scenario hangs                  | Pass a longer `timeoutMs` — `implementation` and multi-turn cases need more time |
-| SQLite locked                   | Close other running instances; the DB uses WAL mode                              |
-| Frontend can't reach API        | Make sure `bun run dev` or `bun run start` is running on port `4317`             |
+| Scenario hangs                  | Pass a longer `timeoutMs` — `implementation` and multi-turn cases need more time     |
+| SQLite locked                   | Close other running instances; the DB uses WAL mode                                  |
+| Frontend can't reach API        | Make sure `bun run dev` or `bun run start` is running on port `4317`                 |
 
 ---
 
