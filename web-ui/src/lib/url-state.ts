@@ -1,7 +1,4 @@
-export type UrlViewState =
-  | { name: "dashboard" }
-  | { name: "history" }
-  | { name: "oneshot" };
+export type UrlViewState = { name: "dashboard" } | { name: "history" } | { name: "oneshot" };
 
 export function parseUrl(search: string): UrlViewState {
   const params = new URLSearchParams(search);

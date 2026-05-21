@@ -28,9 +28,7 @@ export function OneshotCanvas({ text }: OneshotCanvasProps) {
           >
             {showRaw ? "Show artifact" : "Show raw text"}
           </button>
-          {!showRaw && sourceLabel ? (
-            <span className="text-text-dim">{sourceLabel}</span>
-          ) : null}
+          {!showRaw && sourceLabel ? <span className="text-text-dim">{sourceLabel}</span> : null}
         </div>
         <button
           onClick={copyRaw}
@@ -41,13 +39,13 @@ export function OneshotCanvas({ text }: OneshotCanvasProps) {
         </button>
       </div>
 
-      <div className="flex-1 min-h-[52vh] bg-bg-main">
+      <div className="flex flex-1 min-h-[52vh] bg-bg-main">
         {showRaw ? (
-          <pre className="h-full overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
+          <pre className="flex-1 min-h-0 overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
             {text || "(no output yet)"}
           </pre>
         ) : text.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-xs text-text-dim">
+          <div className="flex flex-1 items-center justify-center text-xs text-text-dim">
             Waiting for model output…
           </div>
         ) : extraction && isComplete ? (
@@ -55,14 +53,14 @@ export function OneshotCanvas({ text }: OneshotCanvasProps) {
             title="Model artifact"
             srcDoc={extraction.html}
             sandbox="allow-scripts"
-            className="w-full h-full block bg-white"
+            className="w-full flex-1 min-h-0 block bg-white"
           />
         ) : extraction ? (
-          <div className="h-full flex items-center justify-center text-xs text-text-dim">
+          <div className="flex flex-1 items-center justify-center text-xs text-text-dim">
             Streaming artifact… renders when the document closes.
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center gap-2 text-xs text-text-dim">
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-text-dim">
             <div>No renderable HTML found in the model output.</div>
             <button
               onClick={() => setShowRaw(true)}
