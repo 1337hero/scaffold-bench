@@ -26,6 +26,39 @@ export type RubricKind = "10pt" | "custom-5pt" | "custom-3pt";
  */
 export type SignalType = "behavioral" | "regex-shape" | "stdout" | "trace" | "latency";
 
+export type Stack =
+  | "react"
+  | "next"
+  | "hono"
+  | "express"
+  | "tanstack-query"
+  | "tanstack-router"
+  | "react-hook-form"
+  | "zod"
+  | "node"
+  | "vite"
+  | "typescript"
+  | "axios"
+  | "sqlite";
+
+export type EvaluatorKind =
+  | "unit"
+  | "browser"
+  | "api"
+  | "sql"
+  | "a11y"
+  | "ast"
+  | "trace"
+  | "stdout"
+  | "latency"
+  | "regex";
+
+export type TaskType = "bugfix" | "refactor" | "feature" | "no-op" | "security" | "tooling";
+
+export type Difficulty = "small" | "medium" | "large";
+
+export type Surface = "frontend" | "backend" | "fullstack" | "tooling" | "ops";
+
 export type ScenarioMeta = {
   id: string;
   name: string;
@@ -33,6 +66,12 @@ export type ScenarioMeta = {
   family: Family;
   rubricKind: RubricKind;
   signalType: SignalType;
+  evaluatorKind: EvaluatorKind;
+  stacks: Stack[];
+  taskType: TaskType;
+  difficulty: Difficulty;
+  surface: Surface;
+  tests: { public: string[]; hidden: string[] };
   fixturePath: string;
   prompt: string;
 };
@@ -70,6 +109,13 @@ export type ScenarioBase = {
   rubricKind?: RubricKind;
   prompt: string;
   maxPoints?: number;
+  signalType?: SignalType;
+  evaluatorKind?: EvaluatorKind;
+  stacks?: Stack[];
+  taskType?: TaskType;
+  difficulty?: Difficulty;
+  surface?: Surface;
+  tests?: { public: string[]; hidden: string[] };
   buildPrompt?(input: { playgroundDir: string }): Promise<string>;
 };
 

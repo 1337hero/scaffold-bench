@@ -59,7 +59,7 @@ export function runMigrations(): void {
     }
   }
 
-  const migrations: Array<{ name: string; sql: string }> = [
+  const migrations: Array<{ name: string; sql?: string; run?: (db: Database) => void }> = [
     {
       name: "001_initial",
       sql: readFileSync(join(import.meta.dir, "schema.sql"), "utf8"),
@@ -68,12 +68,17 @@ export function runMigrations(): void {
       name: "002_oneshot",
       sql: readFileSync(join(import.meta.dir, "oneshot-schema.sql"), "utf8"),
     },
+    {
+      name: "005_scenario_metadata",
+      run: applyScenarioMetadata,
+    },
   ];
 
   for (const migration of migrations) {
     if (applied.has(migration.name)) continue;
     try {
-      db.exec(migration.sql);
+      if (migration.sql) db.exec(migration.sql);
+      migration.run?.(db);
       db.run("INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)", [
         migration.name,
         Date.now(),
@@ -82,6 +87,33 @@ export function runMigrations(): void {
       console.error(`Migration ${migration.name} failed:`, err);
       throw err;
     }
+  }
+}
+
+const SCENARIO_METADATA_COLUMNS: Array<{ name: string; def: string }> = [
+  { name: "signal_type", def: "signal_type TEXT" },
+  { name: "evaluator_kind", def: "evaluator_kind TEXT" },
+  { name: "stacks_json", def: "stacks_json TEXT" },
+  { name: "task_type", def: "task_type TEXT" },
+  { name: "difficulty", def: "difficulty TEXT" },
+  { name: "surface", def: "surface TEXT" },
+  { name: "hidden_test_passed", def: "hidden_test_passed INTEGER" },
+  { name: "hidden_test_total", def: "hidden_test_total INTEGER" },
+];
+
+function applyScenarioMetadata(db: Database): void {
+  db.exec(readFileSync(join(import.meta.dir, "migrations", "005_scenario_metadata.sql"), "utf8"));
+
+  const existing = new Set(
+    db
+      .query<{ name: string }, []>("PRAGMA table_info('scenario_runs')")
+      .all()
+      .map((r) => r.name)
+  );
+
+  for (const col of SCENARIO_METADATA_COLUMNS) {
+    if (existing.has(col.name)) continue;
+    db.exec(`ALTER TABLE scenario_runs ADD COLUMN ${col.def}`);
   }
 }
 

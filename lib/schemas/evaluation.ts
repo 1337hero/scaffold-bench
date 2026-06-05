@@ -8,6 +8,9 @@ export type RubricBreakdown = {
   cleanup: number;
 };
 
+/** Display-only hidden-test tally. Does NOT affect points/status. */
+export type HiddenTestTally = { passed: number; total: number };
+
 export type PassEvaluation = {
   status: "pass";
   points: number;
@@ -16,6 +19,7 @@ export type PassEvaluation = {
   summary: string;
   rubricKind?: string;
   rubricBreakdown?: RubricBreakdown;
+  hiddenTests?: HiddenTestTally;
 };
 export type PartialEvaluation = {
   status: "partial";
@@ -25,6 +29,7 @@ export type PartialEvaluation = {
   summary: string;
   rubricKind?: string;
   rubricBreakdown?: RubricBreakdown;
+  hiddenTests?: HiddenTestTally;
 };
 export type FailEvaluation = {
   status: "fail";
@@ -37,6 +42,7 @@ export type FailEvaluation = {
   summary: string;
   rubricKind?: string;
   rubricBreakdown?: RubricBreakdown;
+  hiddenTests?: HiddenTestTally;
 };
 export type ScenarioEvaluation = PassEvaluation | PartialEvaluation | FailEvaluation;
 
@@ -47,7 +53,8 @@ export const Evaluation = {
     summary: string,
     rubricKind?: string,
     rubricBreakdown?: RubricBreakdown,
-    points = maxPoints
+    points = maxPoints,
+    hiddenTests?: HiddenTestTally
   ): PassEvaluation => ({
     status: "pass",
     points,
@@ -56,6 +63,7 @@ export const Evaluation = {
     summary,
     ...(rubricKind ? { rubricKind } : {}),
     ...(rubricBreakdown ? { rubricBreakdown } : {}),
+    ...(hiddenTests ? { hiddenTests } : {}),
   }),
   partial: (
     points: number,
@@ -63,7 +71,8 @@ export const Evaluation = {
     checks: Check[],
     summary: string,
     rubricKind?: string,
-    rubricBreakdown?: RubricBreakdown
+    rubricBreakdown?: RubricBreakdown,
+    hiddenTests?: HiddenTestTally
   ): PartialEvaluation => ({
     status: "partial",
     points,
@@ -72,6 +81,7 @@ export const Evaluation = {
     summary,
     ...(rubricKind ? { rubricKind } : {}),
     ...(rubricBreakdown ? { rubricBreakdown } : {}),
+    ...(hiddenTests ? { hiddenTests } : {}),
   }),
   fail: (
     maxPoints: number,
@@ -79,7 +89,8 @@ export const Evaluation = {
     summary: string,
     rubricKind?: string,
     rubricBreakdown?: RubricBreakdown,
-    points = 0
+    points = 0,
+    hiddenTests?: HiddenTestTally
   ): FailEvaluation => ({
     status: "fail",
     points,
@@ -88,5 +99,6 @@ export const Evaluation = {
     summary,
     ...(rubricKind ? { rubricKind } : {}),
     ...(rubricBreakdown ? { rubricBreakdown } : {}),
+    ...(hiddenTests ? { hiddenTests } : {}),
   }),
 };

@@ -1,7 +1,15 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { clearRunData, insertRun, updateRun, upsertScenarioRun, withTransaction } from "../server/db/queries.ts";
+import {
+  clearRunData,
+  insertRun,
+  updateRun,
+  upsertScenarioRun,
+  withTransaction,
+} from "../server/db/queries.ts";
 import { closeDb, runMigrations } from "../server/db/migrations.ts";
+import { tryGetMeta } from "../lib/scoring.ts";
+import type { ScenarioMeta } from "../lib/scoring.ts";
 
 type ModelMetrics = {
   model?: string;
@@ -38,6 +46,7 @@ type ResultScenario = {
   errorKind?: "infra" | "timeout" | "aborted" | "runtime";
   modelMetrics?: ModelMetrics;
   checks?: unknown[];
+  hiddenTests?: { passed?: number; total?: number };
 };
 
 type RunFile = {
@@ -81,6 +90,26 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function metaColumns(scenarioId: string): Partial<{
+  signal_type: string;
+  evaluator_kind: string;
+  stacks_json: string;
+  task_type: string;
+  difficulty: string;
+  surface: string;
+}> {
+  const m: ScenarioMeta | undefined = tryGetMeta(scenarioId);
+  if (!m) return {};
+  return {
+    signal_type: m.signalType,
+    evaluator_kind: m.evaluatorKind,
+    stacks_json: JSON.stringify(m.stacks),
+    task_type: m.taskType,
+    difficulty: m.difficulty,
+    surface: m.surface,
+  };
+}
+
 function evaluationFor(result: ResultScenario): string {
   return JSON.stringify({
     status: statusFor(result),
@@ -113,10 +142,16 @@ function main(): void {
       if (!Array.isArray(results) || results.length === 0) continue;
 
       const finishedAt = fileTimestampMs(file, runFile);
-      const totalWallMs = results.reduce((sum, result) => sum + (numericOrNull(result.wallTimeMs) ?? 0), 0);
+      const totalWallMs = results.reduce(
+        (sum, result) => sum + (numericOrNull(result.wallTimeMs) ?? 0),
+        0
+      );
       const startedAt = Math.max(0, finishedAt - totalWallMs);
       const runId = runIdFor(file);
-      const model = runFile.modelMetrics?.model ?? results.find((r) => r.modelMetrics?.model)?.modelMetrics?.model ?? "unknown";
+      const model =
+        runFile.modelMetrics?.model ??
+        results.find((r) => r.modelMetrics?.model)?.modelMetrics?.model ??
+        "unknown";
       const scenarioIds = results.map((result) => result.scenarioId);
 
       insertRun({
@@ -152,7 +187,8 @@ function main(): void {
       let scenarioStartedAt = startedAt;
       for (const result of results) {
         const wallTimeMs = numericOrNull(result.wallTimeMs);
-        const scenarioFinishedAt = wallTimeMs === null ? scenarioStartedAt : scenarioStartedAt + wallTimeMs;
+        const scenarioFinishedAt =
+          wallTimeMs === null ? scenarioStartedAt : scenarioStartedAt + wallTimeMs;
         const breakdown = result.rubricBreakdown ?? null;
 
         upsertScenarioRun({
@@ -178,6 +214,9 @@ function main(): void {
           evaluation_json: evaluationFor(result),
           error_kind: result.errorKind ?? null,
           error: stringOrNull(result.error),
+          hidden_test_passed: numericOrNull(result.hiddenTests?.passed),
+          hidden_test_total: numericOrNull(result.hiddenTests?.total),
+          ...metaColumns(result.scenarioId),
         });
 
         scenarioStartedAt = scenarioFinishedAt;

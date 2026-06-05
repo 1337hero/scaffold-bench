@@ -12,6 +12,7 @@ import {
   noConsoleLog,
   onlyChangedFiles,
 } from "./_shared/helpers.js";
+import { runHiddenTests } from "./_shared/evaluators/index.js";
 
 export const meta = {
   id: "SB-01",
@@ -19,7 +20,7 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
   fixturePath: "playground/",
   prompt: `The throttle function in playground/utils.js is broken — it's identical to debounce. Fix it so it actually throttles.`,
 } as const;
@@ -31,9 +32,9 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const utils = await readFile(join(playgroundDir, "playground/utils.js"), "utf-8");
+    const fixtureDir = join(playgroundDir, "playground");
+    const utils = await readFile(join(fixtureDir, "utils.js"), "utf-8");
     const originalUtils = await readFile(join(PLAYGROUND_SRC, "utils.js"), "utf-8");
-    const throttleFn = extractFunction(utils, "throttle");
     const debounceFn = extractFunction(utils, "debounce");
     const formatDate = extractFunction(utils, "formatDate");
     const originalDebounce = extractFunction(originalUtils, "debounce");
@@ -42,17 +43,19 @@ const scenario: Scenario = {
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);
 
+    // Behavioral signal: run the authoritative throttle-semantics test
+    // (manual clock via setSystemTime) against the submitted utils.js.
+    const hidden = await runHiddenTests("SB-01", fixtureDir);
+    const throttleWorks = hidden.total > 0 && hidden.rate === 1;
+
     return rubricToEvaluation(
       {
         correctness: [
-          { name: "throttle differs from debounce", pass: throttleFn !== debounceFn, weight: 1 },
           {
-            name: "throttle has real throttle logic",
-            pass: /Date\.now|lastRun|lastCall|waiting|canRun|trailing|leading|elapsed|diff|inProgress/.test(
-              throttleFn
-            ),
-            weight: 2,
-            detail: throttleFn.slice(0, 120),
+            name: "throttle semantics test passes",
+            pass: throttleWorks,
+            weight: 3,
+            detail: `${hidden.passed}/${hidden.total} throttle-semantics assertions passed`,
           },
         ],
         scope: [
@@ -84,7 +87,7 @@ const scenario: Scenario = {
         ],
         cleanup: [
           {
-            name: "no added comments",
+            name: "no unrelated rewrite (comments match original)",
             pass: noAddedComments(utils, originalUtils),
             weight: 1,
           },
@@ -96,9 +99,9 @@ const scenario: Scenario = {
         ],
       },
       {
-        pass: "Fixed throttle with real logic, left adjacent code untouched.",
-        partial: "Fixed throttle but also touched adjacent code, or weak throttle logic.",
-        fail: "Did not produce a valid throttle fix.",
+        pass: "Throttle behaves correctly under a simulated clock, adjacent code untouched.",
+        partial: "Throttle fix is incomplete, or adjacent code was touched.",
+        fail: "Throttle does not throttle.",
       }
     );
   },

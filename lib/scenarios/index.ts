@@ -25,6 +25,31 @@ import SB22 from "./SB-22-nextjs-server-client-boundary.js";
 import SB23 from "./SB-23-express-middleware-order.js";
 import SB24 from "./SB-24-react-hook-form-zod-resolver.js";
 import SB25 from "./SB-25-tanstack-router-loader-ownership.js";
+import SB26 from "./SB-26-zod-cross-field-refine.js";
+import SB27 from "./SB-27-optimistic-rollback.js";
+import SB28 from "./SB-28-query-stale-refetch.js";
+import SB29 from "./SB-29-route-action-ownership.js";
+import SB30 from "./SB-30-next-client-server-boundary.js";
+import SB31 from "./SB-31-view-state-precedence.js";
+import SB32 from "./SB-32-a11y-form-labels.js";
+import SB33 from "./SB-33-responsive-breakpoints.js";
+import SB34 from "./SB-34-component-extraction.js";
+import SB35 from "./SB-35-focus-trap.js";
+import SB36 from "./SB-36-hono-session-invalidation.js";
+import SB37 from "./SB-37-hono-admin-role-guard.js";
+import SB38 from "./SB-38-hono-idempotent-create.js";
+import SB39 from "./SB-39-hono-typed-validation.js";
+import SB40 from "./SB-40-hono-catalog-pagination.js";
+import SB41 from "./SB-41-hono-additive-migration.js";
+import SB42 from "./SB-42-tsc-strict-fix.js";
+import SB43 from "./SB-43-tsconfig-path-alias.js";
+import SB44 from "./SB-44-hono-cors-csrf.js";
+import SB45 from "./SB-45-tsc-api-upgrade.js";
+import SB46 from "./SB-46-hono-reuse-abstractions.js";
+import SB47 from "./SB-47-hono-cross-subsystem-error-id.js";
+import SB48 from "./SB-48-extend-preserving-tests.js";
+import SB49 from "./SB-49-cross-subsystem-reuse.js";
+import SB50 from "./SB-50-hono-user-is-wrong-logout.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -52,11 +77,36 @@ export const scenarios: Scenario[] = [
   SB23,
   SB24,
   SB25,
+  SB26,
+  SB27,
+  SB28,
+  SB29,
+  SB30,
+  SB31,
+  SB32,
+  SB33,
+  SB34,
+  SB35,
+  SB36,
+  SB37,
+  SB38,
+  SB39,
+  SB40,
+  SB41,
+  SB42,
+  SB43,
+  SB44,
+  SB45,
+  SB46,
+  SB47,
+  SB48,
+  SB49,
+  SB50,
 ];
 
-if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
+if (scenarios.length !== 50 || scenarios.some((s) => !s.id)) {
   throw new Error(
-    `Scenario registry failed validation: ${scenarios.length} entries, some missing ids`
+    `Scenario registry failed validation: expected 50 entries, got ${scenarios.length}; some missing ids`
   );
 }
 

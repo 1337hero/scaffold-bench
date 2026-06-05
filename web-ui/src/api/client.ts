@@ -3,6 +3,9 @@ import type {
   Model,
   RunSummary,
   ReportData,
+  ScenarioRun,
+  ScenarioRunFilters,
+  ReviewNote,
   OneshotLatestRun,
   OneshotTestSummary,
 } from "@/types";
@@ -19,6 +22,19 @@ export class ApiError extends Error {
     this.status = status;
     this.activeRunId = activeRunId;
   }
+}
+
+function reportQuery(filters?: ScenarioRunFilters): string {
+  if (!filters) return "";
+  const params = new URLSearchParams();
+  if (filters.stacks?.length) params.set("stacks", filters.stacks.join(","));
+  if (filters.taskType) params.set("taskType", filters.taskType);
+  if (filters.difficulty) params.set("difficulty", filters.difficulty);
+  if (filters.surface) params.set("surface", filters.surface);
+  if (filters.signalType) params.set("signalType", filters.signalType);
+  if (filters.evaluatorKind) params.set("evaluatorKind", filters.evaluatorKind);
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -45,10 +61,14 @@ export const api = {
   getScenarios: (signal?: AbortSignal) => get<ScenarioInfo[]>("/scenarios", signal),
   getModels: (signal?: AbortSignal) => get<{ local: Model[]; remote: Model[] }>("/models", signal),
   listRuns: (signal?: AbortSignal) => get<RunSummary[]>("/runs", signal),
-  getReportData: (signal?: AbortSignal) => get<ReportData>("/bench-report/data", signal),
+  getReportData: (filters?: ScenarioRunFilters, signal?: AbortSignal) =>
+    get<ReportData>(`/bench-report/data${reportQuery(filters)}`, signal),
   activeRun: (signal?: AbortSignal) => get<{ runId: string | null }>("/runs/active", signal),
   getRun: (id: string, signal?: AbortSignal) =>
-    get<RunSummary & { scenarioRuns: unknown[] }>(`/runs/${id}`, signal),
+    get<RunSummary & { scenarioRuns: ScenarioRun[]; reviewNotes: ReviewNote[] }>(
+      `/runs/${id}`,
+      signal
+    ),
   getScenarioEvents: (runId: string, scenarioId: string, signal?: AbortSignal) =>
     get<Array<{ seq: number; ts: number; type: string; payload: unknown }>>(
       `/runs/${runId}/scenarios/${scenarioId}/events`,

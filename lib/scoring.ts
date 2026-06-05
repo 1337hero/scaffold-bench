@@ -10,6 +10,15 @@ export type {
   PartialEvaluation,
   FailEvaluation,
 } from "./schemas/evaluation.js";
+export type {
+  Stack,
+  EvaluatorKind,
+  TaskType,
+  Difficulty,
+  Surface,
+  ScenarioMeta,
+} from "./scenarios/_shared/types.js";
+export { getMeta, tryGetMeta } from "./scenarios/_shared/meta.js";
 
 export type Category =
   | "surgical-edit"

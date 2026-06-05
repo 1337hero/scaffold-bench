@@ -11,5 +11,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["bench.ts", "lib/**/*.ts", "server/**/*.ts", "report.ts", "web.ts"]
+  "include": ["bench.ts", "lib/**/*.ts", "server/**/*.ts", "report.ts", "web.ts"],
+  "comment:exclude": "Hidden tests are runtime templates copied into a fixture's __hidden__/ dir; their ../ imports only resolve at run time, not in the source graph.",
+  "exclude": ["lib/scenarios/hidden/**/*"]
 }

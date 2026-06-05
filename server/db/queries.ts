@@ -72,6 +72,14 @@ export interface ScenarioRunRow {
   evaluation_json: string | null;
   error_kind: "infra" | "timeout" | "aborted" | "runtime" | null;
   error: string | null;
+  signal_type: string | null;
+  evaluator_kind: string | null;
+  stacks_json: string | null;
+  task_type: string | null;
+  difficulty: string | null;
+  surface: string | null;
+  hidden_test_passed: number | null;
+  hidden_test_total: number | null;
 }
 
 export interface RunEventRow {
@@ -135,8 +143,10 @@ export function upsertScenarioRun(
       points, max_points, rubric_kind,
       correctness, scope, pattern, verification, cleanup,
       wall_time_ms, first_token_ms, tool_call_count,
-      model_metrics_json, evaluation_json, error_kind, error
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      model_metrics_json, evaluation_json, error_kind, error,
+      signal_type, evaluator_kind, stacks_json, task_type, difficulty, surface,
+      hidden_test_passed, hidden_test_total
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(run_id, scenario_id) DO UPDATE SET
       category = COALESCE(excluded.category, category),
       family = COALESCE(excluded.family, family),
@@ -157,7 +167,15 @@ export function upsertScenarioRun(
       model_metrics_json = COALESCE(excluded.model_metrics_json, model_metrics_json),
       evaluation_json = COALESCE(excluded.evaluation_json, evaluation_json),
       error_kind = COALESCE(excluded.error_kind, error_kind),
-      error = COALESCE(excluded.error, error)`,
+      error = COALESCE(excluded.error, error),
+      signal_type = COALESCE(excluded.signal_type, signal_type),
+      evaluator_kind = COALESCE(excluded.evaluator_kind, evaluator_kind),
+      stacks_json = COALESCE(excluded.stacks_json, stacks_json),
+      task_type = COALESCE(excluded.task_type, task_type),
+      difficulty = COALESCE(excluded.difficulty, difficulty),
+      surface = COALESCE(excluded.surface, surface),
+      hidden_test_passed = COALESCE(excluded.hidden_test_passed, hidden_test_passed),
+      hidden_test_total = COALESCE(excluded.hidden_test_total, hidden_test_total)`,
     [
       row.run_id,
       row.scenario_id,
@@ -181,6 +199,14 @@ export function upsertScenarioRun(
       row.evaluation_json ?? null,
       row.error_kind ?? null,
       row.error ?? null,
+      row.signal_type ?? null,
+      row.evaluator_kind ?? null,
+      row.stacks_json ?? null,
+      row.task_type ?? null,
+      row.difficulty ?? null,
+      row.surface ?? null,
+      row.hidden_test_passed ?? null,
+      row.hidden_test_total ?? null,
     ]
   );
 }

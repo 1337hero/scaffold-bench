@@ -7,11 +7,11 @@ import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
-  createSkippedEvaluation,
   noAddedComments,
   noConsoleLog,
   onlyChangedFiles,
 } from "./_shared/helpers.js";
+import { runNodeTest, scoreExemptSkip } from "./_shared/evaluators/index.js";
 
 const SB29_PROMPT = [
   "Axios's `isAbsoluteURL` helper treats protocol-relative URLs like",
@@ -55,23 +55,9 @@ const scenario: Scenario = {
     const fixtureDir = join(workDir, config.fixtureDir);
     const sourceFile = join(workDir, config.sourcePath);
 
-    if (config.preflightCommand) {
-      const preflight = Bun.spawnSync(config.preflightCommand, { stdout: "pipe", stderr: "pipe" });
-      if (preflight.exitCode !== 0) {
-        const output: RuntimeOutput = {
-          stdout: "",
-          toolCalls: [],
-          wallTimeMs: 0 as Ms,
-          scenarioMetrics: { skipped: true, reason: `${config.preflightCommand[0]}-not-on-path` },
-        };
-        return {
-          output,
-          evaluation: createSkippedEvaluation(
-            `${config.preflightCommand[0]} on PATH`,
-            `SKIPPED: ${config.preflightCommand[0]} not found on PATH`
-          ),
-        };
-      }
+    const preflight = Bun.spawnSync(config.preflightCommand, { stdout: "pipe", stderr: "pipe" });
+    if (preflight.exitCode !== 0) {
+      return scoreExemptSkip(`${config.preflightCommand[0]} on PATH`, `${config.preflightCommand[0]}-not-on-path`);
     }
 
     const runStartedAt = performance.now();
@@ -109,12 +95,8 @@ const scenario: Scenario = {
       };
     }
 
-    const testRun = Bun.spawnSync(config.testCommand, {
-      cwd: fixtureDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const testsPass = testRun.exitCode === 0;
+    const testRun = await runNodeTest(fixtureDir, config.testCommand[1]);
+    const testsPass = testRun.pass;
     const scope = await onlyChangedFiles({
       playgroundDir: workDir,
       allowedPaths: [config.sourcePath],

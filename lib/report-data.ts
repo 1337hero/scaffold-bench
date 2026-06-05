@@ -37,7 +37,24 @@ export type ReportModelAggregate = {
   categories: Record<string, ReportCategoryScore>;
   scenarioCount: number;
   latestTimestamp: string;
+  // Score slices — reporting aggregations over persisted columns (rubric untouched).
+  behavioralScorePct: number | null;
+  browserScorePct: number | null;
+  hiddenTestPassRate: number | null;
+  pointsPerToolCall: number | null;
 };
+
+export type ScenarioRunFilters = {
+  stacks?: string[];
+  taskType?: string;
+  difficulty?: string;
+  surface?: string;
+  signalType?: string;
+  evaluatorKind?: string;
+};
+
+/** Evaluator kinds that exercise the browser/accessibility surface. */
+const BROWSER_EVALUATORS = new Set(["browser", "a11y"]);
 
 export type ReportData = {
   models: ReportModelAggregate[];
@@ -76,6 +93,14 @@ type ScenarioRow = {
   first_token_ms: number | null;
   tool_call_count: number | null;
   model_metrics_json: string | null;
+  signal_type: string | null;
+  evaluator_kind: string | null;
+  stacks_json: string | null;
+  task_type: string | null;
+  difficulty: string | null;
+  surface: string | null;
+  hidden_test_passed: number | null;
+  hidden_test_total: number | null;
 };
 
 type MetricsShape = {
@@ -114,9 +139,18 @@ type ModelAccumulator = {
   categories: Record<string, CategoryAggregate>;
   scenarioIds: Set<string>;
   latestFinishedAt: number;
+  // Slice accumulators.
+  behavioralPoints: number;
+  behavioralMax: number;
+  browserPoints: number;
+  browserMax: number;
+  hiddenPassed: number;
+  hiddenTotal: number;
+  slicePoints: number;
+  sliceToolCalls: number;
 };
 
-export function buildReportData(): ReportData {
+export function buildReportData(filters: ScenarioRunFilters = {}): ReportData {
   const db = getDb();
 
   const runs = db
@@ -132,12 +166,16 @@ export function buildReportData(): ReportData {
 
   const scenarios = db
     .query<ScenarioRow, []>(
-      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json
+      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json,
+              sr.signal_type, sr.evaluator_kind, sr.stacks_json, sr.task_type, sr.difficulty, sr.surface, sr.hidden_test_passed, sr.hidden_test_total
        FROM scenario_runs sr
        JOIN runs r ON r.id = sr.run_id
        WHERE r.status = 'done'`
     )
-    .all();
+    .all()
+    // Score-exempt rule: drop rows with no scoreable weight (max_points === 0,
+    // i.e. skipped / N/A) before any aggregation, then apply slice filters.
+    .filter((row) => (row.max_points ?? 0) > 0 && matchesFilters(row, filters));
 
   const runsById = new Map<string, RunRow>(runs.map((run) => [run.id, run]));
   const accByModel = new Map<string, ModelAccumulator>();
@@ -178,6 +216,8 @@ export function buildReportData(): ReportData {
 
     const metrics = parseMetrics(scenario.model_metrics_json);
     if (metrics) addMetrics(acc, metrics);
+
+    addSlices(acc, scenario);
 
     accByModel.set(model, acc);
   }
@@ -241,7 +281,59 @@ function createAccumulator(): ModelAccumulator {
     categories: {},
     scenarioIds: new Set<string>(),
     latestFinishedAt: 0,
+    behavioralPoints: 0,
+    behavioralMax: 0,
+    browserPoints: 0,
+    browserMax: 0,
+    hiddenPassed: 0,
+    hiddenTotal: 0,
+    slicePoints: 0,
+    sliceToolCalls: 0,
   };
+}
+
+function matchesFilters(row: ScenarioRow, filters: ScenarioRunFilters): boolean {
+  if (filters.taskType && row.task_type !== filters.taskType) return false;
+  if (filters.difficulty && row.difficulty !== filters.difficulty) return false;
+  if (filters.surface && row.surface !== filters.surface) return false;
+  if (filters.signalType && row.signal_type !== filters.signalType) return false;
+  if (filters.evaluatorKind && row.evaluator_kind !== filters.evaluatorKind) return false;
+  if (filters.stacks?.length) {
+    const stacks = parseStacks(row.stacks_json);
+    if (!filters.stacks.every((s) => stacks.includes(s))) return false;
+  }
+  return true;
+}
+
+function addSlices(acc: ModelAccumulator, scenario: ScenarioRow): void {
+  const points = scenario.points ?? 0;
+  const maxPoints = scenario.max_points ?? 0;
+
+  acc.slicePoints += points;
+  acc.sliceToolCalls += scenario.tool_call_count ?? 0;
+
+  if (scenario.signal_type === "behavioral") {
+    acc.behavioralPoints += points;
+    acc.behavioralMax += maxPoints;
+  }
+  if (scenario.evaluator_kind && BROWSER_EVALUATORS.has(scenario.evaluator_kind)) {
+    acc.browserPoints += points;
+    acc.browserMax += maxPoints;
+  }
+  if ((scenario.hidden_test_total ?? 0) > 0) {
+    acc.hiddenPassed += scenario.hidden_test_passed ?? 0;
+    acc.hiddenTotal += scenario.hidden_test_total ?? 0;
+  }
+}
+
+function parseStacks(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 function addMetrics(acc: ModelAccumulator, metrics: MetricsShape): void {
@@ -314,6 +406,10 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     categories: categoryScores(acc.categories),
     scenarioCount: acc.scenarioIds.size,
     latestTimestamp: acc.latestFinishedAt > 0 ? new Date(acc.latestFinishedAt).toISOString() : "",
+    behavioralScorePct: acc.behavioralMax > 0 ? (acc.behavioralPoints / acc.behavioralMax) * 100 : null,
+    browserScorePct: acc.browserMax > 0 ? (acc.browserPoints / acc.browserMax) * 100 : null,
+    hiddenTestPassRate: acc.hiddenTotal > 0 ? (acc.hiddenPassed / acc.hiddenTotal) * 100 : null,
+    pointsPerToolCall: acc.sliceToolCalls > 0 ? acc.slicePoints / acc.sliceToolCalls : null,
   };
 }
 

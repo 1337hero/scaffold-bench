@@ -314,6 +314,54 @@ export type ReportModelAggregate = {
   categories: Record<string, ReportCategoryScore>;
   scenarioCount: number;
   latestTimestamp: string;
+  // Score slices — reporting aggregations over persisted scenario_runs columns.
+  behavioralScorePct: number | null;
+  browserScorePct: number | null;
+  hiddenTestPassRate: number | null;
+  pointsPerToolCall: number | null;
+};
+
+/**
+ * Persisted per-scenario row shape returned by the API (mirrors ScenarioRunRow).
+ * Used by the pure slice selectors in dashboard-selectors.ts.
+ */
+export type ScenarioRun = {
+  scenarioId: string;
+  category: string | null;
+  status: ScenarioStatus | null;
+  points: number | null;
+  maxPoints: number | null;
+  wallTimeMs: number | null;
+  firstTokenMs: number | null;
+  toolCallCount: number | null;
+  errorKind: "infra" | "timeout" | "aborted" | "runtime" | null;
+  evaluation: ScenarioEvaluation | null;
+  modelMetrics: ModelMetrics | null;
+  signalType: string | null;
+  evaluatorKind: string | null;
+  stacks: string[];
+  taskType: string | null;
+  difficulty: string | null;
+  surface: string | null;
+  hiddenTestPassed: number | null;
+  hiddenTestTotal: number | null;
+};
+
+/** Advisory, LLM-generated reviewer note. NEVER folded into points/status/ranking. */
+export type ReviewNote = {
+  scenarioId: string;
+  notes: string | null;
+  model: string | null;
+  createdAt: number | null;
+};
+
+export type ScenarioRunFilters = {
+  stacks?: string[];
+  taskType?: string;
+  difficulty?: string;
+  surface?: string;
+  signalType?: string;
+  evaluatorKind?: string;
 };
 
 export type ReportData = {

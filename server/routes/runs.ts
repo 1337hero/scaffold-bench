@@ -13,6 +13,7 @@ import {
   getScenarioEvents,
   clearRunData,
 } from "../db/queries.ts";
+import { getReviewNotes } from "../db/review-notes.ts";
 
 export const runsRouter = new Hono();
 
@@ -111,9 +112,26 @@ runsRouter.get("/:id", (c) => {
       points: sr.points,
       maxPoints: sr.max_points,
       wallTimeMs: sr.wall_time_ms,
+      firstTokenMs: sr.first_token_ms,
       toolCallCount: sr.tool_call_count,
       errorKind: sr.error_kind,
       evaluation: sr.evaluation_json ? JSON.parse(sr.evaluation_json) : null,
+      modelMetrics: sr.model_metrics_json ? JSON.parse(sr.model_metrics_json) : null,
+      signalType: sr.signal_type,
+      evaluatorKind: sr.evaluator_kind,
+      stacks: sr.stacks_json ? (JSON.parse(sr.stacks_json) as string[]) : [],
+      taskType: sr.task_type,
+      difficulty: sr.difficulty,
+      surface: sr.surface,
+      hiddenTestPassed: sr.hidden_test_passed,
+      hiddenTestTotal: sr.hidden_test_total,
+    })),
+    // Advisory, LLM-generated. NEVER part of points/status/ranking.
+    reviewNotes: getReviewNotes(id).map((n) => ({
+      scenarioId: n.scenario_id,
+      notes: n.notes,
+      model: n.model,
+      createdAt: n.created_at,
     })),
     ...(events
       ? {

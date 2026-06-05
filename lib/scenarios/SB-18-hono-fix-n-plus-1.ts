@@ -1,20 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Ms, ScenarioId } from "../schemas/brands.js";
-import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { RuntimeOutput } from "../scoring.ts";
+import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
-  bunAvailable,
-  createSkippedEvaluation,
   noAddedComments,
   noConsoleLog,
   readOrEmpty,
-  runBunTest,
   onlyChangedFiles,
 } from "./_shared/helpers.js";
+import { runBunTest } from "./_shared/evaluators/index.js";
 
 const PROMPT = `Read the spec at playground/hono-api/specs/fix-n-plus-1.md and implement the fix described there. Follow the patterns already established in playground/hono-api/.`;
 
@@ -35,82 +31,32 @@ const scenario: Scenario = {
   category: "implementation",
   family: "spec-impl",
   prompt: PROMPT,
-  async execute(ctx) {
-    const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
-    const fixtureDir = join(workDir, "playground/hono-api");
+  async evaluate({ playgroundDir, toolCalls }) {
+    const fixtureDir = join(playgroundDir, "playground/hono-api");
+    const ORIG = join(PLAYGROUND_SRC, "hono-api");
 
-    if (!bunAvailable()) {
-      const output: RuntimeOutput = {
-        stdout: "",
-        toolCalls: [],
-        wallTimeMs: 0 as Ms,
-        scenarioMetrics: { skipped: true, reason: "bun-not-on-path" },
-      };
-      return {
-        output,
-        evaluation: createSkippedEvaluation("bun on PATH", "SKIPPED: bun not found on PATH"),
-      };
-    }
-
-    const runStartedAt = performance.now();
-    let output: RuntimeOutput;
-    try {
-      output = await runtime.run({
-        workDir,
-        prompt: PROMPT,
-        timeoutMs,
-        onEvent: onRuntimeEvent,
-        ...runtimeOverrides,
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      output = {
-        stdout: "",
-        toolCalls: [],
-        wallTimeMs: Math.round(performance.now() - runStartedAt) as Ms,
-        error: `CRASH: ${msg}`,
-      };
-    }
-
-    if (output.error) {
-      const classification = classifyRuntimeError(output.error);
-      return {
-        output: {
-          ...output,
-          scenarioMetrics: {
-            ...output.scenarioMetrics,
-            runtimeErrorKind: classification.kind,
-            scoreExempt: classification.scoreExempt,
-          },
-        },
-        evaluation: runtimeErrorEvaluation(output.error, 10),
-      };
-    }
-
+    // Behavioral signal: the query-count test fails under N+1 (1 + N per-row
+    // owner lookups) and passes only when a single JOIN serves the list.
     const testRun = await runBunTest(fixtureDir, "tests/sb-18-fix-n-plus-1.test.ts");
     const testsPass = testRun.pass;
 
-    const BASE = fixtureDir;
-    const ORIG = join(PLAYGROUND_SRC, "hono-api");
-    const items = await readOrEmpty(join(BASE, "src/routes/items.ts"));
+    const items = await readOrEmpty(join(fixtureDir, "src/routes/items.ts"));
     const origItems = await readFile(join(ORIG, "src/routes/items.ts"), "utf-8").catch(() => "");
-    const readSpec = output.toolCalls.some(
-      (c) => c.name === "read" && c.args.includes("fix-n-plus-1.md")
-    );
+    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("fix-n-plus-1.md"));
     const stillHasPerRowQuery = /SELECT\s+email\s+FROM\s+users\s+WHERE\s+id\s*=\s*\?/i.test(items);
     const hasPost = /itemsRoutes\.post\(/.test(items);
     const hasDelete = /itemsRoutes\.delete\(/.test(items);
 
     const scope = await onlyChangedFiles({
-      playgroundDir: workDir,
+      playgroundDir,
       allowedPaths: ["playground/hono-api/src/routes/items.ts"],
     });
 
-    const evaluation = rubricToEvaluation(
+    return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "bun tests pass",
+            name: "query-count test passes (no N+1)",
             pass: testsPass,
             weight: 3,
             detail: testsPass ? undefined : testRun.stdout + "\n" + testRun.stderr,
@@ -151,13 +97,11 @@ const scenario: Scenario = {
         ],
       },
       {
-        pass: "All tests pass, N+1 replaced with JOIN, and other handlers preserved.",
+        pass: "Query-count test green, N+1 replaced with JOIN, other handlers preserved.",
         partial: "Some tests fail or still has per-row query.",
         fail: "Did not fix the N+1 or broke the route.",
       }
     );
-
-    return { output, evaluation };
   },
 };
 

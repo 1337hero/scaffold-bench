@@ -6,8 +6,8 @@ import { localRuntime } from "../lib/runtimes/local-agent.ts";
 import { scenarios as allScenarios } from "../lib/scenarios/index.js";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
 import { computeRunTotals, type ScenarioLike } from "../lib/aggregates.ts";
-import { classifyRuntimeError, mergeModelMetrics } from "../lib/scoring.ts";
-import type { ScenarioResult, RuntimeErrorKind } from "../lib/scoring.ts";
+import { classifyRuntimeError, mergeModelMetrics, tryGetMeta } from "../lib/scoring.ts";
+import type { ScenarioResult, RuntimeErrorKind, ScenarioMeta } from "../lib/scoring.ts";
 import type { ScenarioEvaluation } from "../lib/schemas/evaluation.js";
 import type { RuntimeEvent, ToolExecutionMode } from "../lib/runtimes/types.ts";
 import { runtimeEventToPersisted } from "./contracts/events.ts";
@@ -43,6 +43,26 @@ export interface RunBenchOptions {
 }
 
 const RUNTIME_ERROR_KINDS = new Set<string>(["infra", "timeout", "aborted", "runtime"]);
+
+function metaColumns(scenarioId: string): Partial<{
+  signal_type: string;
+  evaluator_kind: string;
+  stacks_json: string;
+  task_type: string;
+  difficulty: string;
+  surface: string;
+}> {
+  const m: ScenarioMeta | undefined = tryGetMeta(scenarioId);
+  if (!m) return {};
+  return {
+    signal_type: m.signalType,
+    evaluator_kind: m.evaluatorKind,
+    stacks_json: JSON.stringify(m.stacks),
+    task_type: m.taskType,
+    difficulty: m.difficulty,
+    surface: m.surface,
+  };
+}
 
 export async function runBench(opts: RunBenchOptions): Promise<{
   results: ScenarioResult[];
@@ -240,6 +260,8 @@ function mirrorScenarioState(runId: string, evt: PersistedEvent): void {
       evaluation_json: JSON.stringify(evt.evaluation),
       error_kind: evt.errorKind ?? null,
       model_metrics_json: evt.modelMetrics ? JSON.stringify(evt.modelMetrics) : null,
+      hidden_test_passed: eval_?.hiddenTests?.passed ?? null,
+      hidden_test_total: eval_?.hiddenTests?.total ?? null,
     });
   }
 }
@@ -412,6 +434,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
       family: scenario?.family ?? "regex-style",
       rubric_kind: "10pt",
       status: "pending",
+      ...metaColumns(scenarioId),
     });
   }
 

@@ -16,6 +16,10 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-left py-2 px-2">Model</th>
               <th className="text-left py-2 px-2">Src</th>
               <th className="text-right py-2 px-2">Score</th>
+              <th className="text-right py-2 px-2">Behav</th>
+              <th className="text-right py-2 px-2">Browser</th>
+              <th className="text-right py-2 px-2">Hidden</th>
+              <th className="text-right py-2 px-2">Pts/tool</th>
               <th className="text-right py-2 px-2">Pts/run</th>
               <th className="text-right py-2 px-2">Gen TPS</th>
               <th className="text-right py-2 px-2">Prompt TPS</th>
@@ -39,6 +43,18 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                 </td>
                 <td className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.scorePct)}`}>
                   {model.scorePct.toFixed(1)}%
+                </td>
+                <td className="py-2 px-2 text-right text-text-main">
+                  {formatPct(model.behavioralScorePct)}
+                </td>
+                <td className="py-2 px-2 text-right text-text-main">
+                  {formatPct(model.browserScorePct)}
+                </td>
+                <td className="py-2 px-2 text-right text-text-main">
+                  {formatPct(model.hiddenTestPassRate)}
+                </td>
+                <td className="py-2 px-2 text-right text-text-main">
+                  {model.pointsPerToolCall === null ? "—" : model.pointsPerToolCall.toFixed(2)}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {model.pointsAvg.toFixed(1)} / {model.maxAvg.toFixed(0)}
@@ -68,6 +84,10 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
       </div>
     </section>
   );
+}
+
+function formatPct(value: number | null): string {
+  return value === null ? "—" : `${value.toFixed(0)}%`;
 }
 
 export function RunStatusBadge({ status }: { status: string }) {

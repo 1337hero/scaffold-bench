@@ -5,7 +5,8 @@ import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { createSkippedEvaluation, noConsoleLog, onlyChangedFiles } from "./_shared/helpers.js";
+import { bunAvailable, noConsoleLog, onlyChangedFiles } from "./_shared/helpers.js";
+import { runVitest, scoreExemptSkip } from "./_shared/evaluators/index.js";
 
 const SB41_PROMPT = [
   "The auth tests in `playground/express-api` show `/api/me` returning 200 when it should return 401.",
@@ -34,19 +35,8 @@ const scenario: Scenario = {
     const fixtureDir = join(workDir, "playground/express-api");
     const sourceFile = join(workDir, "playground/express-api/src/server.ts");
 
-    // Preflight: check bun is on PATH
-    const preflight = Bun.spawnSync(["bun", "--version"], { stdout: "pipe", stderr: "pipe" });
-    if (preflight.exitCode !== 0) {
-      const output: RuntimeOutput = {
-        stdout: "",
-        toolCalls: [],
-        wallTimeMs: 0 as Ms,
-        scenarioMetrics: { skipped: true, reason: "bun-not-on-path" },
-      };
-      return {
-        output,
-        evaluation: createSkippedEvaluation("bun on PATH", "SKIPPED: bun not found on PATH"),
-      };
+    if (!bunAvailable()) {
+      return scoreExemptSkip("bun on PATH", "bun-not-on-path");
     }
 
     const runStartedAt = performance.now();
@@ -84,13 +74,8 @@ const scenario: Scenario = {
       };
     }
 
-    // Run vitest
-    const testRun = Bun.spawnSync(["bun", "x", "vitest", "run", "tests/auth-order.test.ts"], {
-      cwd: fixtureDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const testsPass = testRun.exitCode === 0;
+    const testRun = await runVitest(fixtureDir, "tests/auth-order.test.ts");
+    const testsPass = testRun.pass;
 
     const scope = await onlyChangedFiles({
       playgroundDir: workDir,
