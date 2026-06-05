@@ -12,7 +12,11 @@ test("SB-12 typescript-compile-loop gold/broken gate", async () => {
     goldDir: join(here, "SB-12", "gold"),
     brokenDir: join(here, "SB-12", "broken"),
     goldToolCalls: [
-      { name: "read", args: JSON.stringify({ path: "playground/ts-compile/user-summary.ts" }), turn: 0 },
+      {
+        name: "read",
+        args: JSON.stringify({ path: "playground/ts-compile/user-summary.ts" }),
+        turn: 0,
+      },
       bashCall(TS_COMPILE_COMMAND, 1, 1),
       {
         name: "edit",

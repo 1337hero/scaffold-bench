@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { clearRunData, insertRun, updateRun, upsertScenarioRun, withTransaction } from "../server/db/queries.ts";
+import {
+  clearRunData,
+  insertRun,
+  updateRun,
+  upsertScenarioRun,
+  withTransaction,
+} from "../server/db/queries.ts";
 import { closeDb, runMigrations } from "../server/db/migrations.ts";
 
 type ModelMetrics = {
@@ -113,10 +119,16 @@ function main(): void {
       if (!Array.isArray(results) || results.length === 0) continue;
 
       const finishedAt = fileTimestampMs(file, runFile);
-      const totalWallMs = results.reduce((sum, result) => sum + (numericOrNull(result.wallTimeMs) ?? 0), 0);
+      const totalWallMs = results.reduce(
+        (sum, result) => sum + (numericOrNull(result.wallTimeMs) ?? 0),
+        0
+      );
       const startedAt = Math.max(0, finishedAt - totalWallMs);
       const runId = runIdFor(file);
-      const model = runFile.modelMetrics?.model ?? results.find((r) => r.modelMetrics?.model)?.modelMetrics?.model ?? "unknown";
+      const model =
+        runFile.modelMetrics?.model ??
+        results.find((r) => r.modelMetrics?.model)?.modelMetrics?.model ??
+        "unknown";
       const scenarioIds = results.map((result) => result.scenarioId);
 
       insertRun({
@@ -152,7 +164,8 @@ function main(): void {
       let scenarioStartedAt = startedAt;
       for (const result of results) {
         const wallTimeMs = numericOrNull(result.wallTimeMs);
-        const scenarioFinishedAt = wallTimeMs === null ? scenarioStartedAt : scenarioStartedAt + wallTimeMs;
+        const scenarioFinishedAt =
+          wallTimeMs === null ? scenarioStartedAt : scenarioStartedAt + wallTimeMs;
         const breakdown = result.rubricBreakdown ?? null;
 
         upsertScenarioRun({

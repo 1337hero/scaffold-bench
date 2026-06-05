@@ -21,9 +21,7 @@ export function InventoryPanel({ items }: InventoryPanelProps) {
 
   // keep the list in sync
   useEffect(() => {
-    setFilteredItems(
-      items.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
-    );
+    setFilteredItems(items.filter((item) => item.name.toLowerCase().includes(query.toLowerCase())));
     console.log("filtering", query);
   }, [items, query]);
 

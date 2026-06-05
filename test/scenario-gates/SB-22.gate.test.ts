@@ -10,9 +10,7 @@ test("SB-22 nextjs-server-client-boundary gold/broken gate", async () => {
     scenario,
     goldDir: join(here, "SB-22", "gold"),
     brokenDir: join(here, "SB-22", "broken"),
-    goldToolCalls: readThenEdit([
-      "playground/nextjs-app/app/dashboard/DashboardFilters.tsx",
-    ]),
+    goldToolCalls: readThenEdit(["playground/nextjs-app/app/dashboard/DashboardFilters.tsx"]),
   });
 
   expect(result.gold).toBeGreaterThanOrEqual(9);

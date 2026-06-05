@@ -26,10 +26,7 @@ export const meta = {
   prompt: `Refund amounts render as \`$-5.00\` instead of \`-$5.00\` in the invoices UI. Fix the bug with the smallest correct change.`,
 } as const;
 
-const BEHAVIOR_TEST = join(
-  import.meta.dir,
-  "_shared/behaviors/SB-08/currency.behavior.test.mjs"
-);
+const BEHAVIOR_TEST = join(import.meta.dir, "_shared/behaviors/SB-08/currency.behavior.test.mjs");
 
 const scenario: Scenario = {
   id: "SB-08" as ScenarioId,

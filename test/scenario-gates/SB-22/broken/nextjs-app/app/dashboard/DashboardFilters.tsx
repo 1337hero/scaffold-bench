@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-"use client";
+("use client");
 
 export default function DashboardFilters() {
   const [category, setCategory] = useState("all");

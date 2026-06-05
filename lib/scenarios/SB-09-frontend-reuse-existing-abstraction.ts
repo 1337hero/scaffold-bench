@@ -55,8 +55,7 @@ const scenario: Scenario = {
     // apiClient import).
     const imports = importsOf(sidebarPath);
     const reusesHook =
-      imports.some((i) => /\.\/useTeamMembers/.test(i)) &&
-      fileCalls(sidebarPath, "useTeamMembers");
+      imports.some((i) => /\.\/useTeamMembers/.test(i)) && fileCalls(sidebarPath, "useTeamMembers");
     const noReimplementation =
       !fileCalls(sidebarPath, "useQuery") &&
       !fileCalls(sidebarPath, "fetch") &&
