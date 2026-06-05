@@ -8,7 +8,7 @@ import {
   withTransaction,
 } from "../server/db/queries.ts";
 import { closeDb, runMigrations } from "../server/db/migrations.ts";
-import { tryGetMeta } from "../lib/scoring.ts";
+import { tryGetMeta } from "../lib/scenarios/_shared/meta.ts";
 import type { ScenarioMeta } from "../lib/scoring.ts";
 
 type ModelMetrics = {

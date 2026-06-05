@@ -18,7 +18,6 @@ export type {
   Surface,
   ScenarioMeta,
 } from "./scenarios/_shared/types.js";
-export { getMeta, tryGetMeta } from "./scenarios/_shared/meta.js";
 
 export type Category =
   | "surgical-edit"

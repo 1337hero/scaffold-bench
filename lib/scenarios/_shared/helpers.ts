@@ -7,8 +7,9 @@ import {
   ReadArgsSchema,
   WriteArgsSchema,
 } from "../../schemas/index.js";
-import type { Check, ScenarioEvaluation, ToolCall } from "../../scoring.ts";
-import { Evaluation, bashPassed } from "../../scoring.ts";
+import { Evaluation } from "../../schemas/evaluation.js";
+import type { ScenarioEvaluation } from "../../schemas/evaluation.js";
+import type { Check, ToolCall } from "../../schemas/run-file.js";
 
 export const PLAYGROUND_SRC = join(import.meta.dir, "..", "..", "..", "playground");
 export const TS_COMPILE_COMMAND = "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
@@ -144,6 +145,18 @@ export function bashCommandMatches(call: ToolCall, matcher: RegExp | string): bo
   return typeof matcher === "string"
     ? normalizeCommand(command) === normalizeCommand(matcher)
     : matcher.test(command);
+}
+
+function bashExitCode(call: ToolCall): number | undefined {
+  if (call.name !== "bash") return undefined;
+  if (call.result === undefined) return undefined;
+  const text = call.result.ok ? call.result.value : call.result.message;
+  const match = /^exit_code:\s*(\d+)/m.exec(text);
+  return match ? parseInt(match[1], 10) : undefined;
+}
+
+function bashPassed(call: ToolCall): boolean {
+  return bashExitCode(call) === 0;
 }
 
 export function failedVerificationBeforeChange(

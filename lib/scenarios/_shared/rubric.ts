@@ -1,5 +1,6 @@
-import { Evaluation } from "../../scoring.ts";
-import type { Check, ScenarioEvaluation, RubricBreakdown } from "../../scoring.ts";
+import { Evaluation } from "../../schemas/evaluation.js";
+import type { ScenarioEvaluation, RubricBreakdown } from "../../schemas/evaluation.js";
+import type { Check } from "../../schemas/run-file.js";
 
 // ── Locked thresholds (Part 6 spec) ──────────────────────
 // points >= 9 → pass, points 5-8 → partial, points <= 4 → fail
