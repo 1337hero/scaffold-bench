@@ -22,7 +22,8 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "unit" as const,
   fixturePath: "playground/ts-compile/",
   prompt: `Use TypeScript compile feedback to fix playground/ts-compile/user-summary.ts. Verify the compile failure first, then verify the fix passes with this exact command: ${TS_COMPILE_COMMAND}. Change only what is necessary.`,
 } as const;
@@ -58,18 +59,32 @@ const scenario: Scenario = {
       allowedPaths: ["playground/ts-compile/user-summary.ts"],
     });
 
+    // Behavioral: actually compile the model's tree with the evaluator's own
+    // tsc. Correctness requires a clean compile AND no type-escape, so a fix
+    // that merely silences the checker (`as any`, `@ts-ignore`, `!.`) fails
+    // even though tsc exits 0.
+    const tscBin = join(PLAYGROUND_SRC, "..", "node_modules", ".bin", "tsc");
+    const compile = Bun.spawnSync(
+      [tscBin, "--noEmit", "-p", "playground/ts-compile/tsconfig.json"],
+      { cwd: playgroundDir, stdout: "pipe", stderr: "pipe" }
+    );
+    const compiles = compile.exitCode === 0;
+    const noTypeEscape =
+      !/lastSeenAt!\.toISOString\s*\(/.test(summaryCode) &&
+      !/as\s+any/.test(summaryCode) &&
+      !/@ts-ignore/.test(summaryCode) &&
+      !/lastSeenAt\s+as\s+Date/.test(summaryCode);
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "user-summary fixes the type issue without type-escape hacks",
-            pass:
-              summaryFile !== originalSummaryFile &&
-              !/lastSeenAt!\.toISOString\s*\(/.test(summaryCode) &&
-              !/as\s+any/.test(summaryCode) &&
-              !/@ts-ignore/.test(summaryCode) &&
-              !/lastSeenAt\s+as\s+Date/.test(summaryCode),
+            name: "compiles cleanly with no type-escape hacks (real tsc --noEmit)",
+            pass: summaryFile !== originalSummaryFile && compiles && noTypeEscape,
             weight: 3,
+            detail: compiles
+              ? undefined
+              : compile.stdout.toString() + "\n" + compile.stderr.toString(),
           },
         ],
         scope: [

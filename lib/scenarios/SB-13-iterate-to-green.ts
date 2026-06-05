@@ -6,6 +6,7 @@ import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
   bashCalls,
+  bunAvailable,
   failedVerificationBeforeChange,
   firstChangeTurn,
   firstFailedVerificationAfterChange,
@@ -15,6 +16,7 @@ import {
   onlyChangedFiles,
   passedVerificationAfterChange,
 } from "./_shared/helpers.js";
+import { runBehaviorTest } from "./_shared/behavior.js";
 
 export const meta = {
   id: "SB-13",
@@ -22,10 +24,16 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
-  signalType: "trace" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "unit" as const,
   fixturePath: "playground/",
   prompt: `Use the provided test to iteratively fix playground/normalizeTag.mjs. Verify the failure first, then keep running the test until it passes. Change only what is necessary.`,
 } as const;
+
+const BEHAVIOR_TEST = join(
+  import.meta.dir,
+  "_shared/behaviors/SB-13/normalizeTag.behavior.test.mjs"
+);
 
 const scenario: Scenario = {
   id: "SB-13" as ScenarioId,
@@ -64,13 +72,25 @@ const scenario: Scenario = {
       allowedPaths: ["playground/normalizeTag.mjs"],
     });
 
+    // Behavioral correctness gate: the iterated implementation must actually
+    // normalize tags (collapse whitespace/underscore/dash runs, trim edges) —
+    // process compliance is still scored under verification.
+    const behavior = bunAvailable()
+      ? await runBehaviorTest({
+          playgroundDir,
+          files: ["playground/normalizeTag.mjs"],
+          behaviorTestPath: BEHAVIOR_TEST,
+        })
+      : { pass: false, stdout: "", stderr: "bun unavailable" };
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "implementation changed from the original",
-            pass: normalizeTag !== originalNormalizeTag,
+            name: "normalizeTag produces correct slugs (behavioral)",
+            pass: behavior.pass,
             weight: 2,
+            detail: behavior.pass ? undefined : behavior.stdout + "\n" + behavior.stderr,
           },
           { name: "normalizeTag test file left untouched", pass: test === originalTest, weight: 1 },
         ],

@@ -11,6 +11,7 @@ import {
   onlyChangedFiles,
   searchBeforeEdit,
 } from "./_shared/helpers.js";
+import { componentUsesHook, firstDirective } from "./_shared/evaluators/ast.js";
 
 export const meta = {
   id: "SB-22",
@@ -18,7 +19,8 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "ast" as const,
   fixturePath: "playground/nextjs-app/",
   prompt: `The dashboard filters component fails to build. Fix it with the smallest correct change. Do not refactor.`,
 } as const;
@@ -30,10 +32,11 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const filters = await readFile(
-      join(playgroundDir, "playground/nextjs-app/app/dashboard/DashboardFilters.tsx"),
-      "utf-8"
+    const filtersPath = join(
+      playgroundDir,
+      "playground/nextjs-app/app/dashboard/DashboardFilters.tsx"
     );
+    const filters = await readFile(filtersPath, "utf-8");
     const originalFilters = await readFile(
       join(PLAYGROUND_SRC, "nextjs-app/app/dashboard/DashboardFilters.tsx"),
       "utf-8"
@@ -70,7 +73,11 @@ const scenario: Scenario = {
       allowedPaths: ["playground/nextjs-app/app/dashboard/DashboardFilters.tsx"],
     });
 
-    const hasUseClientDirective = /^["']use client["'];?\s*$/m.test(filters.trimStart());
+    // AST: the directive must be the first module statement (an anchored regex
+    // would also accept it misplaced lower in the file), and the component must
+    // remain a client component that still owns its useState boundary.
+    const directiveIsFirst = firstDirective(filtersPath) === "use client";
+    const stillClientComponent = componentUsesHook(filtersPath, "DashboardFilters", "useState");
     const hasUseServer = /["']use server["']/.test(filters);
     const useStateStillPresent = /import\s*\{[^}]*useState[^}]*\}\s*from\s*["']react["']/.test(
       filters
@@ -80,11 +87,10 @@ const scenario: Scenario = {
     return rubricToEvaluation(
       {
         correctness: [
-          { name: "file was changed", pass: filters !== originalFilters, weight: 1 },
           {
-            name: '"use client" directive added as first line',
-            pass: hasUseClientDirective,
-            weight: 2,
+            name: '"use client" is the first module directive with the client boundary intact (AST)',
+            pass: filters !== originalFilters && directiveIsFirst && stillClientComponent,
+            weight: 3,
           },
         ],
         scope: [

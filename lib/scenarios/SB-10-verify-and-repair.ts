@@ -6,14 +6,15 @@ import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
   bashCalls,
+  bunAvailable,
   firstChangeTurn,
   noAddedComments,
   noConsoleLog,
   noExtraFunctions,
   onlyChangedFiles,
   passedVerificationAfterChange,
-  stripComments,
 } from "./_shared/helpers.js";
+import { runBehaviorTest } from "./_shared/behavior.js";
 
 export const meta = {
   id: "SB-10",
@@ -21,10 +22,13 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "unit" as const,
   fixturePath: "playground/",
   prompt: `Fix calculateSubtotal in playground/cart.mjs and verify the fix.`,
 } as const;
+
+const BEHAVIOR_TEST = join(import.meta.dir, "_shared/behaviors/SB-10/cart.behavior.test.mjs");
 
 const scenario: Scenario = {
   id: "SB-10" as ScenarioId,
@@ -37,21 +41,29 @@ const scenario: Scenario = {
     const cartOriginal = await readFile(join(PLAYGROUND_SRC, "cart.mjs"), "utf-8");
     const test = await readFile(join(playgroundDir, "playground/cart.test.mjs"), "utf-8");
     const testOriginal = await readFile(join(PLAYGROUND_SRC, "cart.test.mjs"), "utf-8");
-    const cartCode = stripComments(cart);
     const changeTurn = firstChangeTurn(toolCalls);
     const bashRuns = bashCalls(toolCalls);
     const cartTestMatcher = /cart\.test\.mjs|bun test|node .*cart\.test\.mjs/;
     const scope = await onlyChangedFiles({ playgroundDir, allowedPaths: ["playground/cart.mjs"] });
 
+    // Behavioral: run the edited cart against an evaluator-owned test proving
+    // the subtotal multiplies price × quantity across mixed carts.
+    const behavior = bunAvailable()
+      ? await runBehaviorTest({
+          playgroundDir,
+          files: ["playground/cart.mjs"],
+          behaviorTestPath: BEHAVIOR_TEST,
+        })
+      : { pass: false, stdout: "", stderr: "bun unavailable" };
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "calculateSubtotal multiplies price by quantity",
-            pass:
-              cart !== cartOriginal &&
-              /item\.price\s*\*\s*item\.quantity|item\.quantity\s*\*\s*item\.price/.test(cartCode),
+            name: "calculateSubtotal multiplies price by quantity (behavioral)",
+            pass: behavior.pass,
             weight: 3,
+            detail: behavior.pass ? undefined : behavior.stdout + "\n" + behavior.stderr,
           },
         ],
         scope: [

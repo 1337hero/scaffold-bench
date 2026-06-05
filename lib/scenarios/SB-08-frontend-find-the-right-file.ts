@@ -5,13 +5,14 @@ import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
+  bunAvailable,
   firstChangeTurn,
   firstTurn,
   noConsoleLog,
   onlyChangedFiles,
   searchBeforeEdit,
-  stripComments,
 } from "./_shared/helpers.js";
+import { runBehaviorTest } from "./_shared/behavior.js";
 
 export const meta = {
   id: "SB-08",
@@ -19,10 +20,16 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "unit" as const,
   fixturePath: "playground/frontend/",
   prompt: `Refund amounts render as \`$-5.00\` instead of \`-$5.00\` in the invoices UI. Fix the bug with the smallest correct change.`,
 } as const;
+
+const BEHAVIOR_TEST = join(
+  import.meta.dir,
+  "_shared/behaviors/SB-08/currency.behavior.test.mjs"
+);
 
 const scenario: Scenario = {
   id: "SB-08" as ScenarioId,
@@ -32,7 +39,6 @@ const scenario: Scenario = {
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const helper = await readFile(join(playgroundDir, "playground/frontend/currency.ts"), "utf-8");
-    const helperOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/currency.ts"), "utf-8");
     const invoice = await readFile(
       join(playgroundDir, "playground/frontend/InvoiceTable.tsx"),
       "utf-8"
@@ -49,7 +55,6 @@ const scenario: Scenario = {
       join(PLAYGROUND_SRC, "frontend/RefundSummary.tsx"),
       "utf-8"
     );
-    const helperCode = stripComments(helper);
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);
     const scope = await onlyChangedFiles({
@@ -57,17 +62,24 @@ const scenario: Scenario = {
       allowedPaths: ["playground/frontend/currency.ts"],
     });
 
+    // Behavioral: run the edited currency.ts against an evaluator-owned test
+    // proving negatives render as `-$5.00` and positives stay `$5.00`.
+    const behavior = bunAvailable()
+      ? await runBehaviorTest({
+          playgroundDir,
+          files: ["playground/frontend/currency.ts"],
+          behaviorTestPath: BEHAVIOR_TEST,
+        })
+      : { pass: false, stdout: "", stderr: "bun unavailable" };
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "formatCurrency now handles negative amounts",
-            pass:
-              helper !== helperOriginal &&
-              (/Math\.abs\s*\(\s*amount\s*\)/.test(helperCode) ||
-                /amount\s*<\s*0/.test(helperCode)) &&
-              /-\$\{?\$?/.test(helperCode.replace(/\s+/g, "")),
+            name: "formatCurrency renders negatives as -$ and positives as $ (behavioral)",
+            pass: behavior.pass,
             weight: 3,
+            detail: behavior.pass ? undefined : behavior.stdout + "\n" + behavior.stderr,
           },
         ],
         scope: [
