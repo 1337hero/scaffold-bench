@@ -6,7 +6,10 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { testClient, seedUser, loginCookie, cleanupDb, TestDataFactory } from "../tests/helpers";
 import type { DB } from "../src/db";
 
-function countQueriesDuring<T>(db: DB, fn: () => Promise<T>): Promise<{ result: T; count: number }> {
+function countQueriesDuring<T>(
+  db: DB,
+  fn: () => Promise<T>
+): Promise<{ result: T; count: number }> {
   const original = (db as unknown as { query: (...a: unknown[]) => unknown }).query;
   let count = 0;
   (db as unknown as { query: (...a: unknown[]) => unknown }).query = function (...args: unknown[]) {

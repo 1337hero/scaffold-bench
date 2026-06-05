@@ -17,13 +17,7 @@ export function upsertReviewNotes(row: ReviewNoteRow): void {
        notes = COALESCE(excluded.notes, notes),
        model = COALESCE(excluded.model, model),
        created_at = COALESCE(excluded.created_at, created_at)`,
-    [
-      row.run_id,
-      row.scenario_id,
-      row.notes ?? null,
-      row.model ?? null,
-      row.created_at ?? null,
-    ]
+    [row.run_id, row.scenario_id, row.notes ?? null, row.model ?? null, row.created_at ?? null]
   );
 }
 

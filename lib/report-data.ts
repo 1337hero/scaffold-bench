@@ -406,7 +406,8 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     categories: categoryScores(acc.categories),
     scenarioCount: acc.scenarioIds.size,
     latestTimestamp: acc.latestFinishedAt > 0 ? new Date(acc.latestFinishedAt).toISOString() : "",
-    behavioralScorePct: acc.behavioralMax > 0 ? (acc.behavioralPoints / acc.behavioralMax) * 100 : null,
+    behavioralScorePct:
+      acc.behavioralMax > 0 ? (acc.behavioralPoints / acc.behavioralMax) * 100 : null,
     browserScorePct: acc.browserMax > 0 ? (acc.browserPoints / acc.browserMax) * 100 : null,
     hiddenTestPassRate: acc.hiddenTotal > 0 ? (acc.hiddenPassed / acc.hiddenTotal) * 100 : null,
     pointsPerToolCall: acc.sliceToolCalls > 0 ? acc.slicePoints / acc.sliceToolCalls : null,

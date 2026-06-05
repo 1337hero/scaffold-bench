@@ -32,35 +32,40 @@ catalogRoutes.get("/catalog", requireUser, (c) => {
   if (sort === "name") {
     if (cursor === null) {
       rows = db
-        .query<Row, [number, number]>(
-          "SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL ORDER BY name ASC, id ASC LIMIT ?"
-        )
+        .query<
+          Row,
+          [number, number]
+        >("SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL ORDER BY name ASC, id ASC LIMIT ?")
         .all(user.id, limit);
     } else {
       const boundary = db
-        .query<{ name: string }, [number, number]>(
-          "SELECT name FROM items WHERE id = ? AND owner_id = ?"
-        )
+        .query<
+          { name: string },
+          [number, number]
+        >("SELECT name FROM items WHERE id = ? AND owner_id = ?")
         .get(cursor, user.id);
       const lastName = boundary?.name ?? "";
       rows = db
-        .query<Row, [number, string, string, number, number]>(
-          "SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL AND (name > ? OR (name = ? AND id > ?)) ORDER BY name ASC, id ASC LIMIT ?"
-        )
+        .query<
+          Row,
+          [number, string, string, number, number]
+        >("SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL AND (name > ? OR (name = ? AND id > ?)) ORDER BY name ASC, id ASC LIMIT ?")
         .all(user.id, lastName, lastName, cursor, limit);
     }
   } else {
     rows =
       cursor === null
         ? db
-            .query<Row, [number, number]>(
-              "SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?"
-            )
+            .query<
+              Row,
+              [number, number]
+            >("SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL ORDER BY id DESC LIMIT ?")
             .all(user.id, limit)
         : db
-            .query<Row, [number, number, number]>(
-              "SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL AND id < ? ORDER BY id DESC LIMIT ?"
-            )
+            .query<
+              Row,
+              [number, number, number]
+            >("SELECT id, name, created_at FROM items WHERE owner_id = ? AND deleted_at IS NULL AND id < ? ORDER BY id DESC LIMIT ?")
             .all(user.id, cursor, limit);
   }
 

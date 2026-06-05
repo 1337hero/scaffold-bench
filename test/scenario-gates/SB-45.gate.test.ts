@@ -16,7 +16,11 @@ const goldToolCalls: ToolCall[] = [
   },
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/sb45-apichange/src/app.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/sb45-apichange/src/app.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 1,
   },
   {
@@ -32,7 +36,11 @@ const goldToolCalls: ToolCall[] = [
 const brokenToolCalls: ToolCall[] = [
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/sb45-apichange/src/app.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/sb45-apichange/src/app.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 0,
   },
 ];

@@ -46,7 +46,9 @@ const scenario: Scenario = {
     const code = stripComments(errors);
     const origCode = stripComments(origErrors);
 
-    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("error-request-id.md"));
+    const readSpec = toolCalls.some(
+      (c) => c.name === "read" && c.args.includes("error-request-id.md")
+    );
 
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -60,7 +62,8 @@ const scenario: Scenario = {
     const splitIdx = code.search(/internal server error/);
     const appErrorBranch = splitIdx >= 0 ? code.slice(0, splitIdx) : code;
     const internalBranch = splitIdx >= 0 ? code.slice(splitIdx) : "";
-    const appErrorBranchHasId = /err\.code/.test(appErrorBranch) && /requestId/.test(appErrorBranch);
+    const appErrorBranchHasId =
+      /err\.code/.test(appErrorBranch) && /requestId/.test(appErrorBranch);
     const internalBranchHasId = /requestId/.test(internalBranch);
     const bothBranches = appErrorBranchHasId && internalBranchHasId;
     // AppError constructor signature unchanged (other code constructs it).
@@ -105,7 +108,11 @@ const scenario: Scenario = {
         cleanup: [
           { name: "AppError constructor signature intact", pass: constructorIntact, weight: 1 },
           { name: "no new console logging added", pass: noNewConsole, weight: 0.5 },
-          { name: "no unrelated comment churn", pass: noAddedComments(errors, origErrors), weight: 0.5 },
+          {
+            name: "no unrelated comment churn",
+            pass: noAddedComments(errors, origErrors),
+            weight: 0.5,
+          },
         ],
       },
       {

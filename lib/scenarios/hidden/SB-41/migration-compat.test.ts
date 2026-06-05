@@ -8,9 +8,10 @@ import { runMigrations } from "../src/migrations";
 
 function seedOwner(db: ReturnType<typeof createDb>): number {
   const row = db
-    .query<{ id: number }, [string, string]>(
-      "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id"
-    )
+    .query<
+      { id: number },
+      [string, string]
+    >("INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id")
     .get("o@example.com", "x");
   return row!.id;
 }
@@ -30,9 +31,10 @@ describe("SB-41 hidden: additive priority migration", () => {
     const db = createDb(":memory:");
     const owner = seedOwner(db);
     const inserted = db
-      .query<{ id: number }, [number, string]>(
-        "INSERT INTO items (owner_id, name) VALUES (?, ?) RETURNING id"
-      )
+      .query<
+        { id: number },
+        [number, string]
+      >("INSERT INTO items (owner_id, name) VALUES (?, ?) RETURNING id")
       .get(owner, "legacy");
     const row = db
       .query<{ priority: number }, [number]>("SELECT priority FROM items WHERE id = ?")
@@ -44,9 +46,7 @@ describe("SB-41 hidden: additive priority migration", () => {
     const db = createDb(":memory:");
     const owner = seedOwner(db);
     db.query("INSERT INTO items (owner_id, name) VALUES (?, ?)").run(owner, "a");
-    const rows = db
-      .query<{ id: number; name: string }, []>("SELECT id, name FROM items")
-      .all();
+    const rows = db.query<{ id: number; name: string }, []>("SELECT id, name FROM items").all();
     expect(rows.map((r) => r.name)).toEqual(["a"]);
   });
 
@@ -54,9 +54,10 @@ describe("SB-41 hidden: additive priority migration", () => {
     const db = createDb(":memory:");
     const owner = seedOwner(db);
     const inserted = db
-      .query<{ id: number }, [number, string, number]>(
-        "INSERT INTO items (owner_id, name, priority) VALUES (?, ?, ?) RETURNING id"
-      )
+      .query<
+        { id: number },
+        [number, string, number]
+      >("INSERT INTO items (owner_id, name, priority) VALUES (?, ?, ?) RETURNING id")
       .get(owner, "hot", 5);
     const row = db
       .query<{ priority: number }, [number]>("SELECT priority FROM items WHERE id = ?")

@@ -1,11 +1,4 @@
-import type {
-  Difficulty,
-  EvaluatorKind,
-  ScenarioMeta,
-  Stack,
-  Surface,
-  TaskType,
-} from "./types.js";
+import type { Difficulty, EvaluatorKind, ScenarioMeta, Stack, Surface, TaskType } from "./types.js";
 
 import { meta as SB01 } from "../SB-01-fix-throttle.js";
 import { meta as SB02 } from "../SB-02-frontend-derived-state-fix.js";
@@ -60,14 +53,7 @@ import { meta as SB50 } from "../SB-50-hono-user-is-wrong-logout.js";
 
 type BaseMeta = Pick<
   ScenarioMeta,
-  | "id"
-  | "name"
-  | "category"
-  | "family"
-  | "rubricKind"
-  | "signalType"
-  | "fixturePath"
-  | "prompt"
+  "id" | "name" | "category" | "family" | "rubricKind" | "signalType" | "fixturePath" | "prompt"
 >;
 
 type Extra = {
@@ -95,431 +81,531 @@ let _registry: Record<string, ScenarioMeta> | null = null;
 // the SBxx meta bindings mid-cycle, before they finish initializing.
 function buildRegistry(): Record<string, ScenarioMeta> {
   return {
-  "SB-01": build(SB01, {
-    evaluatorKind: "unit",
-    stacks: ["node", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "backend",
-  }, {
-    public: ["playground/utils.throttle.test.mjs"],
-    hidden: ["lib/scenarios/hidden/SB-01/throttle-semantics.test.ts"],
-  }),
-  "SB-02": build(SB02, {
-    evaluatorKind: "regex",
-    stacks: ["react", "tanstack-query"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }),
-  "SB-03": build(SB03, {
-    evaluatorKind: "regex",
-    stacks: ["react", "tanstack-query"],
-    taskType: "refactor",
-    difficulty: "medium",
-    surface: "frontend",
-  }),
-  "SB-04": build(SB04, {
-    evaluatorKind: "unit",
-    stacks: ["react", "tanstack-query"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["OrdersPanel.test.tsx"],
-    hidden: ["approve-refreshes-orders.test.ts"],
-  }),
-  "SB-05": build(SB05, {
-    evaluatorKind: "regex",
-    stacks: ["react", "tanstack-query"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "frontend",
-  }),
-  "SB-06": build(SB06, {
-    evaluatorKind: "stdout",
-    stacks: ["react", "tanstack-query"],
-    taskType: "no-op",
-    difficulty: "small",
-    surface: "frontend",
-  }),
-  "SB-07": build(SB07, {
-    evaluatorKind: "stdout",
-    stacks: ["react", "tanstack-query"],
-    taskType: "no-op",
-    difficulty: "small",
-    surface: "frontend",
-  }),
-  "SB-08": build(SB08, {
-    evaluatorKind: "regex",
-    stacks: ["react"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }),
-  "SB-09": build(SB09, {
-    evaluatorKind: "regex",
-    stacks: ["react", "tanstack-query"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "frontend",
-  }),
-  "SB-10": build(SB10, {
-    evaluatorKind: "regex",
-    stacks: ["node"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "backend",
-  }),
-  "SB-11": build(SB11, {
-    evaluatorKind: "regex",
-    stacks: ["node"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "backend",
-  }),
-  "SB-12": build(SB12, {
-    evaluatorKind: "regex",
-    stacks: ["typescript", "node"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "tooling",
-  }),
-  "SB-13": build(SB13, {
-    evaluatorKind: "trace",
-    stacks: ["node"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "backend",
-  }),
-  "SB-14": build(SB14, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }),
-  "SB-15": build(SB15, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }),
-  "SB-16": build(SB16, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }),
-  "SB-17": build(SB17, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }),
-  "SB-18": build(SB18, {
-    evaluatorKind: "sql",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "refactor",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-18-fix-n-plus-1.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-18/query-count.test.ts"],
-  }),
-  "SB-19": build(SB19, {
-    evaluatorKind: "latency",
-    stacks: ["node"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "tooling",
-  }),
-  "SB-20": build(SB20, {
-    evaluatorKind: "latency",
-    stacks: ["node"],
-    taskType: "no-op",
-    difficulty: "large",
-    surface: "tooling",
-  }),
-  "SB-21": build(SB21, {
-    evaluatorKind: "unit",
-    stacks: ["axios", "node"],
-    taskType: "security",
-    difficulty: "medium",
-    surface: "backend",
-  }),
-  "SB-22": build(SB22, {
-    evaluatorKind: "regex",
-    stacks: ["next", "react", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "fullstack",
-  }),
-  "SB-23": build(SB23, {
-    evaluatorKind: "unit",
-    stacks: ["express", "node"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "backend",
-  }),
-  "SB-24": build(SB24, {
-    evaluatorKind: "unit",
-    stacks: ["react", "react-hook-form", "zod"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "frontend",
-  }, {
-    public: ["signupSchema.test.ts"],
-    hidden: ["resolver-blocks-invalid.test.ts"],
-  }),
-  "SB-25": build(SB25, {
-    evaluatorKind: "unit",
-    stacks: ["tanstack-router", "react"],
-    taskType: "refactor",
-    difficulty: "medium",
-    surface: "frontend",
-  }, {
-    public: ["src/apiClient.test.ts"],
-    hidden: ["loader-fetches-once.test.ts"],
-  }),
-  "SB-26": build(SB26, {
-    evaluatorKind: "unit",
-    stacks: ["zod", "react-hook-form", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb26-checkout-schema/checkoutSchema.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-26/cross-field-validation.test.ts"],
-  }),
-  "SB-27": build(SB27, {
-    evaluatorKind: "unit",
-    stacks: ["react", "typescript"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb27-optimistic-like/likeStore.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-27/rollback-on-error.test.ts"],
-  }),
-  "SB-28": build(SB28, {
-    evaluatorKind: "unit",
-    stacks: ["tanstack-query", "typescript"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb28-query-cache/queryCache.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-28/refetch-counts.test.ts"],
-  }),
-  "SB-29": build(SB29, {
-    evaluatorKind: "unit",
-    stacks: ["tanstack-router", "react", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb29-route-action/src/projectAction.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-29/action-owns-mutation.test.ts"],
-  }),
-  "SB-30": build(SB30, {
-    evaluatorKind: "ast",
-    stacks: ["next", "react", "typescript"],
-    taskType: "security",
-    difficulty: "medium",
-    surface: "frontend",
-  }),
-  "SB-31": build(SB31, {
-    evaluatorKind: "unit",
-    stacks: ["react", "tanstack-query", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb31-view-state/viewState.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-31/view-state-precedence.test.ts"],
-  }),
-  "SB-32": build(SB32, {
-    evaluatorKind: "a11y",
-    stacks: ["react", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb32-a11y-labels/searchForm.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-32/labels-associated.test.ts"],
-  }),
-  "SB-33": build(SB33, {
-    evaluatorKind: "unit",
-    stacks: ["react", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb33-responsive/grid.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-33/breakpoints.test.ts"],
-  }),
-  "SB-34": build(SB34, {
-    evaluatorKind: "ast",
-    stacks: ["react", "typescript"],
-    taskType: "refactor",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb34-extract/priceTag.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-34/extraction-behavior.test.ts"],
-  }),
-  "SB-35": build(SB35, {
-    evaluatorKind: "a11y",
-    stacks: ["react", "typescript"],
-    taskType: "bugfix",
-    difficulty: "small",
-    surface: "frontend",
-  }, {
-    public: ["playground/sb35-focus-trap/focusTrap.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-35/focus-wraps.test.ts"],
-  }),
-  "SB-36": build(SB36, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-36-session-invalidation.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-36/session-invalidation.test.ts"],
-  }),
-  "SB-37": build(SB37, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-37-admin-user-list.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-37/admin-guard.test.ts"],
-  }),
-  "SB-38": build(SB38, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-38-idempotent-create.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-38/idempotency.test.ts"],
-  }),
-  "SB-39": build(SB39, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "zod", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-39-typed-validation.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-39/validation-shape.test.ts"],
-  }),
-  "SB-40": build(SB40, {
-    evaluatorKind: "api",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-40-catalog-list.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-40/catalog-pagination.test.ts"],
-  }),
-  "SB-41": build(SB41, {
-    evaluatorKind: "sql",
-    stacks: ["sqlite", "typescript", "node"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-41-migration.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-41/migration-compat.test.ts"],
-  }),
-  "SB-42": build(SB42, {
-    evaluatorKind: "unit",
-    stacks: ["typescript", "node"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "tooling",
-  }),
-  "SB-43": build(SB43, {
-    evaluatorKind: "unit",
-    stacks: ["typescript", "node"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "tooling",
-  }),
-  "SB-44": build(SB44, {
-    evaluatorKind: "api",
-    stacks: ["hono", "typescript"],
-    taskType: "security",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-44-cors-csrf.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-44/cors-csrf.test.ts"],
-  }),
-  "SB-45": build(SB45, {
-    evaluatorKind: "unit",
-    stacks: ["typescript", "node"],
-    taskType: "tooling",
-    difficulty: "medium",
-    surface: "tooling",
-  }),
-  "SB-46": build(SB46, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-46-stats-reuse.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-46/stats.test.ts"],
-  }),
-  "SB-47": build(SB47, {
-    evaluatorKind: "unit",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "refactor",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/hono-api/tests/sb-47-error-request-id.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-47/cross-subsystem.test.ts"],
-  }),
-  "SB-48": build(SB48, {
-    evaluatorKind: "unit",
-    stacks: ["typescript", "node"],
-    taskType: "feature",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/sb48-pricing/pricing.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-48/pricing-extended.test.ts"],
-  }),
-  "SB-49": build(SB49, {
-    evaluatorKind: "ast",
-    stacks: ["typescript", "node"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "backend",
-  }, {
-    public: ["playground/sb49-format/src/receipts.test.ts"],
-    hidden: ["lib/scenarios/hidden/SB-49/cross-subsystem.test.ts"],
-  }),
-  "SB-50": build(SB50, {
-    evaluatorKind: "stdout",
-    stacks: ["hono", "sqlite", "typescript"],
-    taskType: "bugfix",
-    difficulty: "medium",
-    surface: "backend",
-  }),
+    "SB-01": build(
+      SB01,
+      {
+        evaluatorKind: "unit",
+        stacks: ["node", "typescript"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "backend",
+      },
+      {
+        public: ["playground/utils.throttle.test.mjs"],
+        hidden: ["lib/scenarios/hidden/SB-01/throttle-semantics.test.ts"],
+      }
+    ),
+    "SB-02": build(SB02, {
+      evaluatorKind: "regex",
+      stacks: ["react", "tanstack-query"],
+      taskType: "bugfix",
+      difficulty: "small",
+      surface: "frontend",
+    }),
+    "SB-03": build(SB03, {
+      evaluatorKind: "regex",
+      stacks: ["react", "tanstack-query"],
+      taskType: "refactor",
+      difficulty: "medium",
+      surface: "frontend",
+    }),
+    "SB-04": build(
+      SB04,
+      {
+        evaluatorKind: "unit",
+        stacks: ["react", "tanstack-query"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["OrdersPanel.test.tsx"],
+        hidden: ["approve-refreshes-orders.test.ts"],
+      }
+    ),
+    "SB-05": build(SB05, {
+      evaluatorKind: "regex",
+      stacks: ["react", "tanstack-query"],
+      taskType: "feature",
+      difficulty: "medium",
+      surface: "frontend",
+    }),
+    "SB-06": build(SB06, {
+      evaluatorKind: "stdout",
+      stacks: ["react", "tanstack-query"],
+      taskType: "no-op",
+      difficulty: "small",
+      surface: "frontend",
+    }),
+    "SB-07": build(SB07, {
+      evaluatorKind: "stdout",
+      stacks: ["react", "tanstack-query"],
+      taskType: "no-op",
+      difficulty: "small",
+      surface: "frontend",
+    }),
+    "SB-08": build(SB08, {
+      evaluatorKind: "regex",
+      stacks: ["react"],
+      taskType: "bugfix",
+      difficulty: "small",
+      surface: "frontend",
+    }),
+    "SB-09": build(SB09, {
+      evaluatorKind: "regex",
+      stacks: ["react", "tanstack-query"],
+      taskType: "feature",
+      difficulty: "medium",
+      surface: "frontend",
+    }),
+    "SB-10": build(SB10, {
+      evaluatorKind: "regex",
+      stacks: ["node"],
+      taskType: "bugfix",
+      difficulty: "small",
+      surface: "backend",
+    }),
+    "SB-11": build(SB11, {
+      evaluatorKind: "regex",
+      stacks: ["node"],
+      taskType: "bugfix",
+      difficulty: "small",
+      surface: "backend",
+    }),
+    "SB-12": build(SB12, {
+      evaluatorKind: "regex",
+      stacks: ["typescript", "node"],
+      taskType: "bugfix",
+      difficulty: "medium",
+      surface: "tooling",
+    }),
+    "SB-13": build(SB13, {
+      evaluatorKind: "trace",
+      stacks: ["node"],
+      taskType: "bugfix",
+      difficulty: "small",
+      surface: "backend",
+    }),
+    "SB-14": build(SB14, {
+      evaluatorKind: "unit",
+      stacks: ["hono", "sqlite", "typescript"],
+      taskType: "feature",
+      difficulty: "medium",
+      surface: "backend",
+    }),
+    "SB-15": build(SB15, {
+      evaluatorKind: "unit",
+      stacks: ["hono", "sqlite", "typescript"],
+      taskType: "feature",
+      difficulty: "medium",
+      surface: "backend",
+    }),
+    "SB-16": build(SB16, {
+      evaluatorKind: "unit",
+      stacks: ["hono", "sqlite", "typescript"],
+      taskType: "feature",
+      difficulty: "medium",
+      surface: "backend",
+    }),
+    "SB-17": build(SB17, {
+      evaluatorKind: "unit",
+      stacks: ["hono", "sqlite", "typescript"],
+      taskType: "feature",
+      difficulty: "medium",
+      surface: "backend",
+    }),
+    "SB-18": build(
+      SB18,
+      {
+        evaluatorKind: "sql",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "refactor",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-18-fix-n-plus-1.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-18/query-count.test.ts"],
+      }
+    ),
+    "SB-19": build(SB19, {
+      evaluatorKind: "latency",
+      stacks: ["node"],
+      taskType: "bugfix",
+      difficulty: "medium",
+      surface: "tooling",
+    }),
+    "SB-20": build(SB20, {
+      evaluatorKind: "latency",
+      stacks: ["node"],
+      taskType: "no-op",
+      difficulty: "large",
+      surface: "tooling",
+    }),
+    "SB-21": build(SB21, {
+      evaluatorKind: "unit",
+      stacks: ["axios", "node"],
+      taskType: "security",
+      difficulty: "medium",
+      surface: "backend",
+    }),
+    "SB-22": build(SB22, {
+      evaluatorKind: "regex",
+      stacks: ["next", "react", "typescript"],
+      taskType: "bugfix",
+      difficulty: "small",
+      surface: "fullstack",
+    }),
+    "SB-23": build(SB23, {
+      evaluatorKind: "unit",
+      stacks: ["express", "node"],
+      taskType: "bugfix",
+      difficulty: "medium",
+      surface: "backend",
+    }),
+    "SB-24": build(
+      SB24,
+      {
+        evaluatorKind: "unit",
+        stacks: ["react", "react-hook-form", "zod"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "frontend",
+      },
+      {
+        public: ["signupSchema.test.ts"],
+        hidden: ["resolver-blocks-invalid.test.ts"],
+      }
+    ),
+    "SB-25": build(
+      SB25,
+      {
+        evaluatorKind: "unit",
+        stacks: ["tanstack-router", "react"],
+        taskType: "refactor",
+        difficulty: "medium",
+        surface: "frontend",
+      },
+      {
+        public: ["src/apiClient.test.ts"],
+        hidden: ["loader-fetches-once.test.ts"],
+      }
+    ),
+    "SB-26": build(
+      SB26,
+      {
+        evaluatorKind: "unit",
+        stacks: ["zod", "react-hook-form", "typescript"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb26-checkout-schema/checkoutSchema.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-26/cross-field-validation.test.ts"],
+      }
+    ),
+    "SB-27": build(
+      SB27,
+      {
+        evaluatorKind: "unit",
+        stacks: ["react", "typescript"],
+        taskType: "bugfix",
+        difficulty: "medium",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb27-optimistic-like/likeStore.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-27/rollback-on-error.test.ts"],
+      }
+    ),
+    "SB-28": build(
+      SB28,
+      {
+        evaluatorKind: "unit",
+        stacks: ["tanstack-query", "typescript"],
+        taskType: "bugfix",
+        difficulty: "medium",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb28-query-cache/queryCache.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-28/refetch-counts.test.ts"],
+      }
+    ),
+    "SB-29": build(
+      SB29,
+      {
+        evaluatorKind: "unit",
+        stacks: ["tanstack-router", "react", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb29-route-action/src/projectAction.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-29/action-owns-mutation.test.ts"],
+      }
+    ),
+    "SB-30": build(SB30, {
+      evaluatorKind: "ast",
+      stacks: ["next", "react", "typescript"],
+      taskType: "security",
+      difficulty: "medium",
+      surface: "frontend",
+    }),
+    "SB-31": build(
+      SB31,
+      {
+        evaluatorKind: "unit",
+        stacks: ["react", "tanstack-query", "typescript"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb31-view-state/viewState.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-31/view-state-precedence.test.ts"],
+      }
+    ),
+    "SB-32": build(
+      SB32,
+      {
+        evaluatorKind: "a11y",
+        stacks: ["react", "typescript"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb32-a11y-labels/searchForm.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-32/labels-associated.test.ts"],
+      }
+    ),
+    "SB-33": build(
+      SB33,
+      {
+        evaluatorKind: "unit",
+        stacks: ["react", "typescript"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb33-responsive/grid.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-33/breakpoints.test.ts"],
+      }
+    ),
+    "SB-34": build(
+      SB34,
+      {
+        evaluatorKind: "ast",
+        stacks: ["react", "typescript"],
+        taskType: "refactor",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb34-extract/priceTag.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-34/extraction-behavior.test.ts"],
+      }
+    ),
+    "SB-35": build(
+      SB35,
+      {
+        evaluatorKind: "a11y",
+        stacks: ["react", "typescript"],
+        taskType: "bugfix",
+        difficulty: "small",
+        surface: "frontend",
+      },
+      {
+        public: ["playground/sb35-focus-trap/focusTrap.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-35/focus-wraps.test.ts"],
+      }
+    ),
+    "SB-36": build(
+      SB36,
+      {
+        evaluatorKind: "unit",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-36-session-invalidation.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-36/session-invalidation.test.ts"],
+      }
+    ),
+    "SB-37": build(
+      SB37,
+      {
+        evaluatorKind: "unit",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-37-admin-user-list.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-37/admin-guard.test.ts"],
+      }
+    ),
+    "SB-38": build(
+      SB38,
+      {
+        evaluatorKind: "unit",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-38-idempotent-create.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-38/idempotency.test.ts"],
+      }
+    ),
+    "SB-39": build(
+      SB39,
+      {
+        evaluatorKind: "unit",
+        stacks: ["hono", "zod", "sqlite", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-39-typed-validation.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-39/validation-shape.test.ts"],
+      }
+    ),
+    "SB-40": build(
+      SB40,
+      {
+        evaluatorKind: "api",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-40-catalog-list.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-40/catalog-pagination.test.ts"],
+      }
+    ),
+    "SB-41": build(
+      SB41,
+      {
+        evaluatorKind: "sql",
+        stacks: ["sqlite", "typescript", "node"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-41-migration.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-41/migration-compat.test.ts"],
+      }
+    ),
+    "SB-42": build(SB42, {
+      evaluatorKind: "unit",
+      stacks: ["typescript", "node"],
+      taskType: "bugfix",
+      difficulty: "medium",
+      surface: "tooling",
+    }),
+    "SB-43": build(SB43, {
+      evaluatorKind: "unit",
+      stacks: ["typescript", "node"],
+      taskType: "bugfix",
+      difficulty: "medium",
+      surface: "tooling",
+    }),
+    "SB-44": build(
+      SB44,
+      {
+        evaluatorKind: "api",
+        stacks: ["hono", "typescript"],
+        taskType: "security",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-44-cors-csrf.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-44/cors-csrf.test.ts"],
+      }
+    ),
+    "SB-45": build(SB45, {
+      evaluatorKind: "unit",
+      stacks: ["typescript", "node"],
+      taskType: "tooling",
+      difficulty: "medium",
+      surface: "tooling",
+    }),
+    "SB-46": build(
+      SB46,
+      {
+        evaluatorKind: "unit",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-46-stats-reuse.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-46/stats.test.ts"],
+      }
+    ),
+    "SB-47": build(
+      SB47,
+      {
+        evaluatorKind: "unit",
+        stacks: ["hono", "sqlite", "typescript"],
+        taskType: "refactor",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/hono-api/tests/sb-47-error-request-id.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-47/cross-subsystem.test.ts"],
+      }
+    ),
+    "SB-48": build(
+      SB48,
+      {
+        evaluatorKind: "unit",
+        stacks: ["typescript", "node"],
+        taskType: "feature",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/sb48-pricing/pricing.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-48/pricing-extended.test.ts"],
+      }
+    ),
+    "SB-49": build(
+      SB49,
+      {
+        evaluatorKind: "ast",
+        stacks: ["typescript", "node"],
+        taskType: "bugfix",
+        difficulty: "medium",
+        surface: "backend",
+      },
+      {
+        public: ["playground/sb49-format/src/receipts.test.ts"],
+        hidden: ["lib/scenarios/hidden/SB-49/cross-subsystem.test.ts"],
+      }
+    ),
+    "SB-50": build(SB50, {
+      evaluatorKind: "stdout",
+      stacks: ["hono", "sqlite", "typescript"],
+      taskType: "bugfix",
+      difficulty: "medium",
+      surface: "backend",
+    }),
   };
 }
 

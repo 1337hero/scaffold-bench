@@ -45,10 +45,7 @@ const scenario: Scenario = {
 
     const scope = await onlyChangedFiles({
       playgroundDir,
-      allowedPaths: [
-        "playground/hono-api/src/migrations.ts",
-        "playground/hono-api/src/db.ts",
-      ],
+      allowedPaths: ["playground/hono-api/src/migrations.ts", "playground/hono-api/src/db.ts"],
     });
 
     const usesAlter = /ALTER\s+TABLE\s+items\s+ADD\s+COLUMN/i.test(migrations);
@@ -76,13 +73,21 @@ const scenario: Scenario = {
         ],
         pattern: [
           { name: "additive ALTER TABLE ... ADD COLUMN", pass: usesAlter, weight: 0.75 },
-          { name: "idempotent (checks table_info before adding)", pass: idempotentGuard, weight: 0.75 },
+          {
+            name: "idempotent (checks table_info before adding)",
+            pass: idempotentGuard,
+            weight: 0.75,
+          },
           { name: "wired runMigrations into createDb", pass: calledFromCreateDb, weight: 0.5 },
         ],
         verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
         cleanup: [
           { name: "did not edit schema.sql", pass: schemaUntouched, weight: 1 },
-          { name: "no console.log added", pass: noConsoleLog(migrations) && noConsoleLog(db), weight: 1 },
+          {
+            name: "no console.log added",
+            pass: noConsoleLog(migrations) && noConsoleLog(db),
+            weight: 1,
+          },
         ],
       },
       {

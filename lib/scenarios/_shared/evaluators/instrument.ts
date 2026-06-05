@@ -28,7 +28,9 @@ export function instrumentApiCalls(impl: FetchFn = fetch): InstrumentedFetch {
     calls: [],
     fetch(input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) {
       counter.count += 1;
-      counter.calls.push(typeof input === "string" ? input : String((input as Request).url ?? input));
+      counter.calls.push(
+        typeof input === "string" ? input : String((input as Request).url ?? input)
+      );
       return impl(input, init);
     },
     reset() {

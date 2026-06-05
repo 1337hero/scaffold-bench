@@ -89,7 +89,11 @@ const scenario: Scenario = {
             name: "tsc --noEmit exits 0 with no type-escape hacks",
             pass: tsc.pass && noHacks,
             weight: 3,
-            detail: tsc.pass ? (noHacks ? undefined : "compiles but uses a type-escape hack") : tsc.output,
+            detail: tsc.pass
+              ? noHacks
+                ? undefined
+                : "compiles but uses a type-escape hack"
+              : tsc.output,
           },
         ],
         scope: [
@@ -103,7 +107,11 @@ const scenario: Scenario = {
         ],
         pattern: [
           { name: "no type-escape hacks (as any / @ts-ignore / !)", pass: noHacks, weight: 1.5 },
-          { name: "kept exported function signatures", pass: /export\s+function/.test(prices), weight: 0.5 },
+          {
+            name: "kept exported function signatures",
+            pass: /export\s+function/.test(prices),
+            weight: 0.5,
+          },
         ],
         verification: [
           {
@@ -118,7 +126,11 @@ const scenario: Scenario = {
           },
         ],
         cleanup: [
-          { name: "no unrelated comment churn", pass: noAddedComments(prices, origPrices), weight: 1 },
+          {
+            name: "no unrelated comment churn",
+            pass: noAddedComments(prices, origPrices),
+            weight: 1,
+          },
           { name: "no console.log added", pass: noConsoleLog(prices), weight: 1 },
         ],
       },

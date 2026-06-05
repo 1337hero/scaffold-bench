@@ -91,7 +91,11 @@ const scenario: Scenario = {
           },
         ],
         pattern: [
-          { name: "kept the @utils alias (no relative-import workaround)", pass: keptAlias, weight: 1 },
+          {
+            name: "kept the @utils alias (no relative-import workaround)",
+            pass: keptAlias,
+            weight: 1,
+          },
           { name: "corrected the paths mapping to src/utils", pass: fixedPaths, weight: 0.5 },
           { name: "did not weaken strict mode", pass: didNotWeakenStrict, weight: 0.5 },
         ],

@@ -96,7 +96,11 @@ const scenario: Scenario = {
             weight: 1,
             detail: scope.detail,
           },
-          { name: "createProject.ts byte-identical", pass: currentCreate === originalCreate, weight: 1 },
+          {
+            name: "createProject.ts byte-identical",
+            pass: currentCreate === originalCreate,
+            weight: 1,
+          },
         ],
         pattern: [
           { name: "reuses the existing validateProject (AST)", pass: reusesValidator, weight: 1 },

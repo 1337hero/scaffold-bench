@@ -85,7 +85,10 @@ const scenario: Scenario = {
     const fixtureDir = join(playgroundDir, DIR);
     const cachePath = join(fixtureDir, "queryCache.ts");
     const cacheSrc = await readFile(cachePath, "utf-8");
-    const original = await readFile(join(PLAYGROUND_SRC, "sb28-query-cache/queryCache.ts"), "utf-8");
+    const original = await readFile(
+      join(PLAYGROUND_SRC, "sb28-query-cache/queryCache.ts"),
+      "utf-8"
+    );
 
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -122,7 +125,11 @@ const scenario: Scenario = {
           { name: "edited only queryCache.ts", pass: scope.pass, weight: 2, detail: scope.detail },
         ],
         pattern: [
-          { name: "compares against staleTime using the last fetch time", pass: readsStaleTime, weight: 1 },
+          {
+            name: "compares against staleTime using the last fetch time",
+            pass: readsStaleTime,
+            weight: 1,
+          },
           { name: "kept the options shape and public API", pass: keepsApi, weight: 1 },
         ],
         verification: [

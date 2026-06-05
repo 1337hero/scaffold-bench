@@ -102,7 +102,11 @@ const scenario: Scenario = {
             weight: 0.5,
           },
           { name: "no console.log added", pass: noConsoleLog(items), weight: 0.5 },
-          { name: "no unrelated comment churn", pass: noAddedComments(items, origItems), weight: 0.5 },
+          {
+            name: "no unrelated comment churn",
+            pass: noAddedComments(items, origItems),
+            weight: 0.5,
+          },
         ],
       },
       {

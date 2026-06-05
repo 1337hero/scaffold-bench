@@ -88,10 +88,18 @@ const scenario: Scenario = {
         ],
         scope: [
           { name: "edited only UserMenu.tsx", pass: scope.pass, weight: 1, detail: scope.detail },
-          { name: "serverData.ts byte-identical", pass: currentServer === originalServer, weight: 1 },
+          {
+            name: "serverData.ts byte-identical",
+            pass: currentServer === originalServer,
+            weight: 1,
+          },
         ],
         pattern: [
-          { name: "still an interactive client component (uses useState)", pass: stillInteractive, weight: 1 },
+          {
+            name: "still an interactive client component (uses useState)",
+            pass: stillInteractive,
+            weight: 1,
+          },
           { name: "renders the name from the userName prop", pass: usesProp, weight: 1 },
         ],
         verification: [

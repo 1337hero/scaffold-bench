@@ -91,7 +91,11 @@ const scenario: Scenario = {
         ],
         verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
         cleanup: [
-          { name: "credentials enabled + no hand-rolled CORS headers", pass: credentials && noHandRolled, weight: 1 },
+          {
+            name: "credentials enabled + no hand-rolled CORS headers",
+            pass: credentials && noHandRolled,
+            weight: 1,
+          },
           { name: "no console.log added", pass: noConsoleLog(security), weight: 1 },
         ],
       },

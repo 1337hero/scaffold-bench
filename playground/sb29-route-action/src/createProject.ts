@@ -4,9 +4,7 @@
 // render — instead of the component calling post directly in an onClick.
 export type PostFn = (path: string, body: unknown) => Promise<{ id: string }>;
 
-export type ActionResult =
-  | { ok: true; id: string }
-  | { ok: false; error: string };
+export type ActionResult = { ok: true; id: string } | { ok: false; error: string };
 
 export type CreateProjectInput = { name: string };
 

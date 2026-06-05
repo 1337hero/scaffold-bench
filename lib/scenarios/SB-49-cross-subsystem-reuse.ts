@@ -78,7 +78,11 @@ const scenario: Scenario = {
         ],
         pattern: [
           { name: "imports the shared format module", pass: importsFormat, weight: 0.75 },
-          { name: "calls formatMoney (reuse, not reimplement)", pass: callsFormatMoney, weight: 0.75 },
+          {
+            name: "calls formatMoney (reuse, not reimplement)",
+            pass: callsFormatMoney,
+            weight: 0.75,
+          },
           { name: "did not redefine the shared helper", pass: !redefinesHelper, weight: 0.5 },
         ],
         verification: [

@@ -57,7 +57,8 @@ const scenario: Scenario = {
       /DELETE\s+FROM\s+sessions/i.test(users) && /token\s*!=\s*\?/.test(users);
     const usesAppError = /AppError/.test(users);
     const hashesNewPassword = /Bun\.password\.hash/.test(users);
-    const keptUserGet = /\/users\/:id["'`]\s*,\s*\(c\)/.test(users) || /usersRoutes\.get\(/.test(users);
+    const keptUserGet =
+      /\/users\/:id["'`]\s*,\s*\(c\)/.test(users) || /usersRoutes\.get\(/.test(users);
 
     return rubricToEvaluation(
       {
@@ -96,7 +97,11 @@ const scenario: Scenario = {
             weight: 1,
           },
           { name: "no console.log added", pass: noConsoleLog(users), weight: 0.5 },
-          { name: "no unrelated comment churn", pass: noAddedComments(users, origUsers), weight: 0.5 },
+          {
+            name: "no unrelated comment churn",
+            pass: noAddedComments(users, origUsers),
+            weight: 0.5,
+          },
         ],
       },
       {

@@ -5,8 +5,9 @@ import {
   countSqlQueries,
 } from "../../lib/scenarios/_shared/evaluators/index.js";
 
-const loadGold = (await import(join(import.meta.dir, "fixtures", "instrument", "gold", "loader.mjs")))
-  .loadAll;
+const loadGold = (
+  await import(join(import.meta.dir, "fixtures", "instrument", "gold", "loader.mjs"))
+).loadAll;
 const loadBroken = (
   await import(join(import.meta.dir, "fixtures", "instrument", "broken", "loader.mjs"))
 ).loadAll;

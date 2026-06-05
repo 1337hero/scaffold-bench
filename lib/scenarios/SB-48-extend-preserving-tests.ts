@@ -80,7 +80,11 @@ const scenario: Scenario = {
           { name: "left pricing.test.ts untouched", pass: testUntouched, weight: 1 },
         ],
         pattern: [
-          { name: "added the volume-discount tier (>=10000, 5%)", pass: addedVolumeTier, weight: 1 },
+          {
+            name: "added the volume-discount tier (>=10000, 5%)",
+            pass: addedVolumeTier,
+            weight: 1,
+          },
           { name: "kept the exported signatures", pass: keptSignatures, weight: 1 },
         ],
         verification: [
@@ -92,7 +96,11 @@ const scenario: Scenario = {
           },
         ],
         cleanup: [
-          { name: "no unrelated comment churn", pass: noAddedComments(pricing, origPricing), weight: 1 },
+          {
+            name: "no unrelated comment churn",
+            pass: noAddedComments(pricing, origPricing),
+            weight: 1,
+          },
           { name: "no console.log added", pass: noConsoleLog(pricing), weight: 1 },
         ],
       },

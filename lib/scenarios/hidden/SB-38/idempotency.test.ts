@@ -30,8 +30,9 @@ describe("SB-38 hidden: POST /items idempotency", () => {
     });
 
   const count = (uid: number) =>
-    db.query<{ n: number }, [number]>("SELECT COUNT(*) AS n FROM items WHERE owner_id = ?").get(uid)!
-      .n;
+    db
+      .query<{ n: number }, [number]>("SELECT COUNT(*) AS n FROM items WHERE owner_id = ?")
+      .get(uid)!.n;
 
   test("ten retries with one key → one row, stable id, 200 on repeats", async () => {
     const first = await post("widget", "k1");

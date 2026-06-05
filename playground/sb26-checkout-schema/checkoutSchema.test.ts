@@ -14,7 +14,5 @@ test("a fully valid, matching submit is accepted", () => {
 });
 
 test("mismatched password confirmation is rejected", () => {
-  expect(
-    checkoutSchema.safeParse({ ...base, confirmPassword: "different" }).success
-  ).toBe(false);
+  expect(checkoutSchema.safeParse({ ...base, confirmPassword: "different" }).success).toBe(false);
 });

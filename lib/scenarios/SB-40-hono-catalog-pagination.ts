@@ -37,9 +37,7 @@ const scenario: Scenario = {
     const index = await readOrEmpty(join(fixtureDir, "src/index.ts"));
     const catalogExists = catalog.length > 0;
 
-    const readSpec = toolCalls.some(
-      (c) => c.name === "read" && c.args.includes("catalog-list.md")
-    );
+    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("catalog-list.md"));
 
     const scope = await onlyChangedFiles({
       playgroundDir,

@@ -1,6 +1,14 @@
-import { validateProject, type ActionResult, type CreateProjectInput, type PostFn } from "./createProject";
+import {
+  validateProject,
+  type ActionResult,
+  type CreateProjectInput,
+  type PostFn,
+} from "./createProject";
 
-export async function projectAction(post: PostFn, input: CreateProjectInput): Promise<ActionResult> {
+export async function projectAction(
+  post: PostFn,
+  input: CreateProjectInput
+): Promise<ActionResult> {
   const error = validateProject(input);
   if (error) return { ok: false, error };
   try {

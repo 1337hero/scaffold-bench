@@ -80,12 +80,14 @@ const scenario: Scenario = {
             detail: correct ? undefined : publicTest.stdout + "\n" + publicTest.stderr,
           },
         ],
-        scope: [
-          { name: "edited only grid.ts", pass: scope.pass, weight: 2, detail: scope.detail },
-        ],
+        scope: [{ name: "edited only grid.ts", pass: scope.pass, weight: 2, detail: scope.detail }],
         pattern: [
           { name: "kept the gridColumns signature", pass: keepsSignature, weight: 1 },
-          { name: "still returns the four documented column counts", pass: /\b4\b/.test(src) && /\b1\b/.test(src), weight: 1 },
+          {
+            name: "still returns the four documented column counts",
+            pass: /\b4\b/.test(src) && /\b1\b/.test(src),
+            weight: 1,
+          },
         ],
         verification: [
           {

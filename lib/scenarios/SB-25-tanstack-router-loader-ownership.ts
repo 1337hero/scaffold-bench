@@ -10,7 +10,12 @@ import {
   onlyChangedFiles,
   searchBeforeEdit,
 } from "./_shared/helpers.js";
-import { componentUsesHook, fileCalls, runBunTest, runHiddenTests } from "./_shared/evaluators/index.js";
+import {
+  componentUsesHook,
+  fileCalls,
+  runBunTest,
+  runHiddenTests,
+} from "./_shared/evaluators/index.js";
 
 const APP = "playground/tanstack-router-app";
 
@@ -90,7 +95,11 @@ const scenario: Scenario = {
             weight: 1,
             detail: scope.detail,
           },
-          { name: "apiClient.ts byte-identical", pass: currentApiClient === originalApiClient, weight: 1 },
+          {
+            name: "apiClient.ts byte-identical",
+            pass: currentApiClient === originalApiClient,
+            weight: 1,
+          },
         ],
         pattern: [
           { name: "ProjectsTable does not call useQuery (AST)", pass: tableNoUseQuery, weight: 1 },
@@ -100,7 +109,9 @@ const scenario: Scenario = {
             weight: 1,
           },
         ],
-        verification: [{ name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 }],
+        verification: [
+          { name: "searched before editing", pass: searchBeforeEdit(toolCalls), weight: 1 },
+        ],
         cleanup: [
           {
             name: "no orphaned useQuery / fetch in table",

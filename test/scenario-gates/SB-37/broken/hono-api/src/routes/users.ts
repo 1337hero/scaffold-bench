@@ -47,9 +47,10 @@ usersRoutes.get("/admin/users", (c) => {
   const db = c.get("db") as DB;
   const token = getCookie(c, "session");
   const me = db
-    .query<{ role: string }, [string]>(
-      "SELECT u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?"
-    )
+    .query<
+      { role: string },
+      [string]
+    >("SELECT u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?")
     .get(token ?? "");
   if (!me || me.role !== "admin") {
     throw new AppError("admin only", 403, "forbidden");

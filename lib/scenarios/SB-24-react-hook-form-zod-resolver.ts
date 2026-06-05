@@ -40,9 +40,15 @@ const scenario: Scenario = {
     const formPath = join(fixtureDir, "SignupForm.tsx");
     const form = await readFile(formPath, "utf-8");
     const originalForm = await readFile(join(PLAYGROUND_SRC, "frontend/SignupForm.tsx"), "utf-8");
-    const originalSchema = await readFile(join(PLAYGROUND_SRC, "frontend/signupSchema.ts"), "utf-8");
+    const originalSchema = await readFile(
+      join(PLAYGROUND_SRC, "frontend/signupSchema.ts"),
+      "utf-8"
+    );
     const currentSchema = await readFile(join(fixtureDir, "signupSchema.ts"), "utf-8");
-    const originalApiClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
+    const originalApiClient = await readFile(
+      join(PLAYGROUND_SRC, "frontend/apiClient.ts"),
+      "utf-8"
+    );
     const currentApiClient = await readFile(join(fixtureDir, "apiClient.ts"), "utf-8");
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -94,10 +100,18 @@ const scenario: Scenario = {
         ],
         scope: [
           { name: "edited only SignupForm.tsx", pass: scope.pass, weight: 1, detail: scope.detail },
-          { name: "signupSchema.ts byte-identical", pass: currentSchema === originalSchema, weight: 1 },
+          {
+            name: "signupSchema.ts byte-identical",
+            pass: currentSchema === originalSchema,
+            weight: 1,
+          },
         ],
         pattern: [
-          { name: "apiClient.ts byte-identical", pass: currentApiClient === originalApiClient, weight: 1 },
+          {
+            name: "apiClient.ts byte-identical",
+            pass: currentApiClient === originalApiClient,
+            weight: 1,
+          },
           {
             name: "did not introduce new validation library",
             pass: !/yup|joi|vest|superstruct/.test(form),

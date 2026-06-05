@@ -37,7 +37,9 @@ const scenario: Scenario = {
     const index = await readOrEmpty(join(fixtureDir, "src/index.ts"));
     const adminExists = admin.length > 0;
 
-    const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("admin-user-list.md"));
+    const readSpec = toolCalls.some(
+      (c) => c.name === "read" && c.args.includes("admin-user-list.md")
+    );
 
     const scope = await onlyChangedFiles({
       playgroundDir,

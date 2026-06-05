@@ -77,7 +77,11 @@ const scenario: Scenario = {
         ],
         pattern: [
           { name: "reuses requireUser from lib/auth", pass: reusesAuthGuard, weight: 0.75 },
-          { name: "imports DB type from db.ts (not redeclared)", pass: reusesDbType && noRedeclaredDbType, weight: 0.5 },
+          {
+            name: "imports DB type from db.ts (not redeclared)",
+            pass: reusesDbType && noRedeclaredDbType,
+            weight: 0.5,
+          },
           { name: "no inline session/cookie re-validation", pass: noInlineAuth, weight: 0.5 },
           { name: "mounted statsRoutes in index.ts", pass: mountedInIndex, weight: 0.25 },
         ],

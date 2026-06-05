@@ -57,7 +57,10 @@ const scenario: Scenario = {
 
     const preflight = Bun.spawnSync(config.preflightCommand, { stdout: "pipe", stderr: "pipe" });
     if (preflight.exitCode !== 0) {
-      return scoreExemptSkip(`${config.preflightCommand[0]} on PATH`, `${config.preflightCommand[0]}-not-on-path`);
+      return scoreExemptSkip(
+        `${config.preflightCommand[0]} on PATH`,
+        `${config.preflightCommand[0]}-not-on-path`
+      );
     }
 
     const runStartedAt = performance.now();

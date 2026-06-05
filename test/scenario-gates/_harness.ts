@@ -6,7 +6,12 @@ import type { ScenarioEvaluateInput } from "../../lib/scenarios/_shared/types.js
 import { PLAYGROUND_SRC } from "../../lib/scenarios/_shared/helpers.js";
 import type { Scenario } from "../../lib/scenarios/_shared/types.js";
 import type { Runtime } from "../../lib/runtimes/types.ts";
-import type { RubricBreakdown, RuntimeOutput, ScenarioEvaluation, ToolCall } from "../../lib/scoring.ts";
+import type {
+  RubricBreakdown,
+  RuntimeOutput,
+  ScenarioEvaluation,
+  ToolCall,
+} from "../../lib/scoring.ts";
 
 /**
  * Build synthetic tool calls so gold solutions satisfy read-before-edit

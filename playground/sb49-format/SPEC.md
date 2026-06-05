@@ -1,6 +1,7 @@
 # Fix invoices currency formatting — reuse the shared abstraction
 
 Two subsystems share one money-formatting abstraction:
+
 - `src/format.ts` — the single source of truth (`formatMoney`, `currencySymbol`).
 - `src/receipts.ts` — already uses it correctly (shipped + tested).
 - `src/invoices.ts` — does NOT use it: `renderInvoice` hardcodes a `$` and
@@ -8,12 +9,14 @@ Two subsystems share one money-formatting abstraction:
   symbol.
 
 ## Task
+
 Fix `renderInvoice` so it respects the invoice's `currency`, by **reusing the
 shared `formatMoney` from `src/format.ts`** — do not reimplement money
 formatting and do not redefine `formatMoney` or `currencySymbol` inside
 `invoices.ts`.
 
 ## Constraints
+
 - Edit only `src/invoices.ts`.
 - Do not touch `src/format.ts` or `src/receipts.ts` — the receipts tests must
   stay green.
@@ -22,6 +25,7 @@ formatting and do not redefine `formatMoney` or `currencySymbol` inside
   money part comes from `formatMoney`.
 
 ## Done when
+
 - `renderInvoice({ id, currency: "USD", amountCents })` → `Invoice <id>: $X.YY`.
 - `renderInvoice({ id, currency: "EUR", amountCents })` → `Invoice <id>: €X.YY`.
 - `renderInvoice({ id, currency: "GBP", amountCents })` → `Invoice <id>: £X.YY`.

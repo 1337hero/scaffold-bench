@@ -52,7 +52,10 @@ const scenario: Scenario = {
     const fixtureDir = join(playgroundDir, DIR);
     const path = join(fixtureDir, "searchForm.ts");
     const src = await readFile(path, "utf-8");
-    const original = await readFile(join(PLAYGROUND_SRC, "sb32-a11y-labels/searchForm.ts"), "utf-8");
+    const original = await readFile(
+      join(PLAYGROUND_SRC, "sb32-a11y-labels/searchForm.ts"),
+      "utf-8"
+    );
 
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -97,7 +100,11 @@ const scenario: Scenario = {
           { name: "edited only searchForm.ts", pass: scope.pass, weight: 2, detail: scope.detail },
         ],
         pattern: [
-          { name: "used a real <label for> association", pass: /<label[^>]*\bfor=/.test(src), weight: 1 },
+          {
+            name: "used a real <label for> association",
+            pass: /<label[^>]*\bfor=/.test(src),
+            weight: 1,
+          },
           {
             name: "kept it a search form (axe confirms when browser present)",
             pass: stillSearch && axeBonus,

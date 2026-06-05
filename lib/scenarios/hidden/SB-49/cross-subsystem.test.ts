@@ -8,10 +8,14 @@ import { renderReceipt, type Receipt } from "../src/receipts";
 
 describe("SB-49 hidden: invoices fixed across currencies", () => {
   test("USD", () => {
-    expect(renderInvoice({ id: "I1", currency: "USD", amountCents: 12345 })).toBe("Invoice I1: $123.45");
+    expect(renderInvoice({ id: "I1", currency: "USD", amountCents: 12345 })).toBe(
+      "Invoice I1: $123.45"
+    );
   });
   test("EUR", () => {
-    expect(renderInvoice({ id: "I2", currency: "EUR", amountCents: 5000 })).toBe("Invoice I2: €50.00");
+    expect(renderInvoice({ id: "I2", currency: "EUR", amountCents: 5000 })).toBe(
+      "Invoice I2: €50.00"
+    );
   });
   test("GBP", () => {
     expect(renderInvoice({ id: "I3", currency: "GBP", amountCents: 99 })).toBe("Invoice I3: £0.99");

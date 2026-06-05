@@ -11,7 +11,11 @@ const goldToolCalls: ToolCall[] = [
   { name: "read", args: JSON.stringify({ path: "playground/sb49-format/src/format.ts" }), turn: 1 },
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/sb49-format/src/invoices.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/sb49-format/src/invoices.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 2,
   },
 ];
@@ -21,12 +25,20 @@ const goldToolCalls: ToolCall[] = [
 const brokenToolCalls: ToolCall[] = [
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/sb49-format/src/invoices.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/sb49-format/src/invoices.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 0,
   },
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/sb49-format/src/format.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/sb49-format/src/format.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 1,
   },
 ];

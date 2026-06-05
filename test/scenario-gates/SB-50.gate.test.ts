@@ -18,7 +18,11 @@ afterAll(async () => {
 });
 
 const readBoth: ToolCall[] = [
-  { name: "read", args: JSON.stringify({ path: "playground/hono-api/src/routes/sessions.ts" }), turn: 0 },
+  {
+    name: "read",
+    args: JSON.stringify({ path: "playground/hono-api/src/routes/sessions.ts" }),
+    turn: 0,
+  },
   { name: "read", args: JSON.stringify({ path: "playground/hono-api/src/lib/auth.ts" }), turn: 1 },
 ];
 
@@ -36,7 +40,11 @@ const brokenToolCalls: ToolCall[] = [
   ...readBoth,
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/hono-api/src/routes/sessions.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/hono-api/src/routes/sessions.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 2,
   },
 ];

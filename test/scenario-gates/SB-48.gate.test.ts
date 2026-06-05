@@ -26,7 +26,11 @@ const brokenToolCalls: ToolCall[] = [
   },
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/sb48-pricing/pricing.test.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/sb48-pricing/pricing.test.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 1,
   },
 ];

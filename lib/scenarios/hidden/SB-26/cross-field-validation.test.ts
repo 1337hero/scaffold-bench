@@ -38,6 +38,7 @@ test("provided shipping address is accepted when shipping elsewhere", () => {
 
 test("blank shipping address is fine when not shipping elsewhere", () => {
   expect(
-    checkoutSchema.safeParse({ ...base, shipToDifferentAddress: false, shippingAddress: "" }).success
+    checkoutSchema.safeParse({ ...base, shipToDifferentAddress: false, shippingAddress: "" })
+      .success
   ).toBe(true);
 });

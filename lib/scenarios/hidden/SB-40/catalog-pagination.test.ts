@@ -6,7 +6,10 @@ import { describe, test, expect, beforeEach } from "bun:test";
 import { testClient, seedUser, loginCookie, cleanupDb, TestDataFactory } from "../tests/helpers";
 import type { DB } from "../src/db";
 
-type Page = { items: { id: number; name: string; created_at: number }[]; nextCursor: string | null };
+type Page = {
+  items: { id: number; name: string; created_at: number }[];
+  nextCursor: string | null;
+};
 
 async function walk(
   fetchFn: (path: string, init?: RequestInit) => Promise<Response>,

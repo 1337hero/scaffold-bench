@@ -1,10 +1,4 @@
-import type {
-  RunState,
-  RunStatus,
-  ScenarioRun,
-  ScenarioRunFilters,
-  ScenarioState,
-} from "@/types";
+import type { RunState, RunStatus, ScenarioRun, ScenarioRunFilters, ScenarioState } from "@/types";
 
 export function getFocusedScenario(state: RunState): ScenarioState | undefined {
   const focusedId = state.focusedScenarioId ?? state.activeScenarioId;

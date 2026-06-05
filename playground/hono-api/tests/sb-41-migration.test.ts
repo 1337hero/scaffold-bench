@@ -13,9 +13,10 @@ describe("SB-41 priority migration (public)", () => {
   test("inserting without priority still works", () => {
     const db = createDb(":memory:");
     const owner = db
-      .query<{ id: number }, [string, string]>(
-        "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id"
-      )
+      .query<
+        { id: number },
+        [string, string]
+      >("INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id")
       .get("u@example.com", "x")!.id;
     expect(() =>
       db.query("INSERT INTO items (owner_id, name) VALUES (?, ?)").run(owner, "x")

@@ -24,7 +24,11 @@ const goldToolCalls: ToolCall[] = [
   },
   {
     name: "edit",
-    args: JSON.stringify({ path: "playground/hono-api/src/lib/errors.ts", old_str: "", new_str: "" }),
+    args: JSON.stringify({
+      path: "playground/hono-api/src/lib/errors.ts",
+      old_str: "",
+      new_str: "",
+    }),
     turn: 3,
   },
 ];

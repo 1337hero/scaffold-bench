@@ -29,8 +29,12 @@ const scenario: Scenario = {
     const fixture = join(playgroundDir, "playground/hono-api");
     const ORIG = join(PLAYGROUND_SRC, "hono-api");
 
-    const sessions = await readFile(join(fixture, "src/routes/sessions.ts"), "utf-8").catch(() => "");
-    const origSessions = await readFile(join(ORIG, "src/routes/sessions.ts"), "utf-8").catch(() => "");
+    const sessions = await readFile(join(fixture, "src/routes/sessions.ts"), "utf-8").catch(
+      () => ""
+    );
+    const origSessions = await readFile(join(ORIG, "src/routes/sessions.ts"), "utf-8").catch(
+      () => ""
+    );
     const auth = await readFile(join(fixture, "src/lib/auth.ts"), "utf-8").catch(() => "");
     const origAuth = await readFile(join(ORIG, "src/lib/auth.ts"), "utf-8").catch(() => "");
 
@@ -57,7 +61,11 @@ const scenario: Scenario = {
     return rubricToEvaluation(
       {
         correctness: [
-          { name: "concludes the report is mistaken (no real bug)", pass: recognizesNoBug, weight: 1.5 },
+          {
+            name: "concludes the report is mistaken (no real bug)",
+            pass: recognizesNoBug,
+            weight: 1.5,
+          },
           {
             name: "cites the DELETE that removes the session row",
             pass: citesDelete,

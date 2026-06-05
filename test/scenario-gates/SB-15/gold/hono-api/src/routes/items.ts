@@ -33,18 +33,14 @@ itemsRoutes.get("/items", (c) => {
           .query<
             { id: number; owner_id: number; name: string; created_at: number },
             [number]
-          >(
-            "SELECT id, owner_id, name, created_at FROM items WHERE deleted_at IS NULL ORDER BY id DESC LIMIT ?"
-          )
+          >("SELECT id, owner_id, name, created_at FROM items WHERE deleted_at IS NULL ORDER BY id DESC LIMIT ?")
           .all(limit)
       : anchorExists
         ? db
             .query<
               { id: number; owner_id: number; name: string; created_at: number },
               [number, number]
-            >(
-              "SELECT id, owner_id, name, created_at FROM items WHERE deleted_at IS NULL AND id < ? ORDER BY id DESC LIMIT ?"
-            )
+            >("SELECT id, owner_id, name, created_at FROM items WHERE deleted_at IS NULL AND id < ? ORDER BY id DESC LIMIT ?")
             .all(cursor, limit)
         : [];
 
@@ -55,8 +51,7 @@ itemsRoutes.get("/items", (c) => {
     return { ...item, owner_email: owner?.email ?? null };
   });
 
-  const nextCursor =
-    items.length === limit ? String(items[items.length - 1].id) : null;
+  const nextCursor = items.length === limit ? String(items[items.length - 1].id) : null;
 
   return c.json({ items: withOwners, nextCursor });
 });

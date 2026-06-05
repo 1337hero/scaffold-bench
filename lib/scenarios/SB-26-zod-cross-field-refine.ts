@@ -92,7 +92,11 @@ const scenario: Scenario = {
           },
         ],
         pattern: [
-          { name: "used zod refine/superRefine for cross-field checks", pass: usesRefine, weight: 1 },
+          {
+            name: "used zod refine/superRefine for cross-field checks",
+            pass: usesRefine,
+            weight: 1,
+          },
           {
             name: "kept the field shape and no new validation library",
             pass: keepsFieldShape && !/yup|joi|vest|superstruct/.test(schema),

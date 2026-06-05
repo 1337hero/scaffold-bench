@@ -89,7 +89,11 @@ const scenario: Scenario = {
         ],
         pattern: [
           { name: "formatDiscount lives in its own module", pass: extractedExports, weight: 1 },
-          { name: "priceTag imports the extracted module (AST)", pass: priceTagImportsIt, weight: 1 },
+          {
+            name: "priceTag imports the extracted module (AST)",
+            pass: priceTagImportsIt,
+            weight: 1,
+          },
         ],
         verification: [
           {
@@ -100,7 +104,11 @@ const scenario: Scenario = {
         ],
         cleanup: [
           { name: "no duplicate formatDiscount left in priceTag", pass: noDuplicate, weight: 1 },
-          { name: "no console.log added", pass: noConsoleLog(priceTag) && noConsoleLog(extracted), weight: 1 },
+          {
+            name: "no console.log added",
+            pass: noConsoleLog(priceTag) && noConsoleLog(extracted),
+            weight: 1,
+          },
         ],
       },
       {

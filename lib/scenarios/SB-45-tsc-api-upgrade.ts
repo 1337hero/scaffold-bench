@@ -54,13 +54,15 @@ const scenario: Scenario = {
     const base = "playground/sb45-apichange";
     const appPath = join(playgroundDir, base, "src/app.ts");
     const app = await readFile(appPath, "utf-8").catch(() => "");
-    const origApp = await readFile(join(PLAYGROUND_SRC, "sb45-apichange/src/app.ts"), "utf-8").catch(
-      () => ""
-    );
+    const origApp = await readFile(
+      join(PLAYGROUND_SRC, "sb45-apichange/src/app.ts"),
+      "utf-8"
+    ).catch(() => "");
     const sdk = await readFile(join(playgroundDir, base, "src/sdk.ts"), "utf-8").catch(() => "");
-    const origSdk = await readFile(join(PLAYGROUND_SRC, "sb45-apichange/src/sdk.ts"), "utf-8").catch(
-      () => ""
-    );
+    const origSdk = await readFile(
+      join(PLAYGROUND_SRC, "sb45-apichange/src/sdk.ts"),
+      "utf-8"
+    ).catch(() => "");
 
     const code = stripComments(app);
     const nonNullAssertion = /\]\s*!(?!=)|\b[A-Za-z_$][\w$]*!\s*(?=[.;,)\]])/.test(code);
@@ -104,7 +106,11 @@ const scenario: Scenario = {
         pattern: [
           { name: "createClient uses the options object", pass: usesOptionsObject, weight: 0.75 },
           { name: "awaits the now-async fetchUser", pass: awaitsFetchUser, weight: 0.5 },
-          { name: "uses firstName/lastName (not the removed name)", pass: usesSplitName, weight: 0.75 },
+          {
+            name: "uses firstName/lastName (not the removed name)",
+            pass: usesSplitName,
+            weight: 0.75,
+          },
         ],
         verification: [
           {

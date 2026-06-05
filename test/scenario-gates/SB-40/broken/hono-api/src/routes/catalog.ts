@@ -18,9 +18,10 @@ catalogRoutes.get("/catalog", (c) => {
   const limit = Number(c.req.query("limit") ?? "20");
   const page = Number(c.req.query("cursor") ?? "0");
   const rows = db
-    .query<{ id: number; name: string; created_at: number }, [number, number]>(
-      "SELECT id, name, created_at FROM items ORDER BY id DESC LIMIT ? OFFSET ?"
-    )
+    .query<
+      { id: number; name: string; created_at: number },
+      [number, number]
+    >("SELECT id, name, created_at FROM items ORDER BY id DESC LIMIT ? OFFSET ?")
     .all(limit, page * limit);
   return c.json({ items: rows, nextCursor: rows.length > 0 ? String(page + 1) : null });
 });

@@ -84,7 +84,11 @@ const scenario: Scenario = {
           { name: "edited only viewState.ts", pass: scope.pass, weight: 2, detail: scope.detail },
         ],
         pattern: [
-          { name: "kept the getViewState signature and ViewState type", pass: keepsSignature, weight: 1 },
+          {
+            name: "kept the getViewState signature and ViewState type",
+            pass: keepsSignature,
+            weight: 1,
+          },
           {
             name: "checks emptiness via length, not truthiness of data alone",
             pass: /\.length\s*===?\s*0|\.length\s*>\s*0|!\s*query\.data|!\s*data/.test(src),

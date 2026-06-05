@@ -68,7 +68,8 @@ const scenario: Scenario = {
     const rollsBack = publicTest.pass && hidden.total > 0 && hidden.rate === 1;
 
     const handlesError = /catch\b/.test(store) && /try\b/.test(store);
-    const keepsApi = /toggleLike/.test(store) && /createLikeStore/.test(store) && /get\s*\(/.test(store);
+    const keepsApi =
+      /toggleLike/.test(store) && /createLikeStore/.test(store) && /get\s*\(/.test(store);
     const stillOptimistic = /state\s*=\s*next|count\s*[+-]\s*1/.test(store);
 
     return rubricToEvaluation(
