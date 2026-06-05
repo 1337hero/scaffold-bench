@@ -5,7 +5,6 @@ import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
-  TS_COMPILE_COMMAND,
   bashCalls,
   failedVerificationBeforeChange,
   firstChangeTurn,
@@ -15,6 +14,8 @@ import {
   passedVerificationAfterChange,
   stripComments,
 } from "./_shared/helpers.js";
+
+const TS_COMPILE_COMMAND = "bunx tsc --noEmit -p playground/ts-compile/tsconfig.json";
 
 export const meta = {
   id: "SB-12",
