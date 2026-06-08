@@ -29,6 +29,7 @@ type ResultScenario = {
   status?: "pass" | "partial" | "fail";
   points?: number;
   maxPoints?: number;
+  summary?: string;
   rubricKind?: string;
   rubricBreakdown?: {
     correctness?: number;
@@ -92,6 +93,7 @@ function evaluationFor(result: ResultScenario): string {
     status: statusFor(result),
     points: result.points ?? 0,
     maxPoints: result.maxPoints ?? 0,
+    summary: result.summary ?? "",
     checks: result.checks ?? [],
     rubricKind: result.rubricKind ?? "10pt",
     rubricBreakdown: result.rubricBreakdown ?? null,

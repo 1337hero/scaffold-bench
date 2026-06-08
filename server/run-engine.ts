@@ -176,6 +176,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       status: r.evaluation.status,
       points: r.evaluation.points,
       maxPoints: r.evaluation.maxPoints,
+      summary: r.evaluation.summary,
       rubricKind: r.evaluation.rubricKind,
       rubricBreakdown: r.evaluation.rubricBreakdown,
       toolCallCount: r.output.toolCalls.length,
