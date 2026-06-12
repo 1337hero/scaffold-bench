@@ -1,6 +1,6 @@
 <div align="center">
 
-# Scaffold Bench - v2.0.0
+# Scaffold Bench - v3.0.0
 
 **A benchmark for coding models. Tests whether they behave like a careful senior dev — not just whether they can write code.**
 
@@ -21,7 +21,7 @@ Then it scores not just _did the code work_, but _how did the model behave_:
 
 Correctness counts — but a model that gets the right answer by bulldozing surrounding code scores worse than one that lands a smaller, idiomatic patch.
 
-**No LLM judge.** Scoring is deterministic, run against a real filesystem diff.
+**No LLM judge.** Scoring is deterministic. Behavior is graded against a real filesystem diff, and correctness is verified by **actually running the code** — real unit tests executed in a throwaway temp dir, real `tsc --noEmit`, or TypeScript-AST checks — so a correct-but-differently-spelled fix still passes and a regex-matching-but-broken one doesn't.
 
 ---
 
@@ -42,6 +42,8 @@ bun run bench:all
 bun run bench:all -- --runs=3 --warmup=20
 ```
 
+With `--runs > 1`, each model runs the suite N times and the summary prints the **median score and spread** across its runs, so you can see variance rather than a single noisy number. Before each run a **preflight** 1-token completion checks the endpoint (classifying `endpoint_unreachable` / `model_not_found` / `auth` / `bad_response`) and warms the model, so a misconfigured endpoint fails in seconds instead of burning the whole suite on infra errors.
+
 `.env` config:
 
 ```bash
@@ -53,6 +55,20 @@ SCAFFOLD_WEB_PORT=4317
 ```
 
 Works with anything OpenAI-compatible: Ollama (`11434`), llama.cpp / llama-swap (`8082`), LM Studio (`1234`), vLLM, OpenRouter. The API key stays server-side.
+
+---
+
+## Tool-call harness
+
+Tool calling isn't standardized across models, so the harness is a first-class axis. Each run picks one of three contracts:
+
+| Harness  | Contract                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `native` | OpenAI `tools` parameter — structured `tool_calls` in the response. **Default.**                                           |
+| `hermes` | Tool schemas embedded in the system prompt; model emits `<tool_call>{...}</tool_call>` tags parsed from assistant content. |
+| `qwen`   | Same idea with `<function_call>{...}</function_call>` tags.                                                                |
+
+Set it per run via `POST /api/runs` with `"harness": "native" | "hermes" | "qwen"`. `native` is behavior-identical to earlier versions. `<think>` / `<thinking>` blocks (closed or not) are stripped from assistant content before transcripts, evaluation, and harness parsing, so reasoning verbosity can't pollute evaluators or trip tag parsing.
 
 ---
 
@@ -73,6 +89,12 @@ Each scenario is graded 0–10:
 Two scenarios use custom scoring: SB-19 (responsiveness, 0–5) and SB-20 (long context, 0–3).
 
 Scope is checked from a real filesystem diff, so changes made through `bash` (e.g. `sed`) get caught the same as `edit` / `write` calls.
+
+**Penalty:** calling a tool that doesn't exist deducts 1 point (floored at 0) and shows as a failed `no hallucinated tools` check.
+
+**Timeouts** are scored fairly: a run that hits its timeout is evaluated against the playground state as-is (not auto-failed), with `timedOut` recorded. Speed is reported separately as `efficiencyPointsPerMinute` so it never inflates or deflates capability.
+
+Many scenarios verify correctness **behaviorally** rather than by regex: hidden unit tests live under `lib/scenarios/_shared/behaviors/` and are copied into a throwaway temp dir at scoring time (so models can't read the assertions), while others use TypeScript-AST checks in `lib/scenarios/_shared/evaluators/ast.ts`.
 
 ---
 
