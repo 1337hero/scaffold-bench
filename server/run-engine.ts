@@ -6,7 +6,12 @@ import { localRuntime } from "../lib/runtimes/local-agent.ts";
 import { SAMPLING } from "../lib/runtimes/local-model.ts";
 import { scenarios as allScenarios } from "../lib/scenarios/index.js";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
-import { computeRunTotals, type ScenarioLike } from "../lib/aggregates.ts";
+import {
+  computeEfficiency,
+  computeRunTotals,
+  totalWallTime,
+  type ScenarioLike,
+} from "../lib/aggregates.ts";
 import { classifyRuntimeError, mergeModelMetrics } from "../lib/scoring.ts";
 import type { ScenarioResult, RuntimeErrorKind } from "../lib/scoring.ts";
 import type { ScenarioEvaluation } from "../lib/schemas/evaluation.js";
@@ -169,6 +174,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
     runtime: "local",
     totalPoints,
     maxPoints,
+    efficiencyPointsPerMinute: computeEfficiency(totalPoints, totalWallTime(results)),
     modelMetrics,
     results: results.map((r) => ({
       scenarioId: r.scenarioId,

@@ -157,6 +157,38 @@ export function computeScenarioMetrics(scenario: ScenarioLike): {
   };
 }
 
+export interface RepeatRunSummary {
+  runs: number;
+  medianPoints: number;
+  minPoints: number;
+  maxPoints: number;
+  spread: number;
+}
+
+export function median(values: number[]): number {
+  if (values.length === 0) throw new Error("median of empty list");
+  const sorted = [...values].toSorted((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+export function summarizeRepeatRuns(totals: number[]): RepeatRunSummary {
+  if (totals.length === 0) throw new Error("summarizeRepeatRuns of empty list");
+  const minPoints = Math.min(...totals);
+  const maxPoints = Math.max(...totals);
+  return {
+    runs: totals.length,
+    medianPoints: median(totals),
+    minPoints,
+    maxPoints,
+    spread: maxPoints - minPoints,
+  };
+}
+
+export function computeEfficiency(totalPoints: number, totalWallTimeMs: number): number {
+  return totalWallTimeMs > 0 ? totalPoints / (totalWallTimeMs / 60_000) : 0;
+}
+
 export function computeElapsed(scenario: ScenarioLike): number {
   if (scenario.result) return scenario.result.output.wallTimeMs;
   if (scenario.startedAt === undefined) return 0;
