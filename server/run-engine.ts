@@ -3,6 +3,8 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runScenario } from "../lib/orchestrator.ts";
 import { localRuntime } from "../lib/runtimes/local-agent.ts";
+import { preflightModel } from "../lib/runtimes/preflight.ts";
+import { readEnv } from "../lib/config/env.ts";
 import { SAMPLING } from "../lib/runtimes/local-model.ts";
 import { scenarios as allScenarios } from "../lib/scenarios/index.js";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
@@ -272,6 +274,17 @@ async function executeRun(
   controller: AbortController
 ): Promise<void> {
   try {
+    if (request.modelId) {
+      const preflight = await preflightModel({
+        endpoint: request.endpoint ?? readEnv().localEndpoint,
+        model: request.modelId,
+        apiKey: request.apiKey,
+      });
+      if (!preflight.ok) {
+        throw new Error(`preflight: ${preflight.reason}: ${preflight.detail}`);
+      }
+    }
+
     const { resultsPath, totalPoints, maxPoints } = await runBench({
       runId,
       scenarioIds: request.scenarioIds,
