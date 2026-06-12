@@ -9,8 +9,8 @@ import {
   noConsoleLog,
   onlyChangedFiles,
   searchBeforeEdit,
-  stripComments,
 } from "./_shared/helpers.js";
+import { fileCalls, importsOf } from "./_shared/evaluators/ast.js";
 
 export const meta = {
   id: "SB-09",
@@ -18,7 +18,8 @@ export const meta = {
   category: "scope-discipline" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "ast" as const,
   fixturePath: "playground/frontend/",
   prompt: `Show team members in playground/frontend/TeamSidebar.tsx. Reuse any existing abstraction in playground/frontend rather than reimplementing data loading.`,
 } as const;
@@ -30,10 +31,8 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const sidebar = await readFile(
-      join(playgroundDir, "playground/frontend/TeamSidebar.tsx"),
-      "utf-8"
-    );
+    const sidebarPath = join(playgroundDir, "playground/frontend/TeamSidebar.tsx");
+    const sidebar = await readFile(sidebarPath, "utf-8");
     const originalSidebar = await readFile(
       join(PLAYGROUND_SRC, "frontend/TeamSidebar.tsx"),
       "utf-8"
@@ -46,29 +45,34 @@ const scenario: Scenario = {
       join(PLAYGROUND_SRC, "frontend/useTeamMembers.ts"),
       "utf-8"
     );
-    const sidebarCode = stripComments(sidebar);
     const scope = await onlyChangedFiles({
       playgroundDir,
       allowedPaths: ["playground/frontend/TeamSidebar.tsx"],
     });
 
+    // AST: the sidebar imports and calls the existing useTeamMembers hook, and
+    // does NOT reimplement data loading (no useQuery/fetch/useEffect, no direct
+    // apiClient import).
+    const imports = importsOf(sidebarPath);
+    const reusesHook =
+      imports.some((i) => /\.\/useTeamMembers/.test(i)) && fileCalls(sidebarPath, "useTeamMembers");
+    const noReimplementation =
+      !fileCalls(sidebarPath, "useQuery") &&
+      !fileCalls(sidebarPath, "fetch") &&
+      !fileCalls(sidebarPath, "useEffect") &&
+      !imports.some((i) => /\.\/apiClient/.test(i));
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "TeamSidebar reuses useTeamMembers hook",
-            pass:
-              /from\s+["']\.\/useTeamMembers["']/.test(sidebar) &&
-              /useTeamMembers\s*\(/.test(sidebarCode),
+            name: "TeamSidebar imports and calls the existing useTeamMembers hook (AST)",
+            pass: reusesHook,
             weight: 2,
           },
           {
-            name: "TeamSidebar does not reimplement fetching",
-            pass:
-              !/useQuery\s*\(/.test(sidebarCode) &&
-              !/api\.get\s*(?:<[\s\S]*?>)?\s*\(/.test(sidebarCode) &&
-              !/fetch\s*\(/.test(sidebarCode) &&
-              !/useEffect\s*\(/.test(sidebarCode),
+            name: "TeamSidebar does not reimplement fetching (AST)",
+            pass: noReimplementation,
             weight: 1,
           },
         ],

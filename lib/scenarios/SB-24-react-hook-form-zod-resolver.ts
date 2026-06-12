@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
+import { importsOf, useFormUsesResolver } from "./_shared/evaluators/ast.js";
 import {
   PLAYGROUND_SRC,
   noAddedComments,
@@ -29,7 +30,9 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const form = await readFile(join(playgroundDir, "playground/frontend/SignupForm.tsx"), "utf-8");
+    const formPath = join(playgroundDir, "playground/frontend/SignupForm.tsx");
+    const form = await readFile(formPath, "utf-8");
+    const formImports = importsOf(formPath);
     const originalForm = await readFile(join(PLAYGROUND_SRC, "frontend/SignupForm.tsx"), "utf-8");
     const originalSchema = await readFile(
       join(PLAYGROUND_SRC, "frontend/signupSchema.ts"),
@@ -57,17 +60,17 @@ const scenario: Scenario = {
         correctness: [
           {
             name: "imports zodResolver from @hookform/resolvers/zod",
-            pass: /from\s+["']@hookform\/resolvers\/zod["']/.test(form),
+            pass: formImports.some((spec) => spec.startsWith("@hookform/resolvers")),
             weight: 1,
           },
           {
             name: "imports signupSchema from ./signupSchema",
-            pass: /from\s+["']\.\/signupSchema["']/.test(form),
+            pass: formImports.some((spec) => /^\.\/signupSchema(\.(ts|js))?$/.test(spec)),
             weight: 0.5,
           },
           {
             name: "useForm passes resolver: zodResolver(signupSchema)",
-            pass: /resolver:\s*zodResolver\s*\(\s*signupSchema\s*\)/.test(form),
+            pass: useFormUsesResolver(formPath, "signupSchema"),
             weight: 1,
           },
           {

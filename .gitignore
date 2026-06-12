@@ -38,3 +38,4 @@ scaffold-bench.db-shm
 # Database
 scaffold-bench.db
 scaffold-bench.v1.db
+test-results/

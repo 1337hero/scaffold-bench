@@ -34,6 +34,8 @@ export type ReportModelAggregate = {
   promptTpsApprox: boolean;
   toolCallsTotal: number;
   requests: number;
+  timeouts: number;
+  exemptScenarios: number;
   categories: Record<string, ReportCategoryScore>;
   scenarioCount: number;
   latestTimestamp: string;
@@ -76,6 +78,7 @@ type ScenarioRow = {
   first_token_ms: number | null;
   tool_call_count: number | null;
   model_metrics_json: string | null;
+  error_kind: string | null;
 };
 
 type MetricsShape = {
@@ -111,6 +114,8 @@ type ModelAccumulator = {
   totalRequestTimeMs: number;
   requests: number;
   toolCalls: number;
+  timeouts: number;
+  exemptScenarios: number;
   categories: Record<string, CategoryAggregate>;
   scenarioIds: Set<string>;
   latestFinishedAt: number;
@@ -132,7 +137,7 @@ export function buildReportData(): ReportData {
 
   const scenarios = db
     .query<ScenarioRow, []>(
-      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json
+      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json, sr.error_kind
        FROM scenario_runs sr
        JOIN runs r ON r.id = sr.run_id
        WHERE r.status = 'done'`
@@ -164,6 +169,11 @@ export function buildReportData(): ReportData {
     acc.scenarioRuns += 1;
     acc.scenarioIds.add(scenario.scenario_id);
     acc.toolCalls += scenario.tool_call_count ?? 0;
+
+    if (scenario.error_kind === "timeout") acc.timeouts += 1;
+    else if (scenario.error_kind === "infra" || scenario.error_kind === "aborted") {
+      acc.exemptScenarios += 1;
+    }
 
     if (typeof scenario.first_token_ms === "number") {
       acc.firstTokenSumMs += scenario.first_token_ms;
@@ -238,6 +248,8 @@ function createAccumulator(): ModelAccumulator {
     totalRequestTimeMs: 0,
     requests: 0,
     toolCalls: 0,
+    timeouts: 0,
+    exemptScenarios: 0,
     categories: {},
     scenarioIds: new Set<string>(),
     latestFinishedAt: 0,
@@ -311,6 +323,8 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     promptTpsApprox: prompt.approx,
     toolCallsTotal: Math.round(acc.toolCalls / runCount),
     requests: Math.round(acc.requests / runCount),
+    timeouts: acc.timeouts,
+    exemptScenarios: acc.exemptScenarios,
     categories: categoryScores(acc.categories),
     scenarioCount: acc.scenarioIds.size,
     latestTimestamp: acc.latestFinishedAt > 0 ? new Date(acc.latestFinishedAt).toISOString() : "",

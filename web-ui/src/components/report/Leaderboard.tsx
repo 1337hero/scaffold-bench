@@ -24,6 +24,18 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-right py-2 px-2">TTFT</th>
               <th className="text-right py-2 px-2">Tools</th>
               <th className="text-right py-2 px-2">Requests</th>
+              <th
+                className="text-right py-2 px-2"
+                title="Scenarios scored 0 after hitting the time budget"
+              >
+                T/O
+              </th>
+              <th
+                className="text-right py-2 px-2"
+                title="Scenarios excluded from scoring after infrastructure errors"
+              >
+                Exempt
+              </th>
               <th className="text-right py-2 px-2">Runs</th>
             </tr>
           </thead>
@@ -60,6 +72,16 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">{model.toolCallsTotal}</td>
                 <td className="py-2 px-2 text-right text-text-main">{model.requests}</td>
+                <td
+                  className={`py-2 px-2 text-right ${model.timeouts > 0 ? "text-red-main font-bold" : "text-text-dim"}`}
+                >
+                  {model.timeouts}
+                </td>
+                <td
+                  className={`py-2 px-2 text-right ${model.exemptScenarios > 0 ? "text-gold font-bold" : "text-text-dim"}`}
+                >
+                  {model.exemptScenarios}
+                </td>
                 <td className="py-2 px-2 text-right text-text-main">{model.runs}</td>
               </tr>
             ))}

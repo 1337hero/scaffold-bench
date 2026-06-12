@@ -6,6 +6,7 @@ import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
   bashCalls,
+  bunAvailable,
   failedVerificationBeforeChange,
   firstChangeTurn,
   noAddedComments,
@@ -13,8 +14,8 @@ import {
   noExtraFunctions,
   onlyChangedFiles,
   passedVerificationAfterChange,
-  stripComments,
 } from "./_shared/helpers.js";
+import { runBehaviorTest } from "./_shared/behavior.js";
 
 export const meta = {
   id: "SB-11",
@@ -22,10 +23,13 @@ export const meta = {
   category: "verify-and-repair" as const,
   family: "regression" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "unit" as const,
   fixturePath: "playground/",
   prompt: `Use the provided test to diagnose and fix playground/slugify.mjs. Verify the failure first, then verify the fix passes. Change only what is necessary.`,
 } as const;
+
+const BEHAVIOR_TEST = join(import.meta.dir, "_shared/behaviors/SB-11/slugify.behavior.test.mjs");
 
 const scenario: Scenario = {
   id: "SB-11" as ScenarioId,
@@ -38,7 +42,6 @@ const scenario: Scenario = {
     const slugifyOriginal = await readFile(join(PLAYGROUND_SRC, "slugify.mjs"), "utf-8");
     const test = await readFile(join(playgroundDir, "playground/slugify.test.mjs"), "utf-8");
     const testOriginal = await readFile(join(PLAYGROUND_SRC, "slugify.test.mjs"), "utf-8");
-    const slugifyCode = stripComments(slugify);
     const changeTurn = firstChangeTurn(toolCalls);
     const bashRuns = bashCalls(toolCalls);
     const slugifyTestMatcher = /slugify\.test\.mjs|bun test|node .*slugify\.test\.mjs/;
@@ -47,15 +50,24 @@ const scenario: Scenario = {
       allowedPaths: ["playground/slugify.mjs"],
     });
 
+    // Behavioral: run the edited slugify against an evaluator-owned test proving
+    // whitespace groups (spaces, tabs, newlines) collapse to a single dash.
+    const behavior = bunAvailable()
+      ? await runBehaviorTest({
+          playgroundDir,
+          files: ["playground/slugify.mjs"],
+          behaviorTestPath: BEHAVIOR_TEST,
+        })
+      : { pass: false, stdout: "", stderr: "bun unavailable" };
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "slugify now replaces all whitespace groups",
-            pass:
-              slugify !== slugifyOriginal &&
-              /replace\s*\(\s*\/\\s\+\/g\s*,\s*["'"]`-["'"]`\s*\)/.test(slugifyCode),
+            name: "slugify collapses every whitespace group to a single dash (behavioral)",
+            pass: behavior.pass,
             weight: 3,
+            detail: behavior.pass ? undefined : behavior.stdout + "\n" + behavior.stderr,
           },
         ],
         scope: [

@@ -4,8 +4,10 @@ import type { ScenarioId } from "../schemas/brands.js";
 import { extractFunction } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
+import { runBehaviorTest } from "./_shared/behavior.js";
 import {
   PLAYGROUND_SRC,
+  bunAvailable,
   firstChangeTurn,
   firstTurn,
   noAddedComments,
@@ -23,6 +25,8 @@ export const meta = {
   fixturePath: "playground/",
   prompt: `The throttle function in playground/utils.js is broken — it's identical to debounce. Fix it so it actually throttles.`,
 } as const;
+
+const BEHAVIOR_TEST = join(import.meta.dir, "_shared/behaviors/SB-01/throttle.behavior.test.mjs");
 
 const scenario: Scenario = {
   id: "SB-01" as ScenarioId,
@@ -42,17 +46,23 @@ const scenario: Scenario = {
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);
 
+    const behavior = bunAvailable()
+      ? await runBehaviorTest({
+          playgroundDir,
+          files: ["playground/utils.js"],
+          behaviorTestPath: BEHAVIOR_TEST,
+        })
+      : { pass: false, stdout: "", stderr: "bun unavailable" };
+
     return rubricToEvaluation(
       {
         correctness: [
           { name: "throttle differs from debounce", pass: throttleFn !== debounceFn, weight: 1 },
           {
-            name: "throttle has real throttle logic",
-            pass: /Date\.now|lastRun|lastCall|waiting|canRun|trailing|leading|elapsed|diff|inProgress/.test(
-              throttleFn
-            ),
+            name: "throttle actually throttles (behavioral)",
+            pass: behavior.pass,
             weight: 2,
-            detail: throttleFn.slice(0, 120),
+            detail: behavior.pass ? undefined : behavior.stdout + "\n" + behavior.stderr,
           },
         ],
         scope: [

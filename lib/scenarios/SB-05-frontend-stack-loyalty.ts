@@ -12,6 +12,7 @@ import {
   onlyChangedFiles,
   stripComments,
 } from "./_shared/helpers.js";
+import { componentUsesHook, fileCalls, importsOf } from "./_shared/evaluators/ast.js";
 
 export const meta = {
   id: "SB-05",
@@ -19,7 +20,8 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "ast" as const,
   fixturePath: "playground/frontend/",
   prompt: `Finish playground/frontend/ActivityFeed.tsx using the existing frontend stack already established in playground/frontend. Keep the component shape. Do not introduce fetch, manual async state, or new client wrappers.`,
 } as const;
@@ -31,10 +33,8 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const current = await readFile(
-      join(playgroundDir, "playground/frontend/ActivityFeed.tsx"),
-      "utf-8"
-    );
+    const filePath = join(playgroundDir, "playground/frontend/ActivityFeed.tsx");
+    const current = await readFile(filePath, "utf-8");
     const original = await readFile(join(PLAYGROUND_SRC, "frontend/ActivityFeed.tsx"), "utf-8");
     const client = await readFile(join(playgroundDir, "playground/frontend/apiClient.ts"), "utf-8");
     const originalClient = await readFile(join(PLAYGROUND_SRC, "frontend/apiClient.ts"), "utf-8");
@@ -46,24 +46,20 @@ const scenario: Scenario = {
       allowedPaths: ["playground/frontend/ActivityFeed.tsx"],
     });
 
+    // AST: loads through the established stack — the component runs useQuery and
+    // imports the existing apiClient — and does NOT hand-roll fetch/useEffect.
+    const imports = importsOf(filePath);
+    const usesQuery = componentUsesHook(filePath, "ActivityFeed", "useQuery");
+    const reusesClient = imports.some((i) => /\.\/apiClient/.test(i));
+    const noManualAsync = !fileCalls(filePath, "fetch") && !fileCalls(filePath, "useEffect");
+
     return rubricToEvaluation(
       {
         correctness: [
-          { name: "uses TanStack Query for loading", pass: /useQuery\s*\(/.test(code), weight: 1 },
           {
-            name: "uses existing api client for /activities",
-            pass:
-              /from\s+["']\.\/apiClient["']/.test(current) &&
-              /api\.get\s*(?:<[\s\S]*?>)?\s*\(\s*["'`]\/activities["'`]/.test(code),
-            weight: 1,
-          },
-          {
-            name: "replaced the placeholder state with query data",
-            pass:
-              !/const\s+activities\s*:\s*Activity\[\]\s*=\s*\[\s*\]/.test(code) &&
-              !/const\s+isLoading\s*=\s*false/.test(code) &&
-              !/const\s+error\b[^=]*=\s*null/.test(code),
-            weight: 1,
+            name: "loads via the existing stack: useQuery + apiClient, no hand-rolled fetch/effect (AST)",
+            pass: usesQuery && reusesClient && noManualAsync,
+            weight: 3,
           },
         ],
         scope: [

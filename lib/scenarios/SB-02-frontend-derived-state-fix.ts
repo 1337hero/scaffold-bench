@@ -13,6 +13,7 @@ import {
   onlyChangedFiles,
   stripComments,
 } from "./_shared/helpers.js";
+import { fileCalls } from "./_shared/evaluators/ast.js";
 
 export const meta = {
   id: "SB-02",
@@ -20,7 +21,8 @@ export const meta = {
   category: "surgical-edit" as const,
   family: "regex-style" as const,
   rubricKind: "10pt" as const,
-  signalType: "regex-shape" as const,
+  signalType: "behavioral" as const,
+  evaluatorKind: "ast" as const,
   fixturePath: "playground/frontend/",
   prompt: `Fix the derived-state issue in playground/frontend/InventoryPanel.tsx. Keep the component shape and existing stack. Fix that issue only.`,
 } as const;
@@ -32,10 +34,8 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const current = await readFile(
-      join(playgroundDir, "playground/frontend/InventoryPanel.tsx"),
-      "utf-8"
-    );
+    const filePath = join(playgroundDir, "playground/frontend/InventoryPanel.tsx");
+    const current = await readFile(filePath, "utf-8");
     const original = await readFile(join(PLAYGROUND_SRC, "frontend/InventoryPanel.tsx"), "utf-8");
     const currentCode = stripComments(current);
     const readTurn = firstTurn(toolCalls, "read");
@@ -45,23 +45,20 @@ const scenario: Scenario = {
       allowedPaths: ["playground/frontend/InventoryPanel.tsx"],
     });
 
+    // AST: a single source of truth. No sync effect and no derived-state setter
+    // (so no duplicate `filteredItems` state to keep in sync), with the filtered
+    // list computed directly from `items`.
+    const noSyncEffect = !fileCalls(filePath, "useEffect");
+    const noDerivedSetter = !fileCalls(filePath, "setFilteredItems");
+    const computesInline = fileCalls(filePath, "filter");
+
     return rubricToEvaluation(
       {
         correctness: [
           {
-            name: "removed duplicated filteredItems state",
-            pass: !/const\s*\[\s*filteredItems\s*,\s*setFilteredItems\s*\]/.test(currentCode),
-            weight: 1,
-          },
-          {
-            name: "removed sync effect for filteredItems",
-            pass: !/setFilteredItems\s*\(/.test(currentCode) && !/useEffect\s*\(/.test(currentCode),
-            weight: 1,
-          },
-          {
-            name: "computes filtered data from items inline",
-            pass: /items\s*\.\s*filter\s*\(/.test(currentCode),
-            weight: 1,
+            name: "derived list has a single source of truth: no sync effect, no setter, computed inline (AST)",
+            pass: noSyncEffect && noDerivedSetter && computesInline,
+            weight: 3,
           },
         ],
         scope: [

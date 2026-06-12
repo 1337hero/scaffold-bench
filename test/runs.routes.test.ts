@@ -1,16 +1,23 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { Hono } from "hono";
 import { runsRouter } from "../server/routes/runs.ts";
-import { runMigrations } from "../server/db/migrations.ts";
+import { closeDb, runMigrations } from "../server/db/migrations.ts";
 import { clearRunData, insertEvent, insertRun, upsertScenarioRun } from "../server/db/queries.ts";
 import { globalRegistry } from "../server/run-registry.ts";
 import { STUB_LOCAL_ENDPOINT } from "./_fixtures/endpoints.ts";
 
 const ORIGINAL_FETCH = globalThis.fetch;
 const ORIGINAL_LOCAL_ENDPOINT = Bun.env.SCAFFOLD_LOCAL_ENDPOINT;
+const ORIGINAL_DB_PATH = Bun.env.SCAFFOLD_DB_PATH;
+let testDbDir: string | null = null;
 
 describe("runs routes", () => {
   beforeEach(() => {
+    testDbDir = mkdtempSync(join(tmpdir(), "scaffold-bench-runs-test-"));
+    Bun.env.SCAFFOLD_DB_PATH = join(testDbDir, "scaffold-bench.test.db");
     runMigrations();
     clearRunData();
     const active = globalRegistry.activeRunId();
@@ -24,6 +31,10 @@ describe("runs routes", () => {
     if (active) globalRegistry.delete(active);
     globalThis.fetch = ORIGINAL_FETCH;
     Bun.env.SCAFFOLD_LOCAL_ENDPOINT = ORIGINAL_LOCAL_ENDPOINT;
+    Bun.env.SCAFFOLD_DB_PATH = ORIGINAL_DB_PATH;
+    closeDb();
+    if (testDbDir) rmSync(testDbDir, { recursive: true, force: true });
+    testDbDir = null;
   });
 
   test("POST /api/runs rejects unknown model when local model probe succeeds", async () => {

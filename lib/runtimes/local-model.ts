@@ -63,6 +63,12 @@ export type CallModelConfig = {
 const MAX_TRANSIENT_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 120;
 
+// Pinned so every model is sampled under identical conditions instead of each
+// backend's defaults (llama.cpp ships temp 0.8; providers vary). Seed is
+// intentionally unpinned: a fixed seed would make repeat runs sample
+// identically and erase the run-to-run variance that --runs exists to measure.
+export const SAMPLING = { temperature: 0.2, top_p: 0.95 } as const;
+
 export async function callModel(
   conversation: ChatMessage[],
   deadline: number,
@@ -99,6 +105,7 @@ export async function callModel(
           body: JSON.stringify({
             model: config.model,
             messages: conversation,
+            ...SAMPLING,
             stream: true,
             stream_options: { include_usage: true },
             tools,

@@ -2,14 +2,29 @@ import { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { readFileSync, existsSync, renameSync } from "node:fs";
 
-const DB_PATH = join(import.meta.dir, "../../scaffold-bench.db");
-const V1_ARCHIVE_PATH = join(import.meta.dir, "../../scaffold-bench.v1.db");
+const DEFAULT_DB_PATH = join(import.meta.dir, "../../scaffold-bench.db");
+const DEFAULT_V1_ARCHIVE_PATH = join(import.meta.dir, "../../scaffold-bench.v1.db");
 
 let _db: Database | null = null;
+let _dbPath: string | null = null;
+
+function dbPath(): string {
+  return Bun.env.SCAFFOLD_DB_PATH ?? DEFAULT_DB_PATH;
+}
+
+function v1ArchivePath(): string {
+  return Bun.env.SCAFFOLD_V1_ARCHIVE_PATH ?? DEFAULT_V1_ARCHIVE_PATH;
+}
 
 export function getDb(): Database {
+  const path = dbPath();
+  if (_db && _dbPath !== path) {
+    _db.close();
+    _db = null;
+  }
   if (!_db) {
-    _db = new Database(DB_PATH, { create: true });
+    _db = new Database(path, { create: true });
+    _dbPath = path;
     _db.exec("PRAGMA journal_mode=WAL");
     _db.exec("PRAGMA foreign_keys=ON");
   }
@@ -37,11 +52,12 @@ export function runMigrations(): void {
 
   if (isV1Upgrade) {
     // Archive the old DB file before the destructive migration
-    if (!existsSync(V1_ARCHIVE_PATH)) {
+    if (!existsSync(v1ArchivePath())) {
       _db?.close();
       _db = null;
+      _dbPath = null;
       try {
-        renameSync(DB_PATH, V1_ARCHIVE_PATH);
+        renameSync(dbPath(), v1ArchivePath());
       } catch {
         // If rename fails (e.g., locked), just proceed — DROP TABLE below will work
       }
@@ -88,4 +104,5 @@ export function runMigrations(): void {
 export function closeDb(): void {
   _db?.close();
   _db = null;
+  _dbPath = null;
 }

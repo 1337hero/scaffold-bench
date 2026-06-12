@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
+import { fileCalls, jsxPassesProp, propertyContainsCall } from "./_shared/evaluators/ast.js";
 import {
   PLAYGROUND_SRC,
   noConsoleLog,
@@ -28,10 +29,7 @@ const scenario: Scenario = {
   family: "regex-style",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
-    const route = await readFile(
-      join(playgroundDir, "playground/tanstack-router-app/src/routes/projects.tsx"),
-      "utf-8"
-    );
+    const routePath = join(playgroundDir, "playground/tanstack-router-app/src/routes/projects.tsx");
     const table = await readFile(
       join(playgroundDir, "playground/tanstack-router-app/src/components/ProjectsTable.tsx"),
       "utf-8"
@@ -53,9 +51,9 @@ const scenario: Scenario = {
     });
 
     // Route checks
-    const loaderReturnsProjects = /loader:.*fetchProjects/.test(route);
-    const routeUsesLoaderData = /Route\.useLoaderData|useLoaderData/.test(route);
-    const routePassesProjectsProp = /<ProjectsTable[^>]*projects/.test(route);
+    const loaderReturnsProjects = propertyContainsCall(routePath, "loader", "fetchProjects");
+    const routeUsesLoaderData = fileCalls(routePath, "useLoaderData");
+    const routePassesProjectsProp = jsxPassesProp(routePath, "ProjectsTable", "projects");
 
     // Table checks
     const tableNoUseQuery = !/useQuery/.test(table);

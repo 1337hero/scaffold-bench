@@ -66,6 +66,7 @@ export const ScenarioResultSchema = Schema.Struct({
   status: Schema.Literal("pass", "partial", "fail"),
   points: Schema.Number,
   maxPoints: Schema.Number,
+  summary: Schema.optional(Schema.String),
   rubricKind: Schema.optional(Schema.String),
   rubricBreakdown: Schema.optional(RubricBreakdownSchema),
   toolCallCount: Schema.Number,

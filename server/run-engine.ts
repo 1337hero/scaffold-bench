@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { runScenario } from "../lib/orchestrator.ts";
 import { localRuntime } from "../lib/runtimes/local-agent.ts";
+import { SAMPLING } from "../lib/runtimes/local-model.ts";
 import { scenarios as allScenarios } from "../lib/scenarios/index.js";
 import { RunFileSchema } from "../lib/schemas/run-file.ts";
 import { computeRunTotals, type ScenarioLike } from "../lib/aggregates.ts";
@@ -176,6 +177,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       status: r.evaluation.status,
       points: r.evaluation.points,
       maxPoints: r.evaluation.maxPoints,
+      summary: r.evaluation.summary,
       rubricKind: r.evaluation.rubricKind,
       rubricBreakdown: r.evaluation.rubricBreakdown,
       toolCallCount: r.output.toolCalls.length,
@@ -391,6 +393,8 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     scenarioIds,
     model: request.modelId ?? null,
     endpoint: request.endpoint ?? null,
+    temperature: SAMPLING.temperature,
+    topP: SAMPLING.top_p,
     seq: globalRegistry.nextSeq(runId),
     ts: Date.now(),
   };

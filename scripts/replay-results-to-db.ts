@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { clearRunData, insertRun, updateRun, upsertScenarioRun, withTransaction } from "../server/db/queries.ts";
+import {
+  clearRunData,
+  insertRun,
+  updateRun,
+  upsertScenarioRun,
+  withTransaction,
+} from "../server/db/queries.ts";
 import { closeDb, runMigrations } from "../server/db/migrations.ts";
 
 type ModelMetrics = {
@@ -23,6 +29,7 @@ type ResultScenario = {
   status?: "pass" | "partial" | "fail";
   points?: number;
   maxPoints?: number;
+  summary?: string;
   rubricKind?: string;
   rubricBreakdown?: {
     correctness?: number;
@@ -86,6 +93,7 @@ function evaluationFor(result: ResultScenario): string {
     status: statusFor(result),
     points: result.points ?? 0,
     maxPoints: result.maxPoints ?? 0,
+    summary: result.summary ?? "",
     checks: result.checks ?? [],
     rubricKind: result.rubricKind ?? "10pt",
     rubricBreakdown: result.rubricBreakdown ?? null,
@@ -113,10 +121,16 @@ function main(): void {
       if (!Array.isArray(results) || results.length === 0) continue;
 
       const finishedAt = fileTimestampMs(file, runFile);
-      const totalWallMs = results.reduce((sum, result) => sum + (numericOrNull(result.wallTimeMs) ?? 0), 0);
+      const totalWallMs = results.reduce(
+        (sum, result) => sum + (numericOrNull(result.wallTimeMs) ?? 0),
+        0
+      );
       const startedAt = Math.max(0, finishedAt - totalWallMs);
       const runId = runIdFor(file);
-      const model = runFile.modelMetrics?.model ?? results.find((r) => r.modelMetrics?.model)?.modelMetrics?.model ?? "unknown";
+      const model =
+        runFile.modelMetrics?.model ??
+        results.find((r) => r.modelMetrics?.model)?.modelMetrics?.model ??
+        "unknown";
       const scenarioIds = results.map((result) => result.scenarioId);
 
       insertRun({
@@ -152,7 +166,8 @@ function main(): void {
       let scenarioStartedAt = startedAt;
       for (const result of results) {
         const wallTimeMs = numericOrNull(result.wallTimeMs);
-        const scenarioFinishedAt = wallTimeMs === null ? scenarioStartedAt : scenarioStartedAt + wallTimeMs;
+        const scenarioFinishedAt =
+          wallTimeMs === null ? scenarioStartedAt : scenarioStartedAt + wallTimeMs;
         const breakdown = result.rubricBreakdown ?? null;
 
         upsertScenarioRun({
