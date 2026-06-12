@@ -39,6 +39,30 @@ function withToolExecution(runtime: Runtime, mode?: ToolExecutionMode): Runtime 
   };
 }
 
+async function evaluateDespiteTimeout(
+  scenario: Scenario,
+  workDir: string,
+  output: RuntimeOutput,
+  maxPoints: number
+): Promise<ScenarioEvaluation> {
+  if (!scenario.evaluate) return runtimeErrorEvaluation("TIMEOUT", maxPoints);
+  try {
+    return await scenario.evaluate({
+      stdout: output.stdout,
+      playgroundDir: workDir,
+      toolCalls: output.toolCalls,
+      wallTimeMs: output.wallTimeMs,
+      firstTokenMs: output.firstTokenMs,
+      turnWallTimes: output.turnWallTimes,
+      turnFirstTokenMs: output.turnFirstTokenMs,
+      modelMetrics: output.modelMetrics,
+      scenarioMetrics: output.scenarioMetrics,
+    });
+  } catch {
+    return runtimeErrorEvaluation("TIMEOUT", maxPoints);
+  }
+}
+
 export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
   const workDir = await mkdtemp(join(tmpdir(), "scaffold-bench-"));
   await cp(PLAYGROUND_SRC, join(workDir, "playground"), { recursive: true });
@@ -91,9 +115,13 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
             ...output.scenarioMetrics,
             runtimeErrorKind: classification.kind,
             scoreExempt: classification.scoreExempt,
+            ...(classification.kind === "timeout" ? { timedOut: true } : {}),
           },
         };
-        evaluation = runtimeErrorEvaluation(runtimeError, scenarioMaxPoints);
+        evaluation =
+          classification.kind === "timeout"
+            ? await evaluateDespiteTimeout(opts.scenario, workDir, output, scenarioMaxPoints)
+            : runtimeErrorEvaluation(runtimeError, scenarioMaxPoints);
       } else {
         evaluation = await opts.scenario.evaluate({
           stdout: output.stdout,
