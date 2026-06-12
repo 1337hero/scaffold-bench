@@ -16,6 +16,7 @@ import type { ChatMessage, ModelCallMetrics, OpenAIToolCall } from "./local-mode
 import { callModel, normalizeEndpoint } from "./local-model.ts";
 import type { PendingToolExecution } from "./local-tools.ts";
 import { DEFAULT_TOOL_EXECUTION_MODE, executeToolBatch, openAiTools } from "./local-tools.ts";
+import { stripThink } from "./think-strip.ts";
 
 const PROJECT_ROOT = join(import.meta.dir, "..", "..");
 const SYSTEM_PROMPT_PATH = join(PROJECT_ROOT, "system-prompt.md");
@@ -241,6 +242,9 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
 
         if (!reply.message) return finishRun(state, "CRASH: missing assistant message");
 
+        if (reply.message.content) {
+          reply.message.content = stripThink(reply.message.content).content;
+        }
         applyLocalEvent({ type: "assistant", message: reply.message }, state, ctx);
 
         if (reply.finishReason !== "tool_calls" || !reply.message.tool_calls?.length) {
