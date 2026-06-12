@@ -71,6 +71,7 @@ export type ScenarioBase = {
   rubricKind?: RubricKind;
   prompt: string;
   maxPoints?: number;
+  requires?: string[];
   buildPrompt?(input: { playgroundDir: string }): Promise<string>;
 };
 

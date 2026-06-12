@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "effect": "^3.21.2",
-    "hono": "^4.12.15"
+    "hono": "^4.12.15",
+    "liquidjs": "^10.27.0"
   }
 }

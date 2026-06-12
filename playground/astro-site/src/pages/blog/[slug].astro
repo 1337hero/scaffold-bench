@@ -1,0 +1,13 @@
+---
+import { getCollection } from 'astro:content';
+const { slug } = Astro.params.slug;
+const posts = await getCollection('blog');
+const post = posts.find(p => p.slug === slug);
+const { Content } = await post.render();
+---
+<html>
+  <body>
+    <h1>{post.data.title}</h1>
+    <Content />
+  </body>
+</html>
