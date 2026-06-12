@@ -150,11 +150,11 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
+const runsPerModel = RUNS_FLAG > 0 ? RUNS_FLAG : RUNS_PER_MODEL;
+
 console.log(`\n${hr()}`);
 console.log(`  scaffold-bench — all-models batch runner`);
-console.log(
-  `  Runs per model : ${RUNS_FLAG > 0 ? `${runsPerModel} (via --runs)` : RUNS_PER_MODEL}`
-);
+console.log(`  Runs per model : ${RUNS_FLAG > 0 ? `${runsPerModel} (via --runs)` : runsPerModel}`);
 console.log(`  Warmup wait    : ${WARMUP_WAIT_S}s`);
 console.log(`  Server port    : ${PORT}`);
 console.log(hr());
@@ -169,7 +169,6 @@ const [modelsByGroup, scenarios] = await Promise.all([
 ]);
 
 const allModels = [...modelsByGroup.local, ...modelsByGroup.remote];
-const runsPerModel = RUNS_FLAG > 0 ? RUNS_FLAG : RUNS_PER_MODEL;
 
 const models = MODELS.length > 0 ? allModels.filter((m) => MODELS.includes(m.id)) : allModels;
 
@@ -214,7 +213,7 @@ for (let mi = 0; mi < models.length; mi++) {
       process.stdout.write(" done.\n");
     }
 
-    console.log(`\n  ${CYAN}▶ Run ${run}/${RUNS_PER_MODEL}${RESET} — ${model.id}`);
+    console.log(`\n  ${CYAN}▶ Run ${run}/${runsPerModel}${RESET} — ${model.id}`);
 
     const { runId } = await postJSON<{ runId: string }>("/api/runs", {
       modelId: model.id,

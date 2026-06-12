@@ -4,13 +4,13 @@ import type { ScenarioId } from "../schemas/brands.js";
 import { extractFunction } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
+import { mutationRefreshesQuery } from "./_shared/evaluators/ast.js";
 import {
   PLAYGROUND_SRC,
   countMatches,
   firstChangeTurn,
   firstTurn,
   onlyChangedFiles,
-  stripComments,
 } from "./_shared/helpers.js";
 
 export const meta = {
@@ -36,7 +36,6 @@ const scenario: Scenario = {
       "utf-8"
     );
     const original = await readFile(join(PLAYGROUND_SRC, "frontend/OrdersPanel.tsx"), "utf-8");
-    const code = stripComments(current);
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);
     const originalExportCount = countMatches(original, /\bexport\b/g);
@@ -51,8 +50,10 @@ const scenario: Scenario = {
         correctness: [
           {
             name: "approve mutation now invalidates orders query",
-            pass: /const\s+approveOrder\s*=\s*useMutation\(\{[\s\S]*?onSuccess:\s*\(\)\s*=>\s*\{[\s\S]*?invalidateQueries\(\{\s*queryKey:\s*\[\s*"orders"\s*\]\s*\}\)/.test(
-              code
+            pass: mutationRefreshesQuery(
+              join(playgroundDir, "playground/frontend/OrdersPanel.tsx"),
+              "approveOrder",
+              "orders"
             ),
             weight: 3,
           },

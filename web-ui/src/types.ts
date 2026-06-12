@@ -311,6 +311,8 @@ export type ReportModelAggregate = {
   promptTpsApprox: boolean;
   toolCallsTotal: number;
   requests: number;
+  timeouts: number;
+  exemptScenarios: number;
   categories: Record<string, ReportCategoryScore>;
   scenarioCount: number;
   latestTimestamp: string;

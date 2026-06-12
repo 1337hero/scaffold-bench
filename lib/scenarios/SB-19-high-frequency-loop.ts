@@ -34,7 +34,9 @@ function sb22TurnCheck(source: string, turnIndex: number): { pass: boolean; deta
     },
     {
       label: "missing crypto import",
-      pass: /^import\s+(?:\*\s+as\s+)?crypto\s+from\s+["']node:crypto["'];?$/m.test(source),
+      pass: /^\s*import\s+(?:\*\s+as\s+)?crypto\s+from\s+["'](?:node:)?crypto["'];?\s*$/m.test(
+        source
+      ),
     },
     {
       label: "console.log still present",
@@ -42,7 +44,9 @@ function sb22TurnCheck(source: string, turnIndex: number): { pass: boolean; deta
     },
     {
       label: "loop bound still off by one",
-      pass: /for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*<\s*users\.length\s*;\s*i\+\+\s*\)/.test(source),
+      pass: /for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*(?:<\s*users\.length|<=\s*users\.length\s*-\s*1)\s*;\s*i\+\+\s*\)/.test(
+        source
+      ),
     },
   ];
   const blockingIssues = checks
