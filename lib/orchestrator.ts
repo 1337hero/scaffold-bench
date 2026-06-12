@@ -5,7 +5,12 @@ import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.
 import type { Scenario } from "./scenarios/index.js";
 import { PLAYGROUND_SRC } from "./scenarios/index.js";
 import type { Ms } from "./schemas/brands.js";
-import { classifyRuntimeError, runtimeErrorEvaluation } from "./scoring.ts";
+import {
+  applyHallucinationPenalty,
+  classifyRuntimeError,
+  hallucinatedToolCalls,
+  runtimeErrorEvaluation,
+} from "./scoring.ts";
 import type { RuntimeOutput, ScenarioEvaluation, ScenarioResult } from "./scoring.ts";
 
 export interface RunOptions {
@@ -134,7 +139,19 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
           modelMetrics: output.modelMetrics,
           scenarioMetrics: output.scenarioMetrics,
         });
+        evaluation = applyHallucinationPenalty(evaluation, output.toolCalls);
       }
+    }
+
+    const hallucinatedCount = hallucinatedToolCalls(output.toolCalls).length;
+    if (hallucinatedCount > 0) {
+      output = {
+        ...output,
+        scenarioMetrics: {
+          ...output.scenarioMetrics,
+          hallucinatedToolCallCount: hallucinatedCount,
+        },
+      };
     }
 
     return {

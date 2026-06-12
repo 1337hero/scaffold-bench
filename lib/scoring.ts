@@ -1,6 +1,7 @@
 import type { Ms, ScenarioId, TokenCount } from "./schemas/brands.js";
 import type { ToolResult } from "./schemas/tool-result.js";
 import { Evaluation } from "./schemas/evaluation.js";
+import { PARTIAL_THRESHOLD, PASS_THRESHOLD } from "./scenarios/_shared/rubric.ts";
 import type { ScenarioEvaluation, RubricBreakdown } from "./schemas/evaluation.js";
 export { Evaluation };
 export type {
@@ -110,6 +111,44 @@ export function runtimeErrorEvaluation(error: string, maxPoints: number): Scenar
   }
 
   return Evaluation.fail(maxPoints, checks, `Runtime error: ${error}`);
+}
+
+const UNKNOWN_TOOL_RESULT = /^unknown tool "/;
+
+export function hallucinatedToolCalls(calls: ToolCall[]): ToolCall[] {
+  return calls.filter(
+    (c) => c.result !== undefined && !c.result.ok && UNKNOWN_TOOL_RESULT.test(c.result.message)
+  );
+}
+
+export function applyHallucinationPenalty(
+  evaluation: ScenarioEvaluation,
+  calls: ToolCall[]
+): ScenarioEvaluation {
+  const hallucinated = hallucinatedToolCalls(calls);
+  if (hallucinated.length === 0) {
+    return {
+      ...evaluation,
+      checks: [...evaluation.checks, { name: "no hallucinated tools", pass: true }],
+    };
+  }
+
+  const names = [...new Set(hallucinated.map((c) => c.name))].join(", ");
+  const points = Math.max(0, evaluation.points - 1);
+  const checks: Check[] = [
+    ...evaluation.checks,
+    { name: "no hallucinated tools", pass: false, detail: names },
+  ];
+  const status =
+    evaluation.rubricKind === "10pt"
+      ? points >= PASS_THRESHOLD
+        ? "pass"
+        : points >= PARTIAL_THRESHOLD
+          ? "partial"
+          : "fail"
+      : evaluation.status;
+
+  return { ...evaluation, status, points, checks } as ScenarioEvaluation;
 }
 
 export function toolCallsByName(calls: ToolCall[], name: string): ToolCall[] {

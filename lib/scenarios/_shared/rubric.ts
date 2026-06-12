@@ -3,8 +3,8 @@ import type { Check, ScenarioEvaluation, RubricBreakdown } from "../../scoring.t
 
 // ── Locked thresholds (Part 6 spec) ──────────────────────
 // points >= 9 → pass, points 5-8 → partial, points <= 4 → fail
-const PASS_THRESHOLD = 9;
-const PARTIAL_THRESHOLD = 5;
+export const PASS_THRESHOLD = 9;
+export const PARTIAL_THRESHOLD = 5;
 
 /**
  * 10-point rubric dimension caps. Sum = 10. Locked.
