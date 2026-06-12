@@ -36,6 +36,7 @@ export interface RunRow {
   quant_tier: number | null;
   quant_source: string | null;
   context_size: number | null;
+  harness: string | null;
 
   gpu_backend: string | null;
   gpu_model: string | null;
@@ -90,9 +91,9 @@ export function insertRun(
   db.run(
     `INSERT INTO runs (
       id, started_at, status, scenario_ids,
-      runtime, runtime_kind, endpoint, model, model_file, quant, quant_tier, quant_source, context_size,
+      runtime, runtime_kind, endpoint, model, model_file, quant, quant_tier, quant_source, context_size, harness,
       gpu_backend, gpu_model, gpu_count, vram_total_mb, host_thermal_note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       run.id,
       run.started_at,
@@ -107,6 +108,7 @@ export function insertRun(
       run.quant_tier,
       run.quant_source,
       run.context_size,
+      run.harness,
       run.gpu_backend,
       run.gpu_model,
       run.gpu_count,

@@ -84,6 +84,10 @@ export function runMigrations(): void {
       name: "002_oneshot",
       sql: readFileSync(join(import.meta.dir, "oneshot-schema.sql"), "utf8"),
     },
+    {
+      name: "005_runs_harness",
+      sql: readFileSync(join(import.meta.dir, "migrations", "005_runs_harness.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {

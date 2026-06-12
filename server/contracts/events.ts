@@ -33,6 +33,7 @@ export type PersistedEvent =
       benchVersion?: string;
       gitDirty?: number;
       systemPromptHash?: string | null;
+      harness?: string | null;
     })
   | (EventBase & {
       type: "run_finished";

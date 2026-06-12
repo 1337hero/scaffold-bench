@@ -44,6 +44,7 @@ runsRouter.post("/", async (c) => {
       endpoint: resolved.endpoint,
       apiKey,
       systemPrompt: body.systemPrompt,
+      harness: body.harness,
       toolExecution: body.toolExecution,
       timeoutMs: body.timeoutMs,
     });

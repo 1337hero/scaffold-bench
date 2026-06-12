@@ -5,7 +5,12 @@ import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.
 import type { Scenario } from "./scenarios/index.js";
 import { PLAYGROUND_SRC } from "./scenarios/index.js";
 import type { Ms } from "./schemas/brands.js";
-import { classifyRuntimeError, runtimeErrorEvaluation } from "./scoring.ts";
+import {
+  applyHallucinationPenalty,
+  classifyRuntimeError,
+  hallucinatedToolCalls,
+  runtimeErrorEvaluation,
+} from "./scoring.ts";
 import type { RuntimeOutput, ScenarioEvaluation, ScenarioResult } from "./scoring.ts";
 
 export interface RunOptions {
@@ -20,6 +25,7 @@ export interface RunOptions {
     model?: string;
     apiKey?: string;
     systemPrompt?: string;
+    harness?: string;
   };
 }
 
@@ -36,6 +42,30 @@ function withToolExecution(runtime: Runtime, mode?: ToolExecutionMode): Runtime 
     run: (ctx) => runtime.run(inject(ctx)),
     ...(runtime.startSession ? { startSession: (ctx) => runtime.startSession!(inject(ctx)) } : {}),
   };
+}
+
+async function evaluateDespiteTimeout(
+  scenario: Scenario,
+  workDir: string,
+  output: RuntimeOutput,
+  maxPoints: number
+): Promise<ScenarioEvaluation> {
+  if (!scenario.evaluate) return runtimeErrorEvaluation("TIMEOUT", maxPoints);
+  try {
+    return await scenario.evaluate({
+      stdout: output.stdout,
+      playgroundDir: workDir,
+      toolCalls: output.toolCalls,
+      wallTimeMs: output.wallTimeMs,
+      firstTokenMs: output.firstTokenMs,
+      turnWallTimes: output.turnWallTimes,
+      turnFirstTokenMs: output.turnFirstTokenMs,
+      modelMetrics: output.modelMetrics,
+      scenarioMetrics: output.scenarioMetrics,
+    });
+  } catch {
+    return runtimeErrorEvaluation("TIMEOUT", maxPoints);
+  }
 }
 
 export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
@@ -90,9 +120,16 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
             ...output.scenarioMetrics,
             runtimeErrorKind: classification.kind,
             scoreExempt: classification.scoreExempt,
+            ...(classification.kind === "timeout" ? { timedOut: true } : {}),
           },
         };
-        evaluation = runtimeErrorEvaluation(runtimeError, scenarioMaxPoints);
+        evaluation =
+          classification.kind === "timeout"
+            ? applyHallucinationPenalty(
+                await evaluateDespiteTimeout(opts.scenario, workDir, output, scenarioMaxPoints),
+                output.toolCalls
+              )
+            : runtimeErrorEvaluation(runtimeError, scenarioMaxPoints);
       } else {
         evaluation = await opts.scenario.evaluate({
           stdout: output.stdout,
@@ -105,7 +142,19 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
           modelMetrics: output.modelMetrics,
           scenarioMetrics: output.scenarioMetrics,
         });
+        evaluation = applyHallucinationPenalty(evaluation, output.toolCalls);
       }
+    }
+
+    const hallucinatedCount = hallucinatedToolCalls(output.toolCalls).length;
+    if (hallucinatedCount > 0) {
+      output = {
+        ...output,
+        scenarioMetrics: {
+          ...output.scenarioMetrics,
+          hallucinatedToolCallCount: hallucinatedCount,
+        },
+      };
     }
 
     return {

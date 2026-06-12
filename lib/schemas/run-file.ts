@@ -88,6 +88,8 @@ export const RunFileSchema = Schema.Struct({
   runtime: Schema.String,
   totalPoints: Schema.Number,
   maxPoints: Schema.Number,
+  efficiencyPointsPerMinute: Schema.optional(Schema.Number),
+  harness: Schema.optional(Schema.String),
   modelMetrics: Schema.optional(ModelMetricsSchema),
   results: Schema.Array(ScenarioResultSchema),
 });

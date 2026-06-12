@@ -59,6 +59,7 @@ export type ScenarioExecutionContext = {
     model?: string;
     apiKey?: string;
     systemPrompt?: string;
+    harness?: string;
   };
 };
 

@@ -10,6 +10,7 @@
  *         Leave empty ([]) to run ALL discovered models.
  */
 import { spawn, type Subprocess } from "bun";
+import { summarizeRepeatRuns } from "../lib/aggregates.ts";
 
 // ── config ────────────────────────────────────────────────────────────────────
 // Edit these before running.
@@ -251,6 +252,24 @@ for (const r of results) {
   console.log(
     `  ${r.model.padEnd(40)} run ${r.run}  ${statusColor}${r.status.padEnd(8)}${RESET}  ${score(r.total, r.max)}`
   );
+}
+
+const byModel = new Map<string, number[]>();
+for (const r of results) {
+  if (r.status !== "done" || r.total == null) continue;
+  byModel.set(r.model, [...(byModel.get(r.model) ?? []), r.total]);
+}
+if (byModel.size > 0) {
+  console.log();
+  for (const [model, totals] of byModel) {
+    const s = summarizeRepeatRuns(totals);
+    const max = results.find((r) => r.model === model && r.max != null)?.max ?? null;
+    const excluded = results.filter((r) => r.model === model).length - s.runs;
+    const note = excluded > 0 ? ` ${DIM}(${excluded} run(s) excluded)${RESET}` : "";
+    console.log(
+      `  ${model.padEnd(40)} median ${score(s.medianPoints, max)} over ${s.runs} run(s), spread ±${s.spread}${note}`
+    );
+  }
 }
 
 const total = results.length;
