@@ -4,6 +4,7 @@ export const CreateRunRequestSchema = Schema.Struct({
   scenarioIds: Schema.Array(Schema.String),
   modelId: Schema.optional(Schema.String),
   systemPrompt: Schema.optional(Schema.String),
+  harness: Schema.optional(Schema.Literal("native", "hermes", "qwen")),
   toolExecution: Schema.optional(Schema.Literal("sequential", "parallel")),
   timeoutMs: Schema.optional(Schema.Number),
 });

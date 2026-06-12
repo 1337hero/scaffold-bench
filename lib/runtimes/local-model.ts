@@ -1,6 +1,8 @@
 import { Either, Schema } from "effect";
 import type { Ms, Ns, TokenCount } from "../schemas/index.js";
 import { ChatStreamChunkSchema, nsToMs } from "../schemas/index.js";
+import type { Harness } from "./harness.ts";
+import { stripThink } from "./think-strip.ts";
 
 export type FinishReason = "tool_calls" | "stop" | "length" | "content_filter";
 
@@ -58,6 +60,7 @@ export type CallModelConfig = {
   model: string;
   apiKey: string | undefined;
   signal?: AbortSignal;
+  harness?: Harness;
 };
 
 const MAX_TRANSIENT_RETRIES = 2;
@@ -73,7 +76,7 @@ export async function callModel(
   conversation: ChatMessage[],
   deadline: number,
   config: CallModelConfig,
-  tools: object[],
+  tools: object[] | undefined,
   onDelta?: (text: string) => void
 ): Promise<{
   finishReason: FinishReason;
@@ -108,16 +111,28 @@ export async function callModel(
             ...SAMPLING,
             stream: true,
             stream_options: { include_usage: true },
-            tools,
+            ...(tools?.length ? { tools } : {}),
           }),
           signal: controller.signal,
         });
 
         const stream = await readChatStream(response, config.endpoint, onDelta);
-        const toolCalls = buildToolCalls(stream.toolCallsByIndex);
+        let toolCalls = buildToolCalls(stream.toolCallsByIndex);
+        let content = stream.content;
+        if (config.harness && toolCalls.length === 0) {
+          const parsed = config.harness.parse(stripThink(content).content);
+          if (parsed.toolCalls.length) {
+            content = parsed.content;
+            toolCalls = parsed.toolCalls.map((tc) => ({
+              id: tc.id,
+              type: "function" as const,
+              function: { name: tc.name, arguments: tc.arguments || "{}" },
+            }));
+          }
+        }
         const message: ChatMessage = {
           role: "assistant",
-          content: stream.content,
+          content,
           ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
         };
 

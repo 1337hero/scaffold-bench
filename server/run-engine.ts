@@ -41,6 +41,7 @@ export interface RunBenchOptions {
   endpoint?: string;
   apiKey?: string;
   systemPrompt?: string;
+  harness?: string;
   toolExecution?: ToolExecutionMode;
   timeoutMs?: number;
   nextSeq?: () => number;
@@ -97,6 +98,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
           model: opts.model,
           apiKey: opts.apiKey,
           systemPrompt: opts.systemPrompt,
+          harness: opts.harness,
         },
         onRuntimeEvent: (event: RuntimeEvent) => {
           const persisted = runtimeEventToPersisted(event, {
@@ -175,6 +177,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
     totalPoints,
     maxPoints,
     efficiencyPointsPerMinute: computeEfficiency(totalPoints, totalWallTime(results)),
+    ...(opts.harness ? { harness: opts.harness } : {}),
     modelMetrics,
     results: results.map((r) => ({
       scenarioId: r.scenarioId,
@@ -258,6 +261,7 @@ export interface StartRunRequest {
   endpoint?: string;
   apiKey?: string;
   systemPrompt?: string;
+  harness?: string;
   toolExecution?: ToolExecutionMode;
   timeoutMs?: number;
 }
@@ -275,6 +279,7 @@ async function executeRun(
       endpoint: request.endpoint,
       apiKey: request.apiKey,
       systemPrompt: request.systemPrompt,
+      harness: request.harness,
       toolExecution: request.toolExecution,
       timeoutMs: request.timeoutMs,
       signal: controller.signal,
@@ -385,6 +390,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     quant_tier: quantTier,
     quant_source: quantOriginKind,
     context_size: metadata?.contextSize ?? null,
+    harness: request.harness ?? null,
     endpoint: request.endpoint ?? null,
     gpu_backend: gpu.backend,
     gpu_model: gpu.model,
@@ -401,6 +407,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     endpoint: request.endpoint ?? null,
     temperature: SAMPLING.temperature,
     topP: SAMPLING.top_p,
+    harness: request.harness ?? null,
     seq: globalRegistry.nextSeq(runId),
     ts: Date.now(),
   };

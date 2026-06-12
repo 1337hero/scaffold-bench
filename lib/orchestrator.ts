@@ -20,6 +20,7 @@ export interface RunOptions {
     model?: string;
     apiKey?: string;
     systemPrompt?: string;
+    harness?: string;
   };
 }
 
