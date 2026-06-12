@@ -72,9 +72,7 @@ describe("qwen harness", () => {
     const prepared = qwen.prepare({ systemPrompt: "sys", tools: openAiTools });
     expect(prepared.requestTools).toBeUndefined();
     expect(prepared.systemPrompt).toContain("<function_call>");
-    const parsed = qwen.parse(
-      '<function_call>{"name": "ls", "arguments": {}}</function_call>done'
-    );
+    const parsed = qwen.parse('<function_call>{"name": "ls", "arguments": {}}</function_call>done');
     expect(parsed.content).toBe("done");
     expect(parsed.toolCalls).toEqual([{ id: "call_0", name: "ls", arguments: "{}" }]);
   });

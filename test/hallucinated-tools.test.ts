@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-  Evaluation,
-  applyHallucinationPenalty,
-  hallucinatedToolCalls,
-} from "../lib/scoring.ts";
+import { Evaluation, applyHallucinationPenalty, hallucinatedToolCalls } from "../lib/scoring.ts";
 import type { ToolCall } from "../lib/scoring.ts";
 
 function call(name: string, result?: ToolCall["result"]): ToolCall {
