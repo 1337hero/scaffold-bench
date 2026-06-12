@@ -125,7 +125,10 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
         };
         evaluation =
           classification.kind === "timeout"
-            ? await evaluateDespiteTimeout(opts.scenario, workDir, output, scenarioMaxPoints)
+            ? applyHallucinationPenalty(
+                await evaluateDespiteTimeout(opts.scenario, workDir, output, scenarioMaxPoints),
+                output.toolCalls
+              )
             : runtimeErrorEvaluation(runtimeError, scenarioMaxPoints);
       } else {
         evaluation = await opts.scenario.evaluate({

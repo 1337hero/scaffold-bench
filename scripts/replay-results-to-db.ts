@@ -147,6 +147,7 @@ function main(): void {
         quant_tier: null,
         quant_source: null,
         context_size: null,
+        harness: null,
         gpu_backend: null,
         gpu_model: null,
         gpu_count: null,
