@@ -15,11 +15,23 @@ import { summarizeRepeatRuns } from "../lib/aggregates.ts";
 // ── config ────────────────────────────────────────────────────────────────────
 // Edit these before running.
 
-const RUNS_PER_MODEL = 3;
+const RUNS_PER_MODEL = 1;
 
 const MODELS: string[] = [
   "Qwen3.6-27B",
-  // "anthropic/claude-sonnet-4.6",
+  "Qwen3.6",
+  "Qwen-Coder-30B",
+  "Qwen3-Coder-Next",
+  "Qwen3.5-122B",
+  "Devstral-Small-24B",
+  "Gemma4-12B",
+  "Gemma4-26B-A4B",
+  "Gemma4-31B",
+  "GLM-4.7-Flash",
+  "IBM-Granite",
+  "Kimi-Dev-72B",
+  "nemotron",
+  "nemotron-cascade-2",
 ];
 
 // ── end config ────────────────────────────────────────────────────────────────
