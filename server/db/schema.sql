@@ -44,7 +44,7 @@ CREATE TABLE scenario_runs (
   run_id TEXT NOT NULL REFERENCES runs(id),
   scenario_id TEXT NOT NULL,
   category TEXT,
-  family TEXT NOT NULL DEFAULT 'regex-style' CHECK(family IN ('regression','spec-impl','regex-style')),
+  family TEXT NOT NULL DEFAULT 'regex-style',
   started_at INTEGER,
   finished_at INTEGER,
   status TEXT CHECK(status IN ('pending','running','pass','partial','fail','stopped')),

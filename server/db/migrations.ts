@@ -88,6 +88,10 @@ export function runMigrations(): void {
       name: "005_runs_harness",
       sql: readFileSync(join(import.meta.dir, "migrations", "005_runs_harness.sql"), "utf8"),
     },
+    {
+      name: "006_relax_family_check",
+      sql: readFileSync(join(import.meta.dir, "migrations", "006_relax_family_check.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {
