@@ -30,6 +30,9 @@ import SB27 from "./SB-27-sse-final-line.js";
 import SB28 from "./SB-28-generated-types-discipline.js";
 import SB29 from "./SB-29-test-isolation.js";
 import SB30 from "./SB-30-webhook-hmac.js";
+import SB35 from "./SB-35-join-fanout.js";
+import SB36 from "./SB-36-migration-backfill.js";
+import SB37 from "./SB-37-reporting-query.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -62,6 +65,9 @@ export const scenarios: Scenario[] = [
   SB28,
   SB29,
   SB30,
+  SB35,
+  SB36,
+  SB37,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
