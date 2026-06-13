@@ -4,7 +4,12 @@ import { join } from "node:path";
 
 type RunResult = { ok: boolean; stdout: string; stderr: string };
 
-const TIMEOUT_MS = 10_000;
+const RUN_TIMEOUT_MS = 10_000;
+// A cold build cache (e.g. a fresh CI runner) can spend longer compiling a crate
+// and its dependencies than the run budget allows. Compile under a generous
+// budget so RUN_TIMEOUT_MS bounds only the test run — keeping scoring fair
+// regardless of how warm the cache is.
+const COMPILE_TIMEOUT_MS = 120_000;
 
 export async function cargoCheck(
   dir: string,
@@ -20,11 +25,12 @@ export async function cargoCheck(
       }
     }
 
+    // cargo check is pure compilation, so give it the full compile budget.
     const result = Bun.spawnSync(["cargo", "check"], {
       cwd: runDir,
       stdout: "pipe",
       stderr: "pipe",
-      timeout: TIMEOUT_MS,
+      timeout: COMPILE_TIMEOUT_MS,
     });
 
     return {
@@ -39,7 +45,8 @@ export async function cargoCheck(
 
 export async function cargoTest(
   dir: string,
-  additionalFiles?: Record<string, string>
+  additionalFiles?: Record<string, string>,
+  runTimeoutMs: number = RUN_TIMEOUT_MS
 ): Promise<RunResult> {
   const runDir = await mkdtemp(join(tmpdir(), "sb-cargotest-"));
   try {
@@ -51,11 +58,19 @@ export async function cargoTest(
       }
     }
 
+    // Warm the build cache: compile the test binaries without running them.
+    Bun.spawnSync(["cargo", "test", "--offline", "--no-run"], {
+      cwd: runDir,
+      stdout: "ignore",
+      stderr: "ignore",
+      timeout: COMPILE_TIMEOUT_MS,
+    });
+
     const result = Bun.spawnSync(["cargo", "test", "--offline"], {
       cwd: runDir,
       stdout: "pipe",
       stderr: "pipe",
-      timeout: TIMEOUT_MS,
+      timeout: runTimeoutMs,
     });
 
     return {
