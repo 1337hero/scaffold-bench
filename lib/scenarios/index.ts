@@ -25,6 +25,11 @@ import SB22 from "./SB-22-nextjs-server-client-boundary.js";
 import SB23 from "./SB-23-express-middleware-order.js";
 import SB24 from "./SB-24-react-hook-form-zod-resolver.js";
 import SB25 from "./SB-25-tanstack-router-loader-ownership.js";
+import SB26 from "./SB-26-zustand-store-mutation.js";
+import SB27 from "./SB-27-sse-final-line.js";
+import SB28 from "./SB-28-generated-types-discipline.js";
+import SB29 from "./SB-29-test-isolation.js";
+import SB30 from "./SB-30-webhook-hmac.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -52,6 +57,11 @@ export const scenarios: Scenario[] = [
   SB23,
   SB24,
   SB25,
+  SB26,
+  SB27,
+  SB28,
+  SB29,
+  SB30,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
