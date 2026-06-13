@@ -30,6 +30,10 @@ import SB27 from "./SB-27-sse-final-line.js";
 import SB28 from "./SB-28-generated-types-discipline.js";
 import SB29 from "./SB-29-test-isolation.js";
 import SB30 from "./SB-30-webhook-hmac.js";
+import SB31 from "./SB-31-woo-double-discount.js";
+import SB32 from "./SB-32-template-escaping.js";
+import SB33 from "./SB-33-plugin-conflict-red-herring.js";
+import SB34 from "./SB-34-build-a-plugin.js";
 import SB35 from "./SB-35-join-fanout.js";
 import SB36 from "./SB-36-migration-backfill.js";
 import SB37 from "./SB-37-reporting-query.js";
@@ -65,6 +69,10 @@ export const scenarios: Scenario[] = [
   SB28,
   SB29,
   SB30,
+  SB31,
+  SB32,
+  SB33,
+  SB34,
   SB35,
   SB36,
   SB37,
