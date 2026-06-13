@@ -46,6 +46,10 @@ import SB43 from "./SB-43-build-a-section.js";
 import SB44 from "./SB-44-nav-stacking.js";
 import SB45 from "./SB-45-theme-variable-scope.js";
 import SB46 from "./SB-46-responsive-grid.js";
+import SB47 from "./SB-47-go-nil-map.js";
+import SB48 from "./SB-48-go-json-endpoint.js";
+import SB49 from "./SB-49-rust-borrow.js";
+import SB50 from "./SB-50-rust-off-by-one.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -94,6 +98,10 @@ export const scenarios: Scenario[] = [
   SB44,
   SB45,
   SB46,
+  SB47,
+  SB48,
+  SB49,
+  SB50,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
