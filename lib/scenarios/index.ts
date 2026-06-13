@@ -25,6 +25,31 @@ import SB22 from "./SB-22-nextjs-server-client-boundary.js";
 import SB23 from "./SB-23-express-middleware-order.js";
 import SB24 from "./SB-24-react-hook-form-zod-resolver.js";
 import SB25 from "./SB-25-tanstack-router-loader-ownership.js";
+import SB26 from "./SB-26-zustand-store-mutation.js";
+import SB27 from "./SB-27-sse-final-line.js";
+import SB28 from "./SB-28-generated-types-discipline.js";
+import SB29 from "./SB-29-test-isolation.js";
+import SB30 from "./SB-30-webhook-hmac.js";
+import SB31 from "./SB-31-woo-double-discount.js";
+import SB32 from "./SB-32-template-escaping.js";
+import SB33 from "./SB-33-plugin-conflict-red-herring.js";
+import SB34 from "./SB-34-build-a-plugin.js";
+import SB35 from "./SB-35-join-fanout.js";
+import SB36 from "./SB-36-migration-backfill.js";
+import SB37 from "./SB-37-reporting-query.js";
+import SB38 from "./SB-38-actions-trigger.js";
+import SB39 from "./SB-39-dockerfile-layers.js";
+import SB40 from "./SB-40-deploy-script-exclude.js";
+import SB41 from "./SB-41-liquid-soldout.js";
+import SB42 from "./SB-42-astro-frontmatter-field.js";
+import SB43 from "./SB-43-build-a-section.js";
+import SB44 from "./SB-44-nav-stacking.js";
+import SB45 from "./SB-45-theme-variable-scope.js";
+import SB46 from "./SB-46-responsive-grid.js";
+import SB47 from "./SB-47-go-nil-map.js";
+import SB48 from "./SB-48-go-json-endpoint.js";
+import SB49 from "./SB-49-rust-borrow.js";
+import SB50 from "./SB-50-rust-off-by-one.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -52,6 +77,31 @@ export const scenarios: Scenario[] = [
   SB23,
   SB24,
   SB25,
+  SB26,
+  SB27,
+  SB28,
+  SB29,
+  SB30,
+  SB31,
+  SB32,
+  SB33,
+  SB34,
+  SB35,
+  SB36,
+  SB37,
+  SB38,
+  SB39,
+  SB40,
+  SB41,
+  SB42,
+  SB43,
+  SB44,
+  SB45,
+  SB46,
+  SB47,
+  SB48,
+  SB49,
+  SB50,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {

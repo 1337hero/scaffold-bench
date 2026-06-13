@@ -1,0 +1,17 @@
+<div class="featured-grid">
+  {% for product in products %}
+    <div class="product-card">
+      <h3>{{ product.title }}</h3>
+      <p>{{ product.price | money }}</p>
+    </div>
+  {% endfor %}
+</div>
+
+{% schema %}
+{
+  "name": "Featured Grid",
+  "settings": [
+    {"type": "checkbox", "id": "show_soldout", "label": "Show sold-out products", "default": true}
+  ]
+}
+{% endschema %}

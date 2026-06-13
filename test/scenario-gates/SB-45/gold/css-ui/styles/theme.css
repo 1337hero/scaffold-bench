@@ -1,0 +1,14 @@
+:root {
+  --card-bg: #ffffff;
+  --text: #111;
+}
+
+.light {
+  --card-bg: #ffffff;
+  --text: #111;
+}
+
+.dark {
+  --card-bg: #1a1a1a;
+  --text: #eee;
+}

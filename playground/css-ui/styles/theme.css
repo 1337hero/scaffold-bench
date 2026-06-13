@@ -1,0 +1,8 @@
+.light {
+  --card-bg: #ffffff;
+  --text: #111;
+}
+
+.dark {
+  --text: #eee;
+}

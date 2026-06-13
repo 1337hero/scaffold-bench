@@ -10,7 +10,7 @@
 
 ## What it does
 
-Hands a model 25 real coding tasks in real codebases — backend APIs, frontend apps, bug fixes, refactors, small features. The model gets 5 tools (`read`, `ls`, `edit`, `write`, `bash`) and up to 20 turns to land the change.
+Hands a model 50 real coding tasks in real codebases — backend APIs, frontend apps, bug fixes, refactors, small features. The model gets 5 tools (`read`, `ls`, `edit`, `write`, `bash`) and up to 20 turns to land the change.
 
 Then it scores not just _did the code work_, but _how did the model behave_:
 
@@ -129,46 +129,73 @@ Many scenarios verify correctness **behaviorally** rather than by regex: hidden 
 | `responsiveness`     | Stay fast in a tight edit loop.                     |
 | `long-context`       | Find the right answer in a huge inline blob.        |
 
-## Current scenarios (25 active)
+## Current scenarios (50 active)
 
-| ID    | Name                                | Category           | Task                                                                                           |
-| ----- | ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
-| SB-01 | fix-throttle                        | surgical-edit      | `throttle()` is a copy of `debounce()`. Fix it.                                                |
-| SB-02 | frontend-derived-state-fix          | surgical-edit      | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                         |
-| SB-03 | frontend-query-owner                | scope-discipline   | Move the query to the page, pass data as props to the child.                                   |
-| SB-04 | frontend-scope-discipline           | scope-discipline   | Invalidate the orders query after approve succeeds. Only that.                                 |
-| SB-05 | frontend-stack-loyalty              | surgical-edit      | Finish `ActivityFeed.tsx` using the existing TanStack Query + apiClient stack.                 |
-| SB-06 | frontend-red-herring                | read-only-analysis | Is there really a bug here, or is the user wrong?                                              |
-| SB-07 | frontend-no-op                      | read-only-analysis | Confirm the requested change is already present and avoid editing anyway.                      |
-| SB-08 | frontend-find-the-right-file        | surgical-edit      | Fix the currency formatting bug in the real shared helper, not in the component.               |
-| SB-09 | frontend-reuse-existing-abstraction | scope-discipline   | Reuse the existing `useTeamMembers` hook instead of reimplementing fetching.                   |
-| SB-10 | verify-and-repair                   | verify-and-repair  | Fix `calculateSubtotal`, then verify the fix passes.                                           |
-| SB-11 | verify-fail-recover-pass            | verify-and-repair  | Run the failing slugify test first, fix the bug, then rerun to green.                          |
-| SB-12 | typescript-compile-loop             | verify-and-repair  | Fix a strict-null TypeScript error and verify with `tsc --noEmit`.                             |
-| SB-13 | iterate-to-green                    | verify-and-repair  | Work through an intermediate failing test run and iterate until green.                         |
-| SB-14 | hono-admin-password-reset           | implementation     | Implement admin password reset flow (new table, two routes, session invalidation).             |
-| SB-15 | hono-cursor-pagination              | implementation     | Add opaque cursor pagination to `GET /items` with validation + limit cap.                      |
-| SB-16 | hono-audit-log                      | implementation     | Add `audit_events` table, `logAudit` helper, and admin role-update route.                      |
-| SB-17 | hono-soft-delete-restore            | implementation     | Use the existing `deleted_at` column to build `POST /items/:id/restore`.                       |
-| SB-18 | hono-fix-n-plus-1                   | implementation     | Replace per-row owner query in `GET /items` with a single JOIN.                                |
-| SB-19 | high-frequency-loop                 | responsiveness     | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s. |
-| SB-20 | long-context-retrieval              | long-context       | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.       |
-| SB-21 | axios-ssrf-protocol-relative        | verify-and-repair  | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                           |
-| SB-22 | nextjs-server-client-boundary       | surgical-edit      | Add missing `"use client"` directive to a component using `useState`.                          |
-| SB-23 | express-middleware-order            | verify-and-repair  | Fix Express middleware ordering so auth gate and body parser run before routes.                |
-| SB-24 | react-hook-form-zod-resolver        | scope-discipline   | Wire `zodResolver` with existing `signupSchema` into `useForm`.                                |
-| SB-25 | tanstack-router-loader-ownership    | scope-discipline   | Move data fetching from `ProjectsTable` to the route's `loader`; table becomes presentational. |
+| ID    | Name                                | Category           | Requires   | Description                                                                                         |
+| ----- | ----------------------------------- | ------------------ | ---------- | --------------------------------------------------------------------------------------------------- |
+| SB-01 | fix-throttle                        | surgical-edit      |            | `throttle()` is a copy of `debounce()`. Fix it.                                                     |
+| SB-02 | frontend-derived-state-fix          | surgical-edit      |            | Remove the `useEffect`-synced duplicate state in `InventoryPanel.tsx`.                              |
+| SB-03 | frontend-query-owner                | scope-discipline   |            | Move the query to the page, pass data as props to the child.                                        |
+| SB-04 | frontend-scope-discipline           | scope-discipline   |            | Invalidate the orders query after approve succeeds. Only that.                                      |
+| SB-05 | frontend-stack-loyalty              | surgical-edit      |            | Finish `ActivityFeed.tsx` using the existing TanStack Query + apiClient stack.                      |
+| SB-06 | frontend-red-herring                | read-only-analysis |            | Is there really a bug here, or is the user wrong?                                                   |
+| SB-07 | frontend-no-op                      | read-only-analysis |            | Confirm the requested change is already present and avoid editing anyway.                           |
+| SB-08 | frontend-find-the-right-file        | surgical-edit      |            | Fix the currency formatting bug in the real shared helper, not in the component.                    |
+| SB-09 | frontend-reuse-existing-abstraction | scope-discipline   |            | Reuse the existing `useTeamMembers` hook instead of reimplementing fetching.                        |
+| SB-10 | verify-and-repair                   | verify-and-repair  |            | Fix `calculateSubtotal`, then verify the fix passes.                                                |
+| SB-11 | verify-fail-recover-pass            | verify-and-repair  |            | Run the failing slugify test first, fix the bug, then rerun to green.                               |
+| SB-12 | typescript-compile-loop             | verify-and-repair  |            | Fix a strict-null TypeScript error and verify with `tsc --noEmit`.                                  |
+| SB-13 | iterate-to-green                    | verify-and-repair  |            | Work through an intermediate failing test run and iterate until green.                              |
+| SB-14 | hono-admin-password-reset           | implementation     |            | Implement admin password reset flow (new table, two routes, session invalidation).                  |
+| SB-15 | hono-cursor-pagination              | implementation     |            | Add opaque cursor pagination to `GET /items` with validation + limit cap.                           |
+| SB-16 | hono-audit-log                      | implementation     |            | Add `audit_events` table, `logAudit` helper, and admin role-update route.                           |
+| SB-17 | hono-soft-delete-restore            | implementation     |            | Use the existing `deleted_at` column to build `POST /items/:id/restore`.                            |
+| SB-18 | hono-fix-n-plus-1                   | implementation     |            | Replace per-row owner query in `GET /items` with a single JOIN.                                     |
+| SB-19 | high-frequency-loop                 | responsiveness     |            | Five sequential micro-fixes in one conversation; each edit only scores if it lands within 10s.      |
+| SB-20 | long-context-retrieval              | long-context       |            | Search a ~50k-token inline code blob for `throttleWithJitter` and report its line range.            |
+| SB-21 | axios-ssrf-protocol-relative        | verify-and-repair  |            | Treat protocol-relative URLs as relative in Axios's `isAbsoluteURL`.                                |
+| SB-22 | nextjs-server-client-boundary       | surgical-edit      |            | Add missing `"use client"` directive to a component using `useState`.                               |
+| SB-23 | express-middleware-order            | verify-and-repair  |            | Fix Express middleware ordering so auth gate and body parser run before routes.                     |
+| SB-24 | react-hook-form-zod-resolver        | scope-discipline   |            | Wire `zodResolver` with existing `signupSchema` into `useForm`.                                     |
+| SB-25 | tanstack-router-loader-ownership    | scope-discipline   |            | Move data fetching from `ProjectsTable` to the route's `loader`; table becomes presentational.      |
+| SB-26 | zustand-store-mutation              | surgical-edit      |            | Fix a store action that mutates state outside `set()`, so subscribers never fire.                   |
+| SB-27 | sse-final-line                      | surgical-edit      |            | Fix the SSE parser dropping the final event when the stream ends without a newline.                 |
+| SB-28 | generated-types-discipline          | scope-discipline   |            | Add a field to a typed query using the generated types — without editing the generated file.        |
+| SB-29 | test-isolation                      | verify-and-repair  |            | Fix a test that passes alone but fails in the suite due to shared module state.                     |
+| SB-30 | webhook-hmac                        | implementation     |            | Implement an HMAC-verified webhook endpoint with replay-safe dedupe, per spec.                      |
+| SB-31 | woo-double-discount                 | surgical-edit      | php        | A member discount applies twice — the filter is hooked in two places. Fix it once.                  |
+| SB-32 | template-escaping                   | scope-discipline   | php        | Add a phone field to one template part, escaped like the surrounding code.                          |
+| SB-33 | plugin-conflict-red-herring         | read-only-analysis | php        | The user blames a plugin for broken menus. The real culprit is a theme filter. Explain, don’t edit. |
+| SB-34 | build-a-plugin                      | implementation     | php        | "Create this plugin for me": shortcode, settings, sanitized input, escaped output.                  |
+| SB-35 | join-fanout                         | surgical-edit      |            | A JOIN across shipments double-counts order totals. Fix the SQL, not the JS.                        |
+| SB-36 | migration-backfill                  | verify-and-repair  |            | A NOT NULL migration fails on existing rows. Reproduce, backfill, rerun.                            |
+| SB-37 | reporting-query                     | implementation     |            | Write a monthly net-revenue query (payments minus refunds) matching an exact result set.            |
+| SB-38 | actions-trigger                     | surgical-edit      |            | The deploy job fires on pull requests. Fix the workflow trigger, nothing else.                      |
+| SB-39 | dockerfile-layers                   | verify-and-repair  |            | COPY ordering busts the Docker layer cache and the build references a missing lockfile.             |
+| SB-40 | deploy-script-exclude               | scope-discipline   | shellcheck | Add one rsync `--exclude` to the deploy script; shellcheck must stay clean.                         |
+| SB-41 | liquid-soldout                      | surgical-edit      |            | The featured grid renders sold-out products. Honor the section’s `show_soldout` setting.            |
+| SB-42 | astro-frontmatter-field             | scope-discipline   |            | Add an optional `heroImage` to the blog collection schema + template; other collections untouched.  |
+| SB-43 | build-a-section                     | implementation     |            | Build a Shopify product-spotlight section with a valid `{% schema %}` block, per spec.              |
+| SB-44 | nav-stacking                        | surgical-edit      |            | The mobile nav opens behind the hero. Fix the stacking context — no `!important`.                   |
+| SB-45 | theme-variable-scope                | surgical-edit      |            | One component ignores the dark-theme toggle. Fix the custom property’s scope, not the component.    |
+| SB-46 | responsive-grid                     | implementation     |            | Implement a responsive card grid: CSS Grid, 1/2/3 columns by breakpoint, gap via custom property.   |
+| SB-47 | go-nil-map                          | verify-and-repair  | go         | The stats endpoint panics on the first POST (nil map). Make the provided test pass.                 |
+| SB-48 | go-json-endpoint                    | implementation     | go         | Implement a validated JSON POST endpoint on net/http; table-driven tests provided.                  |
+| SB-49 | rust-borrow                         | surgical-edit      | cargo      | Fix a borrow-after-move by changing the signature — without `.clone()`-spamming.                    |
+| SB-50 | rust-off-by-one                     | verify-and-repair  | cargo      | An iterator chain skips the last element. Make `cargo test` green.                                  |
 
-The five `implementation` scenarios share one fixture: `playground/hono-api/` — a minimal Hono + `bun:sqlite` app. Each points at a spec file in `playground/hono-api/specs/`.
+> **Toolchain requirements:** Scenarios marked with a `Requires` value depend on the named binary being available on PATH. Missing tools cause the scenario to be **skipped** (scored 0/0, excluded from totals) without invoking the model. Install on Arch Linux with: `sudo pacman -S php shellcheck go rust`. Liquid rendering uses the `liquidjs` npm package (no host binary needed).
+
+The `implementation` scenarios span the suite's languages: SB-14..18 and SB-30 share `playground/hono-api/` (a minimal Hono + `bun:sqlite` app, specs in `playground/hono-api/specs/`), while SB-34 (PHP plugin), SB-37 (SQL), SB-43 (Liquid section), SB-46 (CSS grid), and SB-48 (Go endpoint) build against their own fixtures.
 
 ---
 
 ## Adding a scenario
 
 1. Drop fixture files in `playground/`
-2. Create `lib/scenarios/SB-XX-name.ts` (copy an existing one as a template)
-3. Import it in `lib/scenarios/index.ts` and add it to the `scenarios` array
-4. Update the count guard in `index.ts`
+2. Create `lib/scenarios/SB-XX-name.ts` (copy an existing one as a template). If the evaluator shells out to a host binary, declare it in `requires` so the scenario skips cleanly when the tool is missing
+3. Add a gate: `test/scenario-gates/SB-XX.gate.test.ts` with `gold/` and `broken/` reference trees — the gate must prove gold ≥ 9 and broken ≤ 4
+4. Import it in `lib/scenarios/index.ts`, add it to the `scenarios` array, and update the count guard
 5. Add a row to the table above
 
 Each scenario exports `meta` and a default `Scenario` with an `evaluate()` function. Look at any existing `SB-XX-*.ts` for the shape.

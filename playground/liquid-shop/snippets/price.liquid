@@ -1,0 +1,4 @@
+<span class="price">{{ price | money }}</span>
+{% if compare_at_price > price %}
+  <span class="compare-at">{{ compare_at_price | money }}</span>
+{% endif %}

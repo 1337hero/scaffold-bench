@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.ts";
 import type { Scenario } from "./scenarios/index.js";
 import { PLAYGROUND_SRC } from "./scenarios/index.js";
+import { hasTool } from "./scenarios/_shared/toolchain.js";
 import type { Ms } from "./schemas/brands.js";
 import {
   applyHallucinationPenalty,
@@ -69,6 +70,30 @@ async function evaluateDespiteTimeout(
 }
 
 export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
+  if (opts.scenario.requires?.length) {
+    const missing = opts.scenario.requires.find((t) => !hasTool(t));
+    if (missing) {
+      return {
+        scenarioId: opts.scenario.id,
+        category: opts.scenario.category,
+        runtime: opts.runtime.name,
+        evaluation: {
+          status: "fail",
+          points: 0,
+          maxPoints: 0,
+          checks: [{ name: "toolchain available", pass: false, detail: `${missing} not found` }],
+          summary: `Skipped: missing ${missing}`,
+        },
+        output: {
+          stdout: "",
+          toolCalls: [],
+          wallTimeMs: 0 as Ms,
+          scenarioMetrics: { skipped: true, missingTool: missing },
+        },
+      };
+    }
+  }
+
   const workDir = await mkdtemp(join(tmpdir(), "scaffold-bench-"));
   await cp(PLAYGROUND_SRC, join(workDir, "playground"), { recursive: true });
 
