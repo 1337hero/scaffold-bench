@@ -50,7 +50,6 @@ const scenario: Scenario = {
   async evaluate({ playgroundDir, toolCalls }) {
     const sqlDir = join(playgroundDir, "playground/sql-reports");
     const totalsPath = join(sqlDir, "queries/totals.sql");
-    const dbTsPath = join(sqlDir, "db.ts");
 
     const totalsSQL = await readOrEmpty(totalsPath);
 
@@ -69,7 +68,6 @@ const scenario: Scenario = {
     const client1Total = client1Row?.total ?? 0;
     const correctTotal = !queryError && Math.abs(client1Total - 350) < 0.01;
 
-    const dbTsContent = await readOrEmpty(dbTsPath);
     const dbTsChanged = changedPaths(toolCalls).some((p) => p.includes("db.ts"));
 
     const usesSubquery =
@@ -122,8 +120,8 @@ const scenario: Scenario = {
             detail: !usesSubquery
               ? "no subquery found"
               : !noDistinctBandaid
-              ? "used DISTINCT as bandaid instead of subquery"
-              : undefined,
+                ? "used DISTINCT as bandaid instead of subquery"
+                : undefined,
           },
         ],
         verification: [

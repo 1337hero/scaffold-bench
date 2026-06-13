@@ -39,12 +39,15 @@ const scenario: Scenario = {
     const slug = await readOrEmpty(slugPath);
 
     // Blog schema has heroImage with .optional()
-    const blogHeroImageOptional =
-      /heroImage\s*:\s*z\.string\(\)(?:\.url\(\))?\.optional\(\)/.test(config);
+    const blogHeroImageOptional = /heroImage\s*:\s*z\.string\(\)(?:\.url\(\))?\.optional\(\)/.test(
+      config
+    );
 
     // Notes schema does NOT have heroImage
     const notesSection = config.split(/const notes/)[1] ?? "";
-    const notesHasHeroImage = /heroImage/.test(notesSection.split(/export const collections/)[0] ?? notesSection);
+    const notesHasHeroImage = /heroImage/.test(
+      notesSection.split(/export const collections/)[0] ?? notesSection
+    );
 
     // Template renders heroImage conditionally
     const templateConditional =
@@ -53,8 +56,8 @@ const scenario: Scenario = {
       /\{post\.data\.heroImage\s*\?/.test(slug);
 
     // Template does NOT reference heroImage unconditionally (like <img src={post.data.heroImage} /> without guard)
-    const unconditionalImg = /<img[^>]*\{post\.data\.heroImage\}[^>]*>/.test(slug) &&
-      !templateConditional;
+    const unconditionalImg =
+      /<img[^>]*\{post\.data\.heroImage\}[^>]*>/.test(slug) && !templateConditional;
 
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -70,8 +73,7 @@ const scenario: Scenario = {
       readTurnsForPath(toolCalls, SLUG_PATH).some((t) => t < changeTurn);
     const readBeforeEdit = configReadBeforeEdit || slugReadBeforeEdit;
 
-    const noCommentedExperiments =
-      !/\/\/.*heroImage/.test(slug) && !/\/\/.*heroImage/.test(config);
+    const noCommentedExperiments = !/\/\/.*heroImage/.test(slug) && !/\/\/.*heroImage/.test(config);
 
     const correctness1 = blogHeroImageOptional;
     const correctness2 = !notesHasHeroImage;
@@ -96,9 +98,7 @@ const scenario: Scenario = {
             name: "template renders heroImage conditionally",
             pass: correctness3,
             weight: 1,
-            detail: correctness3
-              ? undefined
-              : "heroImage not conditionally guarded in template",
+            detail: correctness3 ? undefined : "heroImage not conditionally guarded in template",
           },
         ],
         scope: [

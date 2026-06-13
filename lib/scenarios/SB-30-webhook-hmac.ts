@@ -5,7 +5,6 @@ import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
-  PLAYGROUND_SRC,
   bunAvailable,
   createSkippedEvaluation,
   noConsoleLog,
@@ -90,8 +89,7 @@ const scenario: Scenario = {
     const indexTs = await readOrEmpty(join(fixtureDir, "src/index.ts"));
 
     const usesTimingSafe =
-      /timingSafeEqual/.test(webhookRoute) ||
-      /timing.safe/i.test(webhookRoute);
+      /timingSafeEqual/.test(webhookRoute) || /timing.safe/i.test(webhookRoute);
     const noStringEqual =
       !/[!=]==\s*expected/.test(webhookRoute) &&
       !/expected\s*[!=]==/.test(webhookRoute) &&
@@ -133,7 +131,9 @@ const scenario: Scenario = {
             name: "uses constant-time compare (timingSafeEqual)",
             pass: usesTimingSafe,
             weight: 1,
-            detail: usesTimingSafe ? undefined : "no timingSafeEqual — vulnerable to timing attacks",
+            detail: usesTimingSafe
+              ? undefined
+              : "no timingSafeEqual — vulnerable to timing attacks",
           },
           {
             name: "no === string comparison for HMAC",

@@ -3,9 +3,7 @@ import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
-  PLAYGROUND_SRC,
   bashCalls,
-  changedPaths,
   failedVerificationBeforeChange,
   firstChangeTurn,
   onlyChangedFiles,
@@ -37,11 +35,11 @@ const scenario: Scenario = {
   name: "rust-off-by-one",
   category: "verify-and-repair",
   family: "bug-fix",
+  requires: ["cargo"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const libPath = join(playgroundDir, LIB_PATH);
     const lib = await readOrEmpty(libPath);
-    const libOriginal = await readOrEmpty(join(PLAYGROUND_SRC, "rust-lib/src/lib.rs"));
 
     const rustLibDir = join(playgroundDir, RUST_LIB_DIR);
     const testResult = await cargoTest(rustLibDir);
@@ -50,9 +48,10 @@ const scenario: Scenario = {
     const bashRuns = bashCalls(toolCalls);
     const cargoTestMatcher = /cargo\s+test/;
 
-    const changed = changedPaths(toolCalls);
-    const onlyLibChanged =
-      changed.length > 0 && changed.every((p) => p === LIB_PATH || p.endsWith("lib.rs"));
+    const scope = await onlyChangedFiles({
+      playgroundDir,
+      allowedPaths: [LIB_PATH],
+    });
 
     const noTakeNMinus1 = !/.take\s*\(\s*n\s*-\s*1\s*\)/.test(lib);
     const testUnchanged = lib.includes("vec![1, 3, 6, 10]");
@@ -74,9 +73,9 @@ const scenario: Scenario = {
         scope: [
           {
             name: "only lib.rs changed",
-            pass: onlyLibChanged,
+            pass: scope.pass,
             weight: 2,
-            detail: `changed: ${changed.join(", ")}`,
+            detail: scope.detail,
           },
         ],
         pattern: [

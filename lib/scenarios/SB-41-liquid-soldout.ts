@@ -76,8 +76,7 @@ const scenario: Scenario = {
       changeTurn !== undefined &&
       readTurnsForPath(toolCalls, TEMPLATE_PATH).some((t) => t < changeTurn);
 
-    const noDebugComments =
-      !/\{%[-\s]*comment[\s\S]*?endcomment[\s\s]*?%\}/.test(content);
+    const noDebugComments = !/\{%[-\s]*comment[\s\S]*?endcomment[\s\s]*?%\}/.test(content);
 
     return rubricToEvaluation(
       {

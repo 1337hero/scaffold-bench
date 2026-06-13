@@ -2,7 +2,12 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { readOrEmpty, onlyChangedFiles, firstChangeTurn, readTurnsForPath } from "./_shared/helpers.js";
+import {
+  readOrEmpty,
+  onlyChangedFiles,
+  firstChangeTurn,
+  readTurnsForPath,
+} from "./_shared/helpers.js";
 import { customPropertyScope, declarationsFor } from "./_shared/runners/css.js";
 
 const THEME_CSS_PATH = "playground/css-ui/styles/theme.css";
@@ -74,7 +79,9 @@ const scenario: Scenario = {
             name: ".card still uses var(--card-bg)",
             pass: !cardHardcoded,
             weight: 1,
-            detail: !cardHardcoded ? undefined : ".card has hardcoded background instead of var(--card-bg)",
+            detail: !cardHardcoded
+              ? undefined
+              : ".card has hardcoded background instead of var(--card-bg)",
           },
         ],
         scope: [

@@ -25,9 +25,7 @@ export const meta = {
 
 function evalParseSSE(source: string): string[] | null {
   try {
-    const mod = new Function(
-      source.replace(/^export\s+/m, "") + "\nreturn parseSSE;"
-    )();
+    const mod = new Function(source.replace(/^export\s+/m, "") + "\nreturn parseSSE;")();
     return mod(["data: hello\n\ndata: world\n"]);
   } catch {
     return null;

@@ -5,10 +5,7 @@ import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import {
-  createSkippedEvaluation,
-  onlyChangedFiles,
-} from "./_shared/helpers.js";
+import { createSkippedEvaluation, onlyChangedFiles } from "./_shared/helpers.js";
 import { runPhp } from "./_shared/runners/php.js";
 import { hasTool } from "./_shared/toolchain.js";
 
@@ -49,10 +46,11 @@ require __DIR__ . '/template.php';
 echo ob_get_clean();
 `;
 
-  const result = await runPhp(
-    "entry.php",
-    { "entry.php": entryPhp, "stubs.php": stubsPhp, "template.php": templateContent }
-  );
+  const result = await runPhp("entry.php", {
+    "entry.php": entryPhp,
+    "stubs.php": stubsPhp,
+    "template.php": templateContent,
+  });
   return result.ok ? result.stdout : "";
 }
 
@@ -61,6 +59,7 @@ const scenario: Scenario = {
   name: "template-escaping",
   category: "scope-discipline",
   family: "feature-add",
+  requires: ["php"],
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
@@ -129,10 +128,9 @@ const scenario: Scenario = {
       allowedPaths: ["playground/php-wp/template-parts/contact-card.php"],
     });
 
-    const readBeforeEdit =
-      output.toolCalls.some(
-        (c) => c.name === "read" && c.args.includes("contact-card.php")
-      );
+    const readBeforeEdit = output.toolCalls.some(
+      (c) => c.name === "read" && c.args.includes("contact-card.php")
+    );
 
     const noDebugOutput = !/var_dump\s*\(/.test(contactCard) && !/error_log\s*\(/.test(contactCard);
 
@@ -150,9 +148,7 @@ const scenario: Scenario = {
             pass: escapedInOutput && notUnescaped,
             weight: 2,
             detail:
-              escapedInOutput && notUnescaped
-                ? undefined
-                : `rendered: ${rendered.slice(0, 200)}`,
+              escapedInOutput && notUnescaped ? undefined : `rendered: ${rendered.slice(0, 200)}`,
           },
         ],
         scope: [

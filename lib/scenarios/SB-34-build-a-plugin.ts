@@ -5,15 +5,12 @@ import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import {
-  createSkippedEvaluation,
-  onlyChangedFiles,
-} from "./_shared/helpers.js";
+import { createSkippedEvaluation, onlyChangedFiles } from "./_shared/helpers.js";
 import { runPhp } from "./_shared/runners/php.js";
 import { hasTool } from "./_shared/toolchain.js";
 
 const PROMPT =
-  "Create a WordPress plugin at `playground/php-wp/plugins/recent-posts-widget.php`. It should implement a `[recent_posts count=\"N\"]` shortcode that renders a `<ul>` of recent post titles. Requirements: count should be clamped between 1 and 10 (default: read from the `rpw_default_count` option, fallback 5), all output must be escaped, the count parameter must be sanitized with absint, include a valid WordPress plugin header comment.";
+  'Create a WordPress plugin at `playground/php-wp/plugins/recent-posts-widget.php`. It should implement a `[recent_posts count="N"]` shortcode that renders a `<ul>` of recent post titles. Requirements: count should be clamped between 1 and 10 (default: read from the `rpw_default_count` option, fallback 5), all output must be escaped, the count parameter must be sanitized with absint, include a valid WordPress plugin header comment.';
 
 export const meta = {
   id: "SB-34",
@@ -40,11 +37,7 @@ require_once __DIR__ . '/wp-stubs.php';
 ${pluginContent.replace(/^<\?php\s*\n?/, "")}
 echo do_shortcode_tag('recent_posts', ['count' => ${count}]);
 `;
-  const result = await runPhp(
-    "entry.php",
-    { "entry.php": entryPhp },
-    wpStubsPath
-  );
+  const result = await runPhp("entry.php", { "entry.php": entryPhp }, wpStubsPath);
   return result.ok ? result.stdout : "";
 }
 
@@ -53,6 +46,7 @@ const scenario: Scenario = {
   name: "build-a-plugin",
   category: "implementation",
   family: "spec-impl",
+  requires: ["php"],
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
@@ -116,25 +110,23 @@ const scenario: Scenario = {
     const hasUlOutput = /<ul/.test(renderedNormal) && /<li/.test(renderedNormal);
 
     // Check source code for explicit clamping logic (not runtime behavior via stubs)
-    const hasClampLogic =
-      /min\s*\(\s*10/.test(pluginContent) &&
-      /max\s*\(\s*1/.test(pluginContent);
+    const hasClampLogic = /min\s*\(\s*10/.test(pluginContent) && /max\s*\(\s*1/.test(pluginContent);
 
     const usesAbsint = /absint\s*\(/.test(pluginContent);
     const usesEscHtml = /esc_html\s*\(/.test(pluginContent);
     const noRawEcho = !/echo\s+\$_GET|echo\s+\$_POST|echo\s+\$_REQUEST/.test(pluginContent);
     // Shortcode must return, not echo
-    const returnsOutput = /return\s+\$output/.test(pluginContent) || /return\s+ob_get/.test(pluginContent);
+    const returnsOutput =
+      /return\s+\$output/.test(pluginContent) || /return\s+ob_get/.test(pluginContent);
 
     const scope = await onlyChangedFiles({
       playgroundDir: workDir,
       allowedPaths: [PLUGIN_PATH],
     });
 
-    const readBeforeWrite =
-      output.toolCalls.some(
-        (c) => c.name === "read" && (c.args.includes("wp-stubs") || c.args.includes("php-wp"))
-      );
+    const readBeforeWrite = output.toolCalls.some(
+      (c) => c.name === "read" && (c.args.includes("wp-stubs") || c.args.includes("php-wp"))
+    );
 
     const noDebugOutput =
       !/var_dump\s*\(/.test(pluginContent) &&
@@ -198,7 +190,7 @@ const scenario: Scenario = {
         cleanup: [
           {
             name: "no var_dump or error_log left in plugin",
-            pass: noDebugOutput,
+            pass: noDebugOutput && noRawEcho,
             weight: 2,
           },
         ],

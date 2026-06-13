@@ -45,15 +45,11 @@ const scenario: Scenario = {
       /package\.json|bun\.lock/.test(lines[firstCopyIndex] ?? "");
 
     const installBeforeSourceCopy =
-      bunInstallIndex !== -1 &&
-      copyDotDotIndex !== -1 &&
-      bunInstallIndex < copyDotDotIndex;
+      bunInstallIndex !== -1 && copyDotDotIndex !== -1 && bunInstallIndex < copyDotDotIndex;
 
-    const correctLockfile =
-      /bun\.lock(?!b)/.test(content) && !/bun\.lockb/.test(content);
+    const correctLockfile = /bun\.lock(?!b)/.test(content) && !/bun\.lockb/.test(content);
 
-    const noFrozenLockfileHack =
-      !/--no-frozen-lockfile/.test(content);
+    const noFrozenLockfileHack = !/--no-frozen-lockfile/.test(content);
 
     const changeTurn = firstChangeTurn(toolCalls);
     const readBeforeEdit =
@@ -65,10 +61,11 @@ const scenario: Scenario = {
       allowedPaths: [DOCKERFILE_PATH],
     });
 
-    const noLeftoverComments = content
-      .split("\n")
-      .filter((l) => l.trim().startsWith("#") && !/^#\s*(FROM|ARG|ENV|WORKDIR)/.test(l))
-      .length === 0;
+    const noLeftoverComments =
+      content
+        .split("\n")
+        .filter((l) => l.trim().startsWith("#") && !/^#\s*(FROM|ARG|ENV|WORKDIR)/.test(l))
+        .length === 0;
 
     return rubricToEvaluation(
       {
@@ -77,10 +74,9 @@ const scenario: Scenario = {
             name: "manifest COPY comes before bun install",
             pass: firstCopyIsManifest && installBeforeSourceCopy,
             weight: 2,
-            detail:
-              !firstCopyIsManifest
-                ? "first COPY is not a manifest-only copy"
-                : !installBeforeSourceCopy
+            detail: !firstCopyIsManifest
+              ? "first COPY is not a manifest-only copy"
+              : !installBeforeSourceCopy
                 ? "bun install does not come before COPY . ."
                 : undefined,
           },
@@ -88,7 +84,9 @@ const scenario: Scenario = {
             name: "correct lockfile name (bun.lock not bun.lockb)",
             pass: correctLockfile,
             weight: 1,
-            detail: correctLockfile ? undefined : "wrong lockfile: found bun.lockb, expected bun.lock",
+            detail: correctLockfile
+              ? undefined
+              : "wrong lockfile: found bun.lockb, expected bun.lock",
           },
         ],
         scope: [
@@ -114,8 +112,8 @@ const scenario: Scenario = {
               copyDotDotIndex === -1
                 ? "COPY . . missing"
                 : !installBeforeSourceCopy
-                ? "COPY . . before install"
-                : undefined,
+                  ? "COPY . . before install"
+                  : undefined,
           },
         ],
         verification: [

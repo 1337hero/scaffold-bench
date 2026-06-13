@@ -33,7 +33,10 @@ const scenario: Scenario = {
   async evaluate({ playgroundDir, toolCalls }) {
     const queriesPath = join(playgroundDir, "playground/types-api/queries.ts");
     const dbDtsPath = join(playgroundDir, "playground/types-api/types/db.d.ts");
-    const pristineDbDts = await readFile(join(PLAYGROUND_SRC, "types-api/types/db.d.ts"), "utf-8").catch(() => "");
+    const pristineDbDts = await readFile(
+      join(PLAYGROUND_SRC, "types-api/types/db.d.ts"),
+      "utf-8"
+    ).catch(() => "");
 
     const queries = await readOrEmpty(queriesPath);
     const dbDts = await readOrEmpty(dbDtsPath);
@@ -41,8 +44,10 @@ const scenario: Scenario = {
     const dbDtsUnchanged = dbDts === pristineDbDts || dbDts === "";
 
     const hasStatusLabel = /statusLabel/.test(queries);
-    const usesPickOrExtend = /Pick\s*</.test(queries) || /extends\s+OrderRow/.test(queries) || /&\s*\{/.test(queries);
-    const noAny = !/:\s*any\b/.test(queries) && !/as\s+any\b/.test(queries) && !/as\s+unknown\b/.test(queries);
+    const usesPickOrExtend =
+      /Pick\s*</.test(queries) || /extends\s+OrderRow/.test(queries) || /&\s*\{/.test(queries);
+    const noAny =
+      !/:\s*any\b/.test(queries) && !/as\s+any\b/.test(queries) && !/as\s+unknown\b/.test(queries);
     const noCommentedOut = !/^\s*\/\/\s*(TODO|FIXME|XXX|HACK|commented|disabled)/im.test(queries);
 
     const readTurn = firstTurn(toolCalls, "read");
@@ -71,10 +76,18 @@ const scenario: Scenario = {
         ],
         scope: [
           {
+            name: "only queries.ts changed",
+            pass: scope.pass,
+            weight: 1,
+            detail: scope.detail,
+          },
+          {
             name: "db.d.ts untouched (byte-identical to pristine)",
             pass: dbDtsUnchanged,
             weight: 2,
-            detail: dbDtsUnchanged ? "db.d.ts unchanged" : "db.d.ts was modified — auto-generated file must not be edited",
+            detail: dbDtsUnchanged
+              ? "db.d.ts unchanged"
+              : "db.d.ts was modified — auto-generated file must not be edited",
           },
         ],
         pattern: [

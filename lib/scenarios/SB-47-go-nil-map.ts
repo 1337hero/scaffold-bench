@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
@@ -37,6 +36,7 @@ const scenario: Scenario = {
   name: "go-nil-map",
   category: "verify-and-repair",
   family: "bug-fix",
+  requires: ["go"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const handlersPath = join(playgroundDir, HANDLERS_PATH);
@@ -57,7 +57,10 @@ const scenario: Scenario = {
       allowedPaths: [HANDLERS_PATH],
     });
 
-    const usesMake = /var\s+counts\s*=\s*(?:make\s*\(\s*map\[string\]int\s*\)|map\[string\]int\s*\{)/.test(handlers);
+    const usesMake =
+      /var\s+counts\s*=\s*(?:make\s*\(\s*map\[string\]int\s*\)|map\[string\]int\s*\{)/.test(
+        handlers
+      );
     const usesNilCheck = /counts\s*==\s*nil/.test(handlers);
     const patternOk = handlers !== handlersOriginal && usesMake && !usesNilCheck;
 

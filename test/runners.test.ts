@@ -2,10 +2,13 @@ import { describe, it, expect } from "bun:test";
 import { hasTool } from "../lib/scenarios/_shared/toolchain.js";
 import { phpLint } from "../lib/scenarios/_shared/runners/php.js";
 import { bashNoExec, shellcheckFile } from "../lib/scenarios/_shared/runners/shell.js";
-import { goTest } from "../lib/scenarios/_shared/runners/go.js";
-import { cargoCheck } from "../lib/scenarios/_shared/runners/cargo.js";
 import { renderLiquid } from "../lib/scenarios/_shared/runners/liquid.js";
-import { declarationsFor, hasImportant, mediaQueryBlocks, customPropertyScope } from "../lib/scenarios/_shared/runners/css.js";
+import {
+  declarationsFor,
+  hasImportant,
+  mediaQueryBlocks,
+  customPropertyScope,
+} from "../lib/scenarios/_shared/runners/css.js";
 
 describe("runners", () => {
   describe("php", () => {

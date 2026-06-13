@@ -2,14 +2,7 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import {
-  bashCalls,
-  changedPaths,
-  firstChangeTurn,
-  onlyChangedFiles,
-  readOrEmpty,
-  searchBeforeEdit,
-} from "./_shared/helpers.js";
+import { bashCalls, firstChangeTurn, onlyChangedFiles, readOrEmpty } from "./_shared/helpers.js";
 import { cargoCheck } from "./_shared/runners/cargo.js";
 
 const RUST_LIB_DIR = "playground/rust-lib";
@@ -35,6 +28,7 @@ const scenario: Scenario = {
   name: "rust-borrow",
   category: "surgical-edit",
   family: "bug-fix",
+  requires: ["cargo"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const libPath = join(playgroundDir, LIB_PATH);
@@ -43,12 +37,14 @@ const scenario: Scenario = {
     const rustLibDir = join(playgroundDir, RUST_LIB_DIR);
     const checkResult = await cargoCheck(rustLibDir);
 
-    const changed = changedPaths(toolCalls);
-    const onlyLibChanged =
-      changed.length > 0 && changed.every((p) => p === LIB_PATH || p.endsWith("lib.rs"));
+    const scope = await onlyChangedFiles({
+      playgroundDir,
+      allowedPaths: [LIB_PATH],
+    });
 
     const noClone = !/\.clone\s*\(\s*\)/.test(lib);
-    const usesSliceOrRef = /total_length\s*\(\s*(?:words\s*:\s*)?&/.test(lib) ||
+    const usesSliceOrRef =
+      /total_length\s*\(\s*(?:words\s*:\s*)?&/.test(lib) ||
       /fn\s+total_length\s*\(\s*\w+\s*:\s*&/.test(lib);
     const patternOk = noClone && usesSliceOrRef;
 
@@ -72,9 +68,9 @@ const scenario: Scenario = {
         scope: [
           {
             name: "only lib.rs changed",
-            pass: onlyLibChanged,
+            pass: scope.pass,
             weight: 2,
-            detail: `changed: ${changed.join(", ")}`,
+            detail: scope.detail,
           },
         ],
         pattern: [

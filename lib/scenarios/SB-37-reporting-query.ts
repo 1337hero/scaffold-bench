@@ -75,21 +75,20 @@ const scenario: Scenario = {
 
     // Dataset 1 check: client 1 net in 2024-01 = 500 - 50 = 450
     const client1Jan = rows1.find((r) => r.client_id === 1 && r.month === "2024-01");
-    const dataset1Correct = !err1 && client1Jan !== undefined && Math.abs(client1Jan.net_revenue - 450) < 0.01;
+    const dataset1Correct =
+      !err1 && client1Jan !== undefined && Math.abs(client1Jan.net_revenue - 450) < 0.01;
 
     // Dataset 2 check: client 2 should appear in 2024-02 with net -200 (refund-only month)
     const client2Feb = rows2.find((r) => r.client_id === 2 && r.month === "2024-02");
     const dataset2Correct =
       !err2 && client2Feb !== undefined && Math.abs(client2Feb.net_revenue - -200) < 0.01;
 
-    const correctness = dataset1Correct && dataset2Correct;
-
     const usesUnionAll = /UNION\s+ALL/i.test(querySQL);
     const usesLeftJoinSubquery =
-      /LEFT\s+JOIN/i.test(querySQL) &&
-      /SELECT[^)]+FROM\s+(payments|refunds)/i.test(querySQL);
-    const noNaiveGroupBy =
-      !/^SELECT\s+p\.\s*client_id.*FROM\s+payments\s+p\s+GROUP\s+BY/is.test(querySQL);
+      /LEFT\s+JOIN/i.test(querySQL) && /SELECT[^)]+FROM\s+(payments|refunds)/i.test(querySQL);
+    const noNaiveGroupBy = !/^SELECT\s+p\.\s*client_id.*FROM\s+payments\s+p\s+GROUP\s+BY/is.test(
+      querySQL
+    );
     const properPattern = (usesUnionAll || usesLeftJoinSubquery) && noNaiveGroupBy;
 
     const changeTurn = firstChangeTurn(toolCalls);
@@ -98,9 +97,7 @@ const scenario: Scenario = {
       (readTurnsForPath(toolCalls, "playground/sql-reports/schema.sql").some(
         (t) => t < changeTurn
       ) ||
-        readTurnsForPath(toolCalls, "playground/sql-reports/seed.sql").some(
-          (t) => t < changeTurn
-        ));
+        readTurnsForPath(toolCalls, "playground/sql-reports/seed.sql").some((t) => t < changeTurn));
 
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -119,8 +116,9 @@ const scenario: Scenario = {
             detail: !dataset1Correct
               ? (err1 ?? `client 1 jan: got ${client1Jan?.net_revenue}, expected 450`)
               : !dataset2Correct
-              ? (err2 ?? (client2Feb ? `got ${client2Feb.net_revenue}` : "refund-only month row missing"))
-              : undefined,
+                ? (err2 ??
+                  (client2Feb ? `got ${client2Feb.net_revenue}` : "refund-only month row missing"))
+                : undefined,
           },
         ],
         scope: [

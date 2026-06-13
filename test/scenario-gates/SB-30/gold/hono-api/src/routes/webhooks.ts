@@ -13,9 +13,7 @@ webhooksRoutes.post("/webhooks/orders", async (c) => {
   const expectedBuf = Buffer.from(expected);
   const sigBuf = Buffer.from(sig);
 
-  const valid =
-    sigBuf.length === expectedBuf.length &&
-    timingSafeEqual(sigBuf, expectedBuf);
+  const valid = sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf);
 
   if (!valid) {
     return c.json({ error: "Unauthorized" }, 401);
@@ -41,7 +39,9 @@ webhooksRoutes.post("/webhooks/orders", async (c) => {
     )
   `);
 
-  const existing = db.query("SELECT event_id FROM webhook_events WHERE event_id = ?").get(payload.event_id);
+  const existing = db
+    .query("SELECT event_id FROM webhook_events WHERE event_id = ?")
+    .get(payload.event_id);
   if (existing) {
     return c.json({ ok: true, duplicate: true });
   }

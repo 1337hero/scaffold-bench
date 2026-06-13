@@ -11,5 +11,5 @@ export interface OrderRow {
   id: number;
   userId: number;
   total: number;
-  status: 'pending' | 'shipped' | 'cancelled';
+  status: "pending" | "shipped" | "cancelled";
 }

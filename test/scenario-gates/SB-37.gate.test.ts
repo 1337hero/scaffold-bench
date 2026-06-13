@@ -11,12 +11,17 @@ test("SB-37 reporting-query gold/broken gate", async () => {
     goldDir: join(here, "SB-37", "gold"),
     brokenDir: join(here, "SB-37", "broken"),
     goldToolCalls: [
-      { name: "read", args: JSON.stringify({ path: "playground/sql-reports/schema.sql" }), turn: 0 },
+      {
+        name: "read",
+        args: JSON.stringify({ path: "playground/sql-reports/schema.sql" }),
+        turn: 0,
+      },
       { name: "read", args: JSON.stringify({ path: "playground/sql-reports/seed.sql" }), turn: 1 },
-      ...readThenEdit(["playground/sql-reports/queries/monthly-net-revenue.sql"]).map((tc) => ({
-        ...tc,
-        turn: tc.turn + 2,
-      })),
+      ...readThenEdit(["playground/sql-reports/queries/monthly-net-revenue.sql"]).map((tc) =>
+        Object.assign({}, tc, {
+          turn: tc.turn + 2,
+        })
+      ),
     ],
     brokenToolCalls: readThenEdit(["playground/sql-reports/queries/monthly-net-revenue.sql"]),
   });

@@ -2,7 +2,12 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { readOrEmpty, onlyChangedFiles, firstChangeTurn, readTurnsForPath } from "./_shared/helpers.js";
+import {
+  readOrEmpty,
+  onlyChangedFiles,
+  firstChangeTurn,
+  readTurnsForPath,
+} from "./_shared/helpers.js";
 import { declarationsFor, hasImportant } from "./_shared/runners/css.js";
 
 const MAIN_CSS_PATH = "playground/css-ui/styles/main.css";
@@ -60,9 +65,9 @@ const scenario: Scenario = {
       changeTurn !== undefined &&
       readTurnsForPath(toolCalls, MAIN_CSS_PATH).some((t) => t < changeTurn);
 
-    const noCommentedExperiments = !/\/\*[\s\S]*?\*\//.test(css) || !/stacking|z-index|position/i.test(
-      (css.match(/\/\*[\s\S]*?\*\//g) ?? []).join(" ")
-    );
+    const noCommentedExperiments =
+      !/\/\*[\s\S]*?\*\//.test(css) ||
+      !/stacking|z-index|position/i.test((css.match(/\/\*[\s\S]*?\*\//g) ?? []).join(" "));
 
     return rubricToEvaluation(
       {
@@ -71,7 +76,10 @@ const scenario: Scenario = {
             name: "nav or nav-menu has positioned context with z-index > 1 and no !important",
             pass: navFixed && noImportant,
             weight: 2,
-            detail: navFixed && noImportant ? undefined : "nav/nav-menu missing proper stacking fix (or !important used)",
+            detail:
+              navFixed && noImportant
+                ? undefined
+                : "nav/nav-menu missing proper stacking fix (or !important used)",
           },
           {
             name: "hero position:relative z-index:1 preserved",
@@ -93,7 +101,10 @@ const scenario: Scenario = {
             name: "fix is on .nav or .nav-menu without !important",
             pass: navFixed && heroUnchanged && noImportant,
             weight: 2,
-            detail: navFixed && heroUnchanged && noImportant ? undefined : "fix applied to wrong element, hero restructured, or !important used",
+            detail:
+              navFixed && heroUnchanged && noImportant
+                ? undefined
+                : "fix applied to wrong element, hero restructured, or !important used",
           },
         ],
         verification: [

@@ -2,7 +2,12 @@ import { join } from "node:path";
 import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { readOrEmpty, onlyChangedFiles, firstChangeTurn, readTurnsForPath } from "./_shared/helpers.js";
+import {
+  readOrEmpty,
+  onlyChangedFiles,
+  firstChangeTurn,
+  readTurnsForPath,
+} from "./_shared/helpers.js";
 import { declarationsFor, mediaQueryBlocks } from "./_shared/runners/css.js";
 
 const MAIN_CSS_PATH = "playground/css-ui/styles/main.css";
@@ -33,7 +38,8 @@ const scenario: Scenario = {
     const cardGridDecls = declarationsFor(css, ".card-grid");
     const isGrid = cardGridDecls["display"] === "grid";
     const noFlex = cardGridDecls["display"] !== "flex";
-    const usesGridGap = /var\(--grid-gap/.test(cardGridDecls["gap"] ?? "") ||
+    const usesGridGap =
+      /var\(--grid-gap/.test(cardGridDecls["gap"] ?? "") ||
       /var\(--grid-gap/.test(cardGridDecls["grid-gap"] ?? "");
 
     const blocks = mediaQueryBlocks(css);
@@ -44,7 +50,8 @@ const scenario: Scenario = {
     const block1024Content = blocks.find((b) => /1024px/.test(b.query))?.content ?? "";
 
     const has2ColAt640 = /repeat\(\s*2/.test(block640Content) || /1fr\s+1fr/.test(block640Content);
-    const has3ColAt1024 = /repeat\(\s*3/.test(block1024Content) || /1fr\s+1fr\s+1fr/.test(block1024Content);
+    const has3ColAt1024 =
+      /repeat\(\s*3/.test(block1024Content) || /1fr\s+1fr\s+1fr/.test(block1024Content);
 
     const noFloats = !/\.card-grid[\s\S]{0,200}float\s*:/.test(css);
 
@@ -73,9 +80,10 @@ const scenario: Scenario = {
             name: "media queries at 640px and 1024px with correct column counts",
             pass: has640 && has1024 && has2ColAt640 && has3ColAt1024,
             weight: 1,
-            detail: has640 && has1024 && has2ColAt640 && has3ColAt1024
-              ? undefined
-              : `640px:${has640} 2col:${has2ColAt640} 1024px:${has1024} 3col:${has3ColAt1024}`,
+            detail:
+              has640 && has1024 && has2ColAt640 && has3ColAt1024
+                ? undefined
+                : `640px:${has640} 2col:${has2ColAt640} 1024px:${has1024} 3col:${has3ColAt1024}`,
           },
           {
             name: "uses var(--grid-gap, 1.5rem) for gap",

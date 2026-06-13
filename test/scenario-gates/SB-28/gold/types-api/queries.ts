@@ -1,6 +1,6 @@
 import type { OrderRow, UserRow } from "./types/db.js";
 
-export type OrderWithLabel = Pick<OrderRow, 'id' | 'userId' | 'total' | 'status'> & {
+export type OrderWithLabel = Pick<OrderRow, "id" | "userId" | "total" | "status"> & {
   statusLabel: string;
 };
 

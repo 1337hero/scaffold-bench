@@ -8,7 +8,13 @@ import type {
   ToolCall,
 } from "../../scoring.ts";
 
-export type Family = "regression" | "spec-impl" | "regex-style" | "bug-fix" | "feature-add" | "red-herring";
+export type Family =
+  | "regression"
+  | "spec-impl"
+  | "regex-style"
+  | "bug-fix"
+  | "feature-add"
+  | "red-herring";
 
 export type RubricKind = "10pt" | "custom-5pt" | "custom-3pt";
 

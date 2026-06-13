@@ -1,6 +1,6 @@
 import { mkdtemp, rm, writeFile, cp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 
 type RunResult = { ok: boolean; stdout: string; stderr: string };
 

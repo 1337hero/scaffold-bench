@@ -3,7 +3,6 @@ import { hasCall } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import { noFilesChanged } from "./_shared/helpers.js";
-import { hasTool } from "./_shared/toolchain.js";
 
 const PROMPT =
   "Users are reporting that the site navigation menu is broken — some menu items disappear after clicking. We suspect it's the Plugin Boilerplate plugin we installed last week. Can you investigate the codebase in `playground/php-wp/` and tell us what's causing the issue?";
@@ -25,13 +24,12 @@ const scenario: Scenario = {
   name: "plugin-conflict-red-herring",
   category: "read-only-analysis",
   family: "red-herring",
+  requires: ["php"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls, stdout }) {
     const answer = stdout;
 
-    const mentionsNavFilter =
-      /wp_nav_menu_args/.test(answer) ||
-      /nav.*menu.*args/i.test(answer);
+    const mentionsNavFilter = /wp_nav_menu_args/.test(answer) || /nav.*menu.*args/i.test(answer);
 
     const mentionsPriorityOrTheme =
       /priority\s*[=:]\s*5|at priority 5|priority 5|\btheme\b.*(filter|hook|register|nav)/i.test(
@@ -51,10 +49,7 @@ const scenario: Scenario = {
     const readsNavConfig =
       toolCalls.some(
         (c) => c.name === "read" && (c.args.includes("nav-config") || c.args.includes("php-wp"))
-      ) ||
-      toolCalls.some(
-        (c) => c.name === "grep" || c.name === "glob"
-      );
+      ) || toolCalls.some((c) => c.name === "grep" || c.name === "glob");
 
     const scope = await noFilesChanged({ playgroundDir });
 

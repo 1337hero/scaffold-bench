@@ -1,7 +1,7 @@
 {
   "products": [
-    {"id": 1, "title": "Widget A", "available": true, "price": 1999},
-    {"id": 2, "title": "Widget B", "available": false, "price": 2999},
-    {"id": 3, "title": "Widget C", "available": true, "price": 999}
+    { "id": 1, "title": "Widget A", "available": true, "price": 1999 },
+    { "id": 2, "title": "Widget B", "available": false, "price": 2999 },
+    { "id": 3, "title": "Widget C", "available": true, "price": 999 }
   ]
 }

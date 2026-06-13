@@ -7,7 +7,6 @@ import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   bashCalls,
   bashCommand,
-  changedPaths,
   firstChangeTurn,
   onlyChangedFiles,
   readOrEmpty,
@@ -61,8 +60,7 @@ const scenario: Scenario = {
     const migSQL = await readOrEmpty(migPath);
     const { pass: migrationApplied, rows } = applyMigration(sqlDir);
 
-    const allRowsHaveTier =
-      rows.length > 0 && rows.every((r) => r.tier !== null && r.tier !== "");
+    const allRowsHaveTier = rows.length > 0 && rows.every((r) => r.tier !== null && r.tier !== "");
 
     const hasDefault = /DEFAULT\s+['"]?\w+['"]?/i.test(migSQL);
     const hasBackfill = /UPDATE\s+clients\s+SET\s+tier/i.test(migSQL);
@@ -100,9 +98,7 @@ const scenario: Scenario = {
             name: "existing client rows have non-null tier after migration",
             pass: allRowsHaveTier,
             weight: 1,
-            detail: allRowsHaveTier
-              ? undefined
-              : `rows: ${JSON.stringify(rows.slice(0, 3))}`,
+            detail: allRowsHaveTier ? undefined : `rows: ${JSON.stringify(rows.slice(0, 3))}`,
           },
         ],
         scope: [
@@ -127,9 +123,7 @@ const scenario: Scenario = {
             pass: hasMigrationTrace || readBeforeEdit,
             weight: 1,
             detail:
-              hasMigrationTrace || readBeforeEdit
-                ? undefined
-                : "no migration test trace found",
+              hasMigrationTrace || readBeforeEdit ? undefined : "no migration test trace found",
           },
         ],
         cleanup: [

@@ -5,11 +5,7 @@ import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { RuntimeOutput } from "../scoring.ts";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import {
-  PLAYGROUND_SRC,
-  createSkippedEvaluation,
-  onlyChangedFiles,
-} from "./_shared/helpers.js";
+import { createSkippedEvaluation, onlyChangedFiles } from "./_shared/helpers.js";
 import { runPhp } from "./_shared/runners/php.js";
 import { hasTool } from "./_shared/toolchain.js";
 
@@ -58,6 +54,7 @@ const scenario: Scenario = {
   name: "woo-double-discount",
   category: "surgical-edit",
   family: "bug-fix",
+  requires: ["php"],
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
@@ -129,19 +126,15 @@ const scenario: Scenario = {
 
     const scope = await onlyChangedFiles({
       playgroundDir: workDir,
-      allowedPaths: [
-        "playground/php-wp/functions.php",
-        "playground/php-wp/inc/pricing.php",
-      ],
+      allowedPaths: ["playground/php-wp/functions.php", "playground/php-wp/inc/pricing.php"],
     });
 
-    const readBeforeEdit =
-      output.toolCalls.some(
-        (c) => c.name === "read" && (c.args.includes("pricing.php") || c.args.includes("functions.php"))
-      );
+    const readBeforeEdit = output.toolCalls.some(
+      (c) =>
+        c.name === "read" && (c.args.includes("pricing.php") || c.args.includes("functions.php"))
+    );
 
-    const noDebugOutput =
-      !/var_dump\s*\(/.test(combined) && !/error_log\s*\(/.test(combined);
+    const noDebugOutput = !/var_dump\s*\(/.test(combined) && !/error_log\s*\(/.test(combined);
 
     const evaluation = rubricToEvaluation(
       {
@@ -166,7 +159,9 @@ const scenario: Scenario = {
             name: "uses remove_filter or single registration",
             pass: singleRegistration,
             weight: 1,
-            detail: singleRegistration ? undefined : `add_filter cart_total count: ${addFilterCount}`,
+            detail: singleRegistration
+              ? undefined
+              : `add_filter cart_total count: ${addFilterCount}`,
           },
           {
             name: "pricing math (0.9 multiplier) not rewritten",

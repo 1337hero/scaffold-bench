@@ -3,7 +3,6 @@ import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
-  PLAYGROUND_SRC,
   firstTurn,
   firstChangeTurn,
   noConsoleLog,
@@ -35,10 +34,7 @@ const scenario: Scenario = {
     const storePath = join(playgroundDir, "playground/frontend/store.js");
     const store = await readOrEmpty(storePath);
 
-    const testRun = await runBunTest(
-      join(playgroundDir, "playground/frontend"),
-      "store.test.js"
-    );
+    const testRun = await runBunTest(join(playgroundDir, "playground/frontend"), "store.test.js");
 
     const readTurn = firstTurn(toolCalls, "read");
     const changeTurn = firstChangeTurn(toolCalls);

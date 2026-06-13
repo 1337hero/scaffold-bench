@@ -59,16 +59,14 @@ const scenario: Scenario = {
     const schema = parseSchemaBlock(content);
     const schemaValid = schema !== null;
     const settings: Array<Record<string, unknown>> = schemaValid
-      ? ((schema as Record<string, unknown>).settings as Array<Record<string, unknown>>) ?? []
+      ? (((schema as Record<string, unknown>).settings as Array<Record<string, unknown>>) ?? [])
       : [];
 
     const headingSetting = settings.find((s) => s.type === "text" && s.id === "heading");
     const limitSetting = settings.find(
       (s) => (s.type === "range" || s.type === "number") && s.id === "product_limit"
     );
-    const priceSetting = settings.find(
-      (s) => s.type === "checkbox" && s.id === "show_price"
-    );
+    const priceSetting = settings.find((s) => s.type === "checkbox" && s.id === "show_price");
 
     const schemaHasRequired =
       headingSetting !== undefined && limitSetting !== undefined && priceSetting !== undefined;
@@ -98,6 +96,7 @@ const scenario: Scenario = {
     // money filter: prices like $19.99
     const usesMoney = /\|\s*money/.test(content);
     const priceInOutput = /\$\d+\.\d{2}/.test(renderedWithPrice.stdout);
+    const priceHiddenWhenOff = !/\$\d+\.\d{2}/.test(renderedNoPrice.stdout);
 
     const scope = await onlyChangedFiles({
       playgroundDir,
@@ -122,8 +121,8 @@ const scenario: Scenario = {
               schemaValid && schemaHasRequired
                 ? undefined
                 : schemaValid
-                ? `missing settings: heading=${!!headingSetting} limit=${!!limitSetting} price=${!!priceSetting}`
-                : "no valid {% schema %} block found",
+                  ? `missing settings: heading=${!!headingSetting} limit=${!!limitSetting} price=${!!priceSetting}`
+                  : "no valid {% schema %} block found",
           },
           {
             name: "renders products via liquid",
@@ -152,8 +151,8 @@ const scenario: Scenario = {
         ],
         pattern: [
           {
-            name: "money filter used for prices",
-            pass: usesMoney && priceInOutput,
+            name: "money filter used; show_price=false hides prices",
+            pass: usesMoney && priceInOutput && priceHiddenWhenOff,
             weight: 1,
             detail:
               usesMoney && priceInOutput

@@ -40,13 +40,13 @@ const scenario: Scenario = {
       /if:\s*github\.ref\s*==\s*['"]refs\/heads\/main['"]/.test(content);
     const deployUnreachableOnPR = prRemoved || deployJobRestricted;
 
-    const pushStillPresent =
-      /push:/.test(content) && /branches:\s*\[main\]/.test(content);
+    const pushStillPresent = /push:/.test(content) && /branches:\s*\[main\]/.test(content);
 
     const testJobPresent = /^\s{2}test:/m.test(content);
     const buildJobPresent = /^\s{2}build:/m.test(content);
 
-    const noCommentedLines = !/^\s*#/.test(content) ||
+    const noCommentedLines =
+      !/^\s*#/.test(content) ||
       content.split("\n").filter((l) => l.trim().startsWith("#")).length === 0;
 
     const changeTurn = firstChangeTurn(toolCalls);
@@ -59,10 +59,7 @@ const scenario: Scenario = {
       allowedPaths: [WORKFLOW_PATH],
     });
 
-    const fixInRightPlace =
-      prRemoved
-        ? true
-        : deployJobRestricted;
+    const fixInRightPlace = prRemoved ? true : deployJobRestricted;
 
     return rubricToEvaluation(
       {
@@ -93,9 +90,11 @@ const scenario: Scenario = {
             name: "test and build jobs still present",
             pass: testJobPresent && buildJobPresent,
             weight: 1,
-            detail:
-              !testJobPresent ? "test job missing" :
-              !buildJobPresent ? "build job missing" : undefined,
+            detail: !testJobPresent
+              ? "test job missing"
+              : !buildJobPresent
+                ? "build job missing"
+                : undefined,
           },
         ],
         pattern: [
@@ -103,9 +102,7 @@ const scenario: Scenario = {
             name: "fix in trigger or job condition (not a separate workflow)",
             pass: fixInRightPlace,
             weight: 2,
-            detail: fixInRightPlace
-              ? undefined
-              : "fix not detected in expected location",
+            detail: fixInRightPlace ? undefined : "fix not detected in expected location",
           },
         ],
         verification: [

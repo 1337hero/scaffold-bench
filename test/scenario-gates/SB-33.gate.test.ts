@@ -21,25 +21,37 @@ I recommend deactivating the Plugin Boilerplate plugin and testing the navigatio
 `.trim();
 
 describe("SB-33 plugin-conflict-red-herring gate", () => {
-  it.skipIf(!hasTool("php"))("gold ≥ 9, broken ≤ 4", async () => {
-    const goldEval = await evaluateReference({
-      scenario,
-      referenceDir: join(here, "SB-33", "gold"),
-      stdout: GOLD_STDOUT,
-      toolCalls: [
-        { name: "read", args: JSON.stringify({ path: "playground/php-wp/inc/nav-config.php" }), turn: 0 },
-        { name: "read", args: JSON.stringify({ path: "playground/php-wp/functions.php" }), turn: 1 },
-      ],
-    });
+  it.skipIf(!hasTool("php"))(
+    "gold ≥ 9, broken ≤ 4",
+    async () => {
+      const goldEval = await evaluateReference({
+        scenario,
+        referenceDir: join(here, "SB-33", "gold"),
+        stdout: GOLD_STDOUT,
+        toolCalls: [
+          {
+            name: "read",
+            args: JSON.stringify({ path: "playground/php-wp/inc/nav-config.php" }),
+            turn: 0,
+          },
+          {
+            name: "read",
+            args: JSON.stringify({ path: "playground/php-wp/functions.php" }),
+            turn: 1,
+          },
+        ],
+      });
 
-    const brokenEval = await evaluateReference({
-      scenario,
-      referenceDir: join(here, "SB-33", "broken"),
-      stdout: BROKEN_STDOUT,
-      toolCalls: [],
-    });
+      const brokenEval = await evaluateReference({
+        scenario,
+        referenceDir: join(here, "SB-33", "broken"),
+        stdout: BROKEN_STDOUT,
+        toolCalls: [],
+      });
 
-    expect(goldEval.points).toBeGreaterThanOrEqual(9);
-    expect(brokenEval.points).toBeLessThanOrEqual(4);
-  }, 30_000);
+      expect(goldEval.points).toBeGreaterThanOrEqual(9);
+      expect(brokenEval.points).toBeLessThanOrEqual(4);
+    },
+    30_000
+  );
 });
