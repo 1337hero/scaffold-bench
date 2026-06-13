@@ -43,6 +43,9 @@ import SB40 from "./SB-40-deploy-script-exclude.js";
 import SB41 from "./SB-41-liquid-soldout.js";
 import SB42 from "./SB-42-astro-frontmatter-field.js";
 import SB43 from "./SB-43-build-a-section.js";
+import SB44 from "./SB-44-nav-stacking.js";
+import SB45 from "./SB-45-theme-variable-scope.js";
+import SB46 from "./SB-46-responsive-grid.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -88,6 +91,9 @@ export const scenarios: Scenario[] = [
   SB41,
   SB42,
   SB43,
+  SB44,
+  SB45,
+  SB46,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
