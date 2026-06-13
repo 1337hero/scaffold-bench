@@ -37,6 +37,9 @@ import SB34 from "./SB-34-build-a-plugin.js";
 import SB35 from "./SB-35-join-fanout.js";
 import SB36 from "./SB-36-migration-backfill.js";
 import SB37 from "./SB-37-reporting-query.js";
+import SB38 from "./SB-38-actions-trigger.js";
+import SB39 from "./SB-39-dockerfile-layers.js";
+import SB40 from "./SB-40-deploy-script-exclude.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -76,6 +79,9 @@ export const scenarios: Scenario[] = [
   SB35,
   SB36,
   SB37,
+  SB38,
+  SB39,
+  SB40,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
