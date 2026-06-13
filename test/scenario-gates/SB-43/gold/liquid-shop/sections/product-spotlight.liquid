@@ -1,0 +1,25 @@
+<div class="product-spotlight">
+  {% if section.settings.heading != blank %}
+    <h2>{{ section.settings.heading }}</h2>
+  {% endif %}
+  {% assign limit = section.settings.product_limit %}
+  {% for product in products limit: limit %}
+    <div class="spotlight-card">
+      <h3>{{ product.title }}</h3>
+      {% if section.settings.show_price %}
+        <p class="price">{{ product.price | money }}</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+{% schema %}
+{
+  "name": "Product Spotlight",
+  "settings": [
+    {"type": "text", "id": "heading", "label": "Heading", "default": "Featured Products"},
+    {"type": "range", "id": "product_limit", "label": "Product limit", "min": 1, "max": 8, "step": 1, "default": 4},
+    {"type": "checkbox", "id": "show_price", "label": "Show price", "default": true}
+  ]
+}
+{% endschema %}

@@ -40,6 +40,9 @@ import SB37 from "./SB-37-reporting-query.js";
 import SB38 from "./SB-38-actions-trigger.js";
 import SB39 from "./SB-39-dockerfile-layers.js";
 import SB40 from "./SB-40-deploy-script-exclude.js";
+import SB41 from "./SB-41-liquid-soldout.js";
+import SB42 from "./SB-42-astro-frontmatter-field.js";
+import SB43 from "./SB-43-build-a-section.js";
 
 export const scenarios: Scenario[] = [
   SB01,
@@ -82,6 +85,9 @@ export const scenarios: Scenario[] = [
   SB38,
   SB39,
   SB40,
+  SB41,
+  SB42,
+  SB43,
 ];
 
 if (scenarios.length === 0 || scenarios.some((s) => !s.id)) {
