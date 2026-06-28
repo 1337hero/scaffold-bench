@@ -109,6 +109,7 @@ export async function callModel(
             model: config.model,
             messages: conversation,
             ...SAMPLING,
+            chat_template_kwargs: { enable_thinking: false },
             stream: true,
             stream_options: { include_usage: true },
             ...(tools?.length ? { tools } : {}),
