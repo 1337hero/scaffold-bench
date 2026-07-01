@@ -7,6 +7,7 @@ import { reportRouter } from "./routes/report.ts";
 import { runsRouter } from "./routes/runs.ts";
 import { scenariosRouter } from "./routes/scenarios.ts";
 import { oneshotRouter } from "./routes/oneshot.ts";
+import pkg from "../package.json" with { type: "json" };
 
 const DIST = new URL("../web-ui/dist", import.meta.url).pathname;
 
@@ -17,7 +18,7 @@ export function createApp() {
     app.use("*", cors({ origin: ["http://localhost:5173", "http://127.0.0.1:5173"] }));
   }
 
-  app.get("/api/health", (c) => c.json({ ok: true, version: "1.0.0" }));
+  app.get("/api/health", (c) => c.json({ ok: true, version: pkg.version }));
 
   app.route("/api/runs", runsRouter);
   app.route("/api/scenarios", scenariosRouter);
