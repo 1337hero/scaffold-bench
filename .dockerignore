@@ -48,6 +48,7 @@ docs
 specs
 *.md
 !README.md
+!system-prompt.md
 
 # One-off scripts
 run-all-models-bench.sh

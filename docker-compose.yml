@@ -23,6 +23,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - bench-data:/app/data
+      - bench-results:/app/results
     healthcheck:
       test:
         [
@@ -38,3 +39,4 @@ services:
 
 volumes:
   bench-data:
+  bench-results:
