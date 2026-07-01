@@ -58,6 +58,19 @@ Works with anything OpenAI-compatible: Ollama (`11434`), llama.cpp / llama-swap 
 
 ---
 
+## Run with Docker
+
+```bash
+cp .env.sample .env       # set your model endpoints
+docker compose up --build
+```
+
+Web UI at **http://localhost:4317**. The image bundles the full scenario toolchain (bash, node, go, php, shellcheck, cargo) so no scenarios skip. The SQLite DB and JSON reports persist in named volumes (`bench-data`, `bench-results`) across container restarts.
+
+By default `SCAFFOLD_LOCAL_ENDPOINT` points at `http://host.docker.internal:8082` so the container can reach a model server running on the host (llama-swap, Ollama, LM Studio). Override any `.env` var to point elsewhere.
+
+---
+
 ## Tool-call harness
 
 Tool calling isn't standardized across models, so the harness is a first-class axis. Each run picks one of three contracts:
