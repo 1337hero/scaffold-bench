@@ -32,11 +32,14 @@ function parseArg(name: string, fallback: number): number {
 
 async function readModelIdsFromStdin(): Promise<string[]> {
   const input = await Bun.stdin.text();
-  return [...new Set(input
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
-  )];
+  return [
+    ...new Set(
+      input
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && !line.startsWith("#"))
+    ),
+  ];
 }
 
 const RUNS_FLAG = parseArg("runs", 0);
@@ -134,7 +137,9 @@ const requestedModelIds = await readModelIdsFromStdin();
 
 if (requestedModelIds.length === 0) {
   console.error(`${RED}No model IDs received on stdin.${RESET}`);
-  console.error(`Example: printf '%s\\n' Qwen3.6 nemotron | bun scripts/run-piped-models.ts --runs=3`);
+  console.error(
+    `Example: printf '%s\\n' Qwen3.6 nemotron | bun scripts/run-piped-models.ts --runs=3`
+  );
   process.exit(1);
 }
 
