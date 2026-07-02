@@ -24,7 +24,7 @@ scenario / Adding a runtime).
 
 ## Last shipped
 
-2026-07-02 — PR #4 merged: overnight runner (`scripts/run-to-target.ts`) — batch-fills
+2026-07-02 — PR #11 merged (squash, `99f4de5`): overnight runner (`scripts/run-to-target.ts`) — batch-fills
 models to N runs, skips excluded models, manages server lifecycle, prints summary.
 
 2026-07-01 — PR #3 merged (squash, `7d17006`): Docker support. Rebased stale branch onto
