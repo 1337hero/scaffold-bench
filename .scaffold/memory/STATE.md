@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: 2026-07-01_
+_Last updated: 2026-07-02_
 
 ## What this project is
 
@@ -17,11 +17,15 @@ scenario / Adding a runtime).
 
 ## Next up
 
+- Kick off overnight `run-to-target.ts` for local models (AntAngelMed excluded).
 - README has no Docker section — add "Run with Docker" (`docker compose up --build`) via a
   small PR.
 - `/api/health` reports hardcoded `version: "1.0.0"` while package.json is 3.0.0.
 
 ## Last shipped
+
+2026-07-02 — PR #4 merged: overnight runner (`scripts/run-to-target.ts`) — batch-fills
+models to N runs, skips excluded models, manages server lifecycle, prints summary.
 
 2026-07-01 — PR #3 merged (squash, `7d17006`): Docker support. Rebased stale branch onto
 main, fixed build breaks (`system-prompt.md` excluded by `.dockerignore`, missing
@@ -44,6 +48,7 @@ pass / 1 skip / 0 fail.
 
 | File / command            | Why it matters                                |
 | ------------------------- | --------------------------------------------- |
+| `scripts/run-to-target.ts` | overnight runner — fills models to N runs, skips excluded |
 | `scripts/web.ts`          | production entry (server + built UI)          |
 | `bun run dev`             | dev server, frontend + backend HMR            |
 | `bun test test/`          | full suite incl. scenario gates               |
