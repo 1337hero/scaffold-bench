@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: 2026-07-01_
+_Last updated: 2026-07-01 (closeout)_
 
 ## What this project is
 
@@ -11,12 +11,13 @@ SQLite (WAL) storage, JSON reports in `results/`.
 
 ## Current focus
 
-Open-source readiness. Small review completed 2026-07-01: tests green (184 pass), README
-accurate, MIT license, no secrets committed, contributor path documented (Adding a
-scenario / Adding a runtime).
+Overnight batch runs to bring local models to 5 runs each. New `scripts/run-to-target.ts`
+automates this: queries DB deficits, skips excluded models, runs the needed runs, shuts
+ down cleanly.
 
 ## Next up
 
+- Kick off overnight `run-to-target.ts` for local models (AntAngelMed excluded).
 - README has no Docker section — add "Run with Docker" (`docker compose up --build`) via a
   small PR.
 - `/api/health` reports hardcoded `version: "1.0.0"` while package.json is 3.0.0.
@@ -44,6 +45,7 @@ pass / 1 skip / 0 fail.
 
 | File / command            | Why it matters                                |
 | ------------------------- | --------------------------------------------- |
+| `scripts/run-to-target.ts` | overnight runner — fills models to N runs, skips excluded |
 | `scripts/web.ts`          | production entry (server + built UI)          |
 | `bun run dev`             | dev server, frontend + backend HMR            |
 | `bun test test/`          | full suite incl. scenario gates               |
