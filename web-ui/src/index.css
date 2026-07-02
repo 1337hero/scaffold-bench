@@ -59,11 +59,49 @@
   --color-terminal-text: oklch(84% 0.026 272);
 }
 
+/* Dark mode — Catppuccin Mocha. Toggled by .dark on <html>;
+ * same token names, so component classes work in both modes. */
+.dark {
+  color-scheme: dark;
+  --color-bg-main: #1e1e2e;
+  --color-gold: #cba6f7;
+  --color-gold-dim: #b4befe;
+  --color-gold-bg: rgba(203, 166, 247, 0.1);
+  --color-green-main: #a6e3a1;
+  --color-red-main: #f38ba8;
+  --color-blue-main: #89b4fa;
+  --color-text-dim: #7f849c;
+  --color-text-main: #cdd6f4;
+  --color-border-main: #313244;
+  --color-content-bg: #181825;
+  --color-prompt-bg: #313244;
+  --color-terminal: #11111b;
+  --color-terminal-2: #0c0c14;
+}
+
 body {
   background:
     radial-gradient(circle at 18% 8%, oklch(89% 0.035 285 / 0.6), transparent 30rem),
     linear-gradient(135deg, oklch(96% 0.01 285), oklch(92% 0.014 285));
   background-attachment: fixed;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 18% 8%, oklch(32% 0.045 285 / 0.5), transparent 30rem),
+    linear-gradient(135deg, #1e1e2e, #14141f);
+  background-attachment: fixed;
+}
+
+.dark body::before {
+  background-image:
+    linear-gradient(oklch(90% 0.02 285 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(90% 0.02 285 / 0.035) 1px, transparent 1px);
+}
+
+.dark ::selection {
+  background: #45475a;
+  color: #cdd6f4;
 }
 
 /* Faded hairline grid, dissolving downward */

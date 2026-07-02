@@ -1,4 +1,5 @@
 import { Terminal, Play, Square, History, Sparkles } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import type { RunStatus } from "@/types";
 import { formatElapsed } from "@/lib/format";
 
@@ -121,6 +122,7 @@ export function Header({
             <History size={12} />
             History
           </a>
+          <ThemeToggle />
         </div>
       </div>
     </header>

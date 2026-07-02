@@ -2,6 +2,7 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, History, Terminal } from "lucide-react";
 import { Panel } from "@/components/Panel";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { api } from "@/api/client";
 import { OneshotControls } from "@/components/OneshotControls";
 import { OneshotQueue } from "@/components/OneshotQueue";
@@ -145,6 +146,7 @@ export function OneShotLab({ onDashboard, onHistory, dashboardHref, historyHref 
             <History size={12} />
             History
           </a>
+          <ThemeToggle />
         </div>
       </header>
 

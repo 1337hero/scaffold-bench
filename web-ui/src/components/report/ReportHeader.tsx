@@ -1,10 +1,11 @@
 import type { ReportSource, ReportSourceFilter } from "@/types";
 import { ArrowLeft, RefreshCw, Terminal } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function SourceBadge({ source }: { source: ReportSource }) {
   const color =
     source === "api"
-      ? "text-purple-700 border-purple-500/40 bg-purple-500/10"
+      ? "text-gold border-gold/40 bg-gold/10"
       : "text-green-main border-green-main/40 bg-green-main/10";
   return (
     <span
@@ -80,6 +81,7 @@ export function ReportHeader({
             <RefreshCw size={12} className={isRefreshing ? "animate-spin" : ""} />
             Refresh
           </button>
+          <ThemeToggle />
         </div>
       </div>
     </header>
