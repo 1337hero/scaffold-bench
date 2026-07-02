@@ -89,7 +89,14 @@ export default function App() {
         </>
       );
     case "oneshot":
-      return <OneShotLab />;
+      return (
+        <OneShotLab
+          onDashboard={goDashboard}
+          onHistory={goHistory}
+          dashboardHref={dashboardHref}
+          historyHref={historyHref}
+        />
+      );
     case "history":
     default:
       return <RunHistory onBack={goDashboard} backHref={dashboardHref} />;

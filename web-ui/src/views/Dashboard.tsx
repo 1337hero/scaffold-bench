@@ -116,7 +116,7 @@ export function Dashboard({
   const runComplete = isRunComplete(state.status);
 
   return (
-    <div className="min-h-screen bg-bg-main text-text-main font-mono p-4 md:px-6 md:pt-6 pb-0 flex flex-col h-screen overflow-hidden text-[13px] leading-[1.4] selection:bg-gold-dim selection:text-bg-main">
+    <div className="min-h-screen text-text-main font-mono p-4 md:px-6 md:pt-6 pb-0 flex flex-col h-screen overflow-hidden text-[13px] leading-[1.4] selection:bg-gold-dim selection:text-bg-main">
       <Header
         totalPoints={displayed.total}
         maxPoints={displayed.max}

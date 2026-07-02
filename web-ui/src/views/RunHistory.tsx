@@ -82,9 +82,8 @@ export function RunHistory({ onBack, backHref }: RunHistoryProps) {
   };
 
   return (
-    <div className="min-h-screen bg-bg-main text-text-main font-mono p-4 md:px-6 md:pt-6 text-[13px] leading-[1.4]">
+    <div className="min-h-screen text-text-main font-mono p-4 md:px-6 md:pt-6 text-[13px] leading-[1.4]">
       <ReportHeader
-        totals={report?.totals ?? { models: 0, runs: 0, local: 0, api: 0, scenarioRuns: 0 }}
         snapshot={report?.snapshot ?? "—"}
         isRefreshing={isRefreshing}
         onBack={onBack}

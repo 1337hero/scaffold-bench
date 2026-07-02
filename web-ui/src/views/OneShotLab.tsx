@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, History, Terminal } from "lucide-react";
 import { Panel } from "@/components/Panel";
 import { api } from "@/api/client";
 import { OneshotControls } from "@/components/OneshotControls";
@@ -9,7 +10,14 @@ import { OneshotMetadata } from "@/components/OneshotMetadata";
 import { INITIAL_ONESHOT_STATE, oneshotStateReducer } from "@/hooks/oneshot-state-reducer";
 import { useOneshotSSE } from "@/hooks/useOneshotSSE";
 
-export function OneShotLab() {
+interface OneShotLabProps {
+  onDashboard: () => void;
+  onHistory: () => void;
+  dashboardHref: string;
+  historyHref: string;
+}
+
+export function OneShotLab({ onDashboard, onHistory, dashboardHref, historyHref }: OneShotLabProps) {
   const [state, dispatch] = useReducer(oneshotStateReducer, INITIAL_ONESHOT_STATE);
   const [focusedPromptId, setFocusedPromptId] = useState<string | null>(null);
   const [selectedModelId, setSelectedModelId] = useState("");
@@ -98,13 +106,47 @@ export function OneShotLab() {
   const focusedPrompt = focusedId ? state.prompts[focusedId] : undefined;
 
   return (
-    <div className="min-h-screen bg-bg-main text-text-main font-mono p-4 md:px-6 md:pt-6 pb-6 text-[13px] leading-[1.4]">
-      <div className="mb-4 pb-4 border-b border-border-main flex items-center justify-between">
-        <h1 className="text-lg font-bold tracking-tight text-text-main leading-none">
-          ONE-SHOT <span className="text-gold">LAB</span>
-        </h1>
-        <span className="text-xs text-text-dim uppercase">Unscored · vibe check</span>
-      </div>
+    <div className="min-h-screen text-text-main font-mono p-4 md:px-6 md:pt-6 pb-6 text-[13px] leading-[1.4]">
+      <header className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4 pb-4 border-b border-border-main flex-none">
+        <div className="flex gap-3 items-center">
+          <div className="text-gold">
+            <Terminal size={28} strokeWidth={1.5} />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-bold tracking-tight text-text-main leading-none">
+              ONE-SHOT <span className="text-gold">LAB</span>
+            </h1>
+            <p className="text-[10px] text-text-dim uppercase tracking-widest mt-0.5">
+              UNSCORED · VIBE CHECK [v{__APP_VERSION__}]
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <a
+            href={dashboardHref}
+            onClick={(e) => {
+              e.preventDefault();
+              onDashboard();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider border border-border-main bg-content-bg text-text-dim hover:border-blue-main hover:text-blue-main transition-colors rounded-sm"
+          >
+            <ArrowLeft size={12} />
+            Dashboard
+          </a>
+          <a
+            href={historyHref}
+            onClick={(e) => {
+              e.preventDefault();
+              onHistory();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] uppercase tracking-wider border border-border-main bg-content-bg text-text-dim hover:border-gold hover:text-gold transition-colors rounded-sm"
+          >
+            <History size={12} />
+            History
+          </a>
+        </div>
+      </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         <div className="md:col-span-4 space-y-4">

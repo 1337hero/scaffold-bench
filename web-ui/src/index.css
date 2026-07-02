@@ -32,20 +32,58 @@
   font-display: swap;
 }
 
+/* Paper & ink theme — howcode-style light lavender paper with
+ * Catppuccin Latte accents. Token names kept from the dark theme
+ * so component classes are untouched:
+ *   gold      → latte mauve (primary accent)
+ *   bg-main   → paper surface
+ *   content-bg→ elevated white
+ *   prompt-bg → lavender hover wash
+ * The log terminal stays dark via the terminal-* tokens. */
 @theme {
   --font-mono: "Commit Mono", "JetBrains Mono", monospace;
-  --color-bg-main: #0c0d10;
-  --color-gold: #ffbf00;
-  --color-gold-dim: #997300;
-  --color-gold-bg: rgba(255, 191, 0, 0.05);
-  --color-green-main: #2ecc71;
-  --color-red-main: #e74c3c;
-  --color-blue-main: #3498db;
-  --color-text-dim: #626772;
-  --color-text-main: #e2e4e9;
-  --color-border-main: #242831;
-  --color-content-bg: #090a0d;
-  --color-prompt-bg: #16191e;
+  --color-bg-main: oklch(97.5% 0.008 285);
+  --color-gold: #8839ef;
+  --color-gold-dim: #7287fd;
+  --color-gold-bg: rgba(136, 57, 239, 0.08);
+  --color-green-main: #40a02b;
+  --color-red-main: #d20f39;
+  --color-blue-main: #1e66f5;
+  --color-text-dim: oklch(56% 0.024 272);
+  --color-text-main: oklch(24% 0.026 272);
+  --color-border-main: oklch(87% 0.018 280);
+  --color-content-bg: oklch(99.2% 0.005 285);
+  --color-prompt-bg: oklch(93% 0.016 285);
+  --color-terminal: oklch(17% 0.018 272);
+  --color-terminal-2: oklch(13% 0.018 272);
+  --color-terminal-text: oklch(84% 0.026 272);
+}
+
+body {
+  background:
+    radial-gradient(circle at 18% 8%, oklch(89% 0.035 285 / 0.6), transparent 30rem),
+    linear-gradient(135deg, oklch(96% 0.01 285), oklch(92% 0.014 285));
+  background-attachment: fixed;
+}
+
+/* Faded hairline grid, dissolving downward */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(oklch(22% 0.026 272 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(22% 0.026 272 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(#000, transparent 70%);
+  -webkit-mask-image: linear-gradient(#000, transparent 70%);
+}
+
+::selection {
+  background: oklch(86% 0.04 285);
+  color: oklch(20% 0.026 272);
 }
 
 * {
@@ -57,7 +95,7 @@
   width: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.06);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--color-border-main);

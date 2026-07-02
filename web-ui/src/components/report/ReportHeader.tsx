@@ -1,10 +1,10 @@
-import type { ReportData, ReportSource, ReportSourceFilter } from "@/types";
+import type { ReportSource, ReportSourceFilter } from "@/types";
 import { ArrowLeft, RefreshCw, Terminal } from "lucide-react";
 
 export function SourceBadge({ source }: { source: ReportSource }) {
   const color =
     source === "api"
-      ? "text-purple-300 border-purple-400/40 bg-purple-400/10"
+      ? "text-purple-700 border-purple-500/40 bg-purple-500/10"
       : "text-green-main border-green-main/40 bg-green-main/10";
   return (
     <span
@@ -16,7 +16,6 @@ export function SourceBadge({ source }: { source: ReportSource }) {
 }
 
 export function ReportHeader({
-  totals,
   snapshot,
   isRefreshing,
   onBack,
@@ -25,7 +24,6 @@ export function ReportHeader({
   onSourceFilterChange,
   backHref,
 }: {
-  totals: ReportData["totals"];
   snapshot: string;
   isRefreshing: boolean;
   onBack: () => void;
@@ -35,7 +33,7 @@ export function ReportHeader({
   backHref: string;
 }) {
   return (
-    <header className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4 pb-4 border-b border-border-main bg-bg-main">
+    <header className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4 pb-4 border-b border-border-main flex-none">
       <div className="flex gap-3 items-center">
         <div className="text-gold">
           <Terminal size={28} strokeWidth={1.5} />
@@ -46,10 +44,6 @@ export function ReportHeader({
           </h1>
           <p className="text-[10px] text-text-dim uppercase tracking-widest mt-0.5">
             LLM COMPARISON REPORTS [v{__APP_VERSION__}]
-          </p>
-          <p className="text-[10px] text-text-dim mt-1">
-            {totals.models} models · {totals.runs} runs · {totals.local} local · {totals.api} api ·{" "}
-            {totals.scenarioRuns} scenario runs
           </p>
         </div>
       </div>
@@ -62,12 +56,7 @@ export function ReportHeader({
 
         <div className="w-px h-8 bg-border-main" />
 
-        <div className="flex items-center gap-3">
-          <span className="px-2 py-0.5 text-[10px] uppercase border border-blue-main text-blue-main rounded-sm">
-            REPORTS
-          </span>
-          <SourceFilter value={sourceFilter} onChange={onSourceFilterChange} />
-        </div>
+        <SourceFilter value={sourceFilter} onChange={onSourceFilterChange} />
 
         <div className="w-px h-8 bg-border-main" />
 
@@ -112,10 +101,10 @@ export function SourceFilter({
           key={filter}
           type="button"
           onClick={() => onChange(filter)}
-          className={`border rounded-sm px-3 py-1 text-[10px] uppercase tracking-widest ${
+          className={`px-3 py-1.5 text-[11px] uppercase tracking-wider border rounded-sm transition-colors ${
             value === filter
-              ? "border-gold text-text-main bg-border-main"
-              : "border-border-main text-text-dim hover:text-text-main"
+              ? "border-gold text-gold bg-gold-bg"
+              : "border-border-main bg-content-bg text-text-dim hover:border-gold hover:text-gold"
           }`}
         >
           {filter}
