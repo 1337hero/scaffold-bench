@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: 2026-07-01 (closeout)_
+_Last updated: 2026-07-02_
 
 ## What this project is
 
@@ -11,9 +11,9 @@ SQLite (WAL) storage, JSON reports in `results/`.
 
 ## Current focus
 
-Overnight batch runs to bring local models to 5 runs each. New `scripts/run-to-target.ts`
-automates this: queries DB deficits, skips excluded models, runs the needed runs, shuts
- down cleanly.
+Open-source readiness. Small review completed 2026-07-01: tests green (184 pass), README
+accurate, MIT license, no secrets committed, contributor path documented (Adding a
+scenario / Adding a runtime).
 
 ## Next up
 
@@ -23,6 +23,9 @@ automates this: queries DB deficits, skips excluded models, runs the needed runs
 - `/api/health` reports hardcoded `version: "1.0.0"` while package.json is 3.0.0.
 
 ## Last shipped
+
+2026-07-02 — PR #4 merged: overnight runner (`scripts/run-to-target.ts`) — batch-fills
+models to N runs, skips excluded models, manages server lifecycle, prints summary.
 
 2026-07-01 — PR #3 merged (squash, `7d17006`): Docker support. Rebased stale branch onto
 main, fixed build breaks (`system-prompt.md` excluded by `.dockerignore`, missing
