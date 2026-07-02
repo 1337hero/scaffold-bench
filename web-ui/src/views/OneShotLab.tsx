@@ -18,7 +18,12 @@ interface OneShotLabProps {
   historyHref: string;
 }
 
-export function OneShotLab({ onDashboard, onHistory, dashboardHref, historyHref }: OneShotLabProps) {
+export function OneShotLab({
+  onDashboard,
+  onHistory,
+  dashboardHref,
+  historyHref,
+}: OneShotLabProps) {
   const [state, dispatch] = useReducer(oneshotStateReducer, INITIAL_ONESHOT_STATE);
   const [focusedPromptId, setFocusedPromptId] = useState<string | null>(null);
   const [selectedModelId, setSelectedModelId] = useState("");

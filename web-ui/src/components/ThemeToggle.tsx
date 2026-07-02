@@ -10,9 +10,7 @@ if (typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_KEY) ===
 }
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains("dark")
-  );
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
 
   const toggle = () => {
     const next = !isDark;

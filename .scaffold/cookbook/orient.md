@@ -5,7 +5,7 @@ don't dump. Run this **once** when the session starts — not per task (you don'
 one-line fix; you oriented at boot).
 
 1. **Read `.scaffold/memory/STATE.md` in full** — current focus, `Next up`, what's in flight, `Current
-   branch/PR`, `Last verified`, known issues, and the `Key files / commands` block.
+branch/PR`, `Last verified`, known issues, and the `Key files / commands` block.
 2. **Note the build/test/deploy commands** (STATE's `Key files / commands`, or
    `.scaffold/rails/standards.md` → Stack notes). This is the single highest-value thing you assemble —
    without it, every session rediscovers test/lint/dev/CI names and app-boot behavior. Hold them.
