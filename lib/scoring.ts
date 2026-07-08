@@ -3,6 +3,7 @@ import type { ToolResult } from "./schemas/tool-result.js";
 import { Evaluation } from "./schemas/evaluation.js";
 import { PARTIAL_THRESHOLD, PASS_THRESHOLD } from "./scenarios/_shared/rubric.ts";
 import type { ScenarioEvaluation, RubricBreakdown } from "./schemas/evaluation.js";
+import type { WorkspaceArchive } from "./artifacts.ts";
 export { Evaluation };
 export type {
   ScenarioEvaluation,
@@ -74,6 +75,7 @@ export interface ScenarioResult {
   runtime: string;
   evaluation: ScenarioEvaluation;
   output: RuntimeOutput;
+  archive?: WorkspaceArchive;
 }
 
 // ── Helpers ──────────────────────────────────────────────────

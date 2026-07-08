@@ -23,6 +23,12 @@ export type ReportModelAggregate = {
   source: ReportSource;
   runs: number;
   scorePct: number;
+  solveAttempts: number;
+  solveCount: number;
+  solveRatePct: number;
+  solveCiLowPct: number;
+  solveCiHighPct: number;
+  disciplinePct: number;
   pointsAvg: number;
   maxAvg: number;
   totalWallSeconds: number;
@@ -79,7 +85,73 @@ type ScenarioRow = {
   tool_call_count: number | null;
   model_metrics_json: string | null;
   error_kind: string | null;
+  rubric_kind: string;
+  correctness: number | null;
+  scope: number | null;
+  pattern: number | null;
+  verification: number | null;
+  cleanup: number | null;
 };
+
+export type SolveDimRow = {
+  correctness: number;
+  scope: number | null;
+  pattern: number | null;
+  verification: number | null;
+  cleanup: number | null;
+};
+
+export type SolveStats = {
+  solveAttempts: number;
+  solveCount: number;
+  solveRatePct: number;
+  solveCiLowPct: number;
+  solveCiHighPct: number;
+  disciplinePct: number;
+};
+
+export function wilsonInterval(
+  successes: number,
+  total: number,
+  z = 1.96
+): { low: number; high: number } {
+  if (total <= 0) return { low: 0, high: 0 };
+  const p = successes / total;
+  const z2 = z * z;
+  const center = (p + z2 / (2 * total)) / (1 + z2 / total);
+  const halfwidth =
+    (z * Math.sqrt(p * (1 - p) / total + z2 / (4 * total * total))) / (1 + z2 / total);
+  return {
+    low: Math.max(0, center - halfwidth) * 100,
+    high: Math.min(1, center + halfwidth) * 100,
+  };
+}
+
+export function computeSolveStats(rows: SolveDimRow[]): SolveStats {
+  const solveAttempts = rows.length;
+  const solveCount = rows.filter((row) => row.correctness === 3).length;
+  const { low, high } = wilsonInterval(solveCount, solveAttempts);
+
+  let disciplineSum = 0;
+  let disciplineCount = 0;
+  for (const row of rows) {
+    if (row.scope === null && row.pattern === null && row.verification === null && row.cleanup === null) {
+      continue;
+    }
+    const dims = (row.scope ?? 0) + (row.pattern ?? 0) + (row.verification ?? 0) + (row.cleanup ?? 0);
+    disciplineSum += (100 * dims) / 7;
+    disciplineCount += 1;
+  }
+
+  return {
+    solveAttempts,
+    solveCount,
+    solveRatePct: solveAttempts > 0 ? (100 * solveCount) / solveAttempts : 0,
+    solveCiLowPct: low,
+    solveCiHighPct: high,
+    disciplinePct: disciplineCount > 0 ? disciplineSum / disciplineCount : 0,
+  };
+}
 
 type MetricsShape = {
   requestCount?: number;
@@ -119,6 +191,7 @@ type ModelAccumulator = {
   categories: Record<string, CategoryAggregate>;
   scenarioIds: Set<string>;
   latestFinishedAt: number;
+  solveRows: SolveDimRow[];
 };
 
 export function buildReportData(): ReportData {
@@ -137,7 +210,7 @@ export function buildReportData(): ReportData {
 
   const scenarios = db
     .query<ScenarioRow, []>(
-      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json, sr.error_kind
+      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json, sr.error_kind, sr.rubric_kind, sr.correctness, sr.scope, sr.pattern, sr.verification, sr.cleanup
        FROM scenario_runs sr
        JOIN runs r ON r.id = sr.run_id
        WHERE r.status = 'done'`
@@ -175,6 +248,21 @@ export function buildReportData(): ReportData {
       acc.exemptScenarios += 1;
     }
 
+    if (
+      scenario.rubric_kind === "10pt" &&
+      scenario.correctness !== null &&
+      scenario.error_kind !== "infra" &&
+      scenario.error_kind !== "aborted"
+    ) {
+      acc.solveRows.push({
+        correctness: scenario.correctness,
+        scope: scenario.scope,
+        pattern: scenario.pattern,
+        verification: scenario.verification,
+        cleanup: scenario.cleanup,
+      });
+    }
+
     if (typeof scenario.first_token_ms === "number") {
       acc.firstTokenSumMs += scenario.first_token_ms;
       acc.firstTokenCount += 1;
@@ -194,7 +282,7 @@ export function buildReportData(): ReportData {
 
   const models = [...accByModel.entries()]
     .map(([model, acc]) => finalizeModel(model, acc))
-    .toSorted((a, b) => b.scorePct - a.scorePct);
+    .toSorted((a, b) => b.solveRatePct - a.solveRatePct || b.scorePct - a.scorePct);
 
   const scored = models.filter((model) => model.avgScenarioSeconds > 0);
   const bestAligned = scored.toSorted(
@@ -253,6 +341,7 @@ function createAccumulator(): ModelAccumulator {
     categories: {},
     scenarioIds: new Set<string>(),
     latestFinishedAt: 0,
+    solveRows: [],
   };
 }
 
@@ -305,12 +394,19 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
   const completion = completionTps(acc);
   const prompt = promptTps(acc);
   const runCount = Math.max(1, acc.runIds.size);
+  const solve = computeSolveStats(acc.solveRows);
 
   return {
     model,
     source: model.includes("/") ? "api" : "local",
     runs: acc.runIds.size,
     scorePct: acc.maxPoints > 0 ? (acc.totalPoints / acc.maxPoints) * 100 : 0,
+    solveAttempts: solve.solveAttempts,
+    solveCount: solve.solveCount,
+    solveRatePct: solve.solveRatePct,
+    solveCiLowPct: solve.solveCiLowPct,
+    solveCiHighPct: solve.solveCiHighPct,
+    disciplinePct: solve.disciplinePct,
     pointsAvg: acc.totalPoints / runCount,
     maxAvg: acc.maxPoints / runCount,
     totalWallSeconds: acc.totalWallMs / 1000 / runCount,

@@ -2,8 +2,8 @@ import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { RuntimeOutput } from "../scoring.ts";
-import type { Scenario } from "./_shared/types.js";
+import type { RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
+import type { Scenario, ScenarioEvaluateInput } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import { createSkippedEvaluation, onlyChangedFiles } from "./_shared/helpers.js";
 import { runPhp } from "./_shared/runners/php.js";
@@ -39,6 +39,112 @@ echo do_shortcode_tag('recent_posts', ['count' => ${count}]);
 `;
   const result = await runPhp("entry.php", { "entry.php": entryPhp }, wpStubsPath);
   return result.ok ? result.stdout : "";
+}
+
+async function evaluateSB34(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation> {
+  const { playgroundDir, toolCalls } = input;
+  const wpStubsPath = join(playgroundDir, "playground/php-wp/wp-stubs.php");
+  const pluginFile = join(playgroundDir, PLUGIN_PATH);
+  const pluginContent = await readFile(pluginFile, "utf-8").catch(() => "");
+
+  const hasPluginHeader = /Plugin Name\s*:/i.test(pluginContent);
+
+  const renderedNormal = await invokeShortcode(pluginContent, wpStubsPath, 5);
+
+  const hasUlOutput = /<ul/.test(renderedNormal) && /<li/.test(renderedNormal);
+
+  // Check source code for explicit clamping logic (not runtime behavior via stubs)
+  const hasClampLogic = /min\s*\(\s*10/.test(pluginContent) && /max\s*\(\s*1/.test(pluginContent);
+
+  const usesAbsint = /absint\s*\(/.test(pluginContent);
+  const usesEscHtml = /esc_html\s*\(/.test(pluginContent);
+  const noRawEcho = !/echo\s+\$_GET|echo\s+\$_POST|echo\s+\$_REQUEST/.test(pluginContent);
+  // Shortcode must return, not echo
+  const returnsOutput =
+    /return\s+\$output/.test(pluginContent) || /return\s+ob_get/.test(pluginContent);
+
+  const scope = await onlyChangedFiles({
+    playgroundDir,
+    allowedPaths: [PLUGIN_PATH],
+  });
+
+  const readBeforeWrite = toolCalls.some(
+    (c) => c.name === "read" && (c.args.includes("wp-stubs") || c.args.includes("php-wp"))
+  );
+
+  const noDebugOutput =
+    !/var_dump\s*\(/.test(pluginContent) &&
+    !/error_log\s*\(/.test(pluginContent) &&
+    !/\becho\s+\$output\b/.test(pluginContent);
+
+  return rubricToEvaluation(
+    {
+      correctness: [
+        {
+          name: "renders <ul> with <li> items",
+          pass: hasUlOutput,
+          weight: 1,
+          detail: hasUlOutput ? undefined : `rendered: ${renderedNormal.slice(0, 300)}`,
+        },
+        {
+          name: "source clamps count between 1 and 10 (min/max)",
+          pass: hasClampLogic,
+          weight: 1,
+          detail: hasClampLogic ? undefined : "no min(10,...) or max(1,...) found in source",
+        },
+        {
+          name: "valid WordPress plugin header present",
+          pass: hasPluginHeader,
+          weight: 1,
+          detail: hasPluginHeader ? undefined : "no 'Plugin Name:' header comment found",
+        },
+      ],
+      scope: [
+        {
+          name: "only plugins/recent-posts-widget.php created",
+          pass: scope.pass,
+          weight: 2,
+          detail: scope.detail,
+        },
+      ],
+      pattern: [
+        {
+          name: "uses absint() on count input",
+          pass: usesAbsint,
+          weight: 1,
+          detail: usesAbsint ? undefined : "absint() not used",
+        },
+        {
+          name: "uses esc_html() and shortcode returns (not echoes) output",
+          pass: usesEscHtml && returnsOutput,
+          weight: 1,
+          detail:
+            usesEscHtml && returnsOutput
+              ? undefined
+              : `esc_html=${usesEscHtml} returnsOutput=${returnsOutput}`,
+        },
+      ],
+      verification: [
+        {
+          name: "read wp-stubs or php-wp directory before writing",
+          pass: readBeforeWrite,
+          weight: 1,
+        },
+      ],
+      cleanup: [
+        {
+          name: "no var_dump or error_log left in plugin",
+          pass: noDebugOutput && noRawEcho,
+          weight: 2,
+        },
+      ],
+    },
+    {
+      pass: "Plugin implements shortcode with correct clamping, escaping, and plugin header.",
+      partial: "Plugin partially implemented but some rubric checks failed.",
+      fail: "Plugin not created or has XSS/missing plugin header.",
+    }
+  );
 }
 
 const scenario: Scenario = {
@@ -99,111 +205,21 @@ const scenario: Scenario = {
       };
     }
 
-    const wpStubsPath = join(workDir, "playground/php-wp/wp-stubs.php");
-    const pluginFile = join(workDir, PLUGIN_PATH);
-    const pluginContent = await readFile(pluginFile, "utf-8").catch(() => "");
-
-    const hasPluginHeader = /Plugin Name\s*:/i.test(pluginContent);
-
-    const renderedNormal = await invokeShortcode(pluginContent, wpStubsPath, 5);
-
-    const hasUlOutput = /<ul/.test(renderedNormal) && /<li/.test(renderedNormal);
-
-    // Check source code for explicit clamping logic (not runtime behavior via stubs)
-    const hasClampLogic = /min\s*\(\s*10/.test(pluginContent) && /max\s*\(\s*1/.test(pluginContent);
-
-    const usesAbsint = /absint\s*\(/.test(pluginContent);
-    const usesEscHtml = /esc_html\s*\(/.test(pluginContent);
-    const noRawEcho = !/echo\s+\$_GET|echo\s+\$_POST|echo\s+\$_REQUEST/.test(pluginContent);
-    // Shortcode must return, not echo
-    const returnsOutput =
-      /return\s+\$output/.test(pluginContent) || /return\s+ob_get/.test(pluginContent);
-
-    const scope = await onlyChangedFiles({
+    const evaluation = await evaluateSB34({
+      stdout: output.stdout,
       playgroundDir: workDir,
-      allowedPaths: [PLUGIN_PATH],
+      toolCalls: output.toolCalls,
+      wallTimeMs: output.wallTimeMs,
+      firstTokenMs: output.firstTokenMs,
+      turnWallTimes: output.turnWallTimes,
+      turnFirstTokenMs: output.turnFirstTokenMs,
+      modelMetrics: output.modelMetrics,
+      scenarioMetrics: output.scenarioMetrics,
     });
-
-    const readBeforeWrite = output.toolCalls.some(
-      (c) => c.name === "read" && (c.args.includes("wp-stubs") || c.args.includes("php-wp"))
-    );
-
-    const noDebugOutput =
-      !/var_dump\s*\(/.test(pluginContent) &&
-      !/error_log\s*\(/.test(pluginContent) &&
-      !/\becho\s+\$output\b/.test(pluginContent);
-
-    const evaluation = rubricToEvaluation(
-      {
-        correctness: [
-          {
-            name: "renders <ul> with <li> items",
-            pass: hasUlOutput,
-            weight: 1,
-            detail: hasUlOutput ? undefined : `rendered: ${renderedNormal.slice(0, 300)}`,
-          },
-          {
-            name: "source clamps count between 1 and 10 (min/max)",
-            pass: hasClampLogic,
-            weight: 1,
-            detail: hasClampLogic ? undefined : "no min(10,...) or max(1,...) found in source",
-          },
-          {
-            name: "valid WordPress plugin header present",
-            pass: hasPluginHeader,
-            weight: 1,
-            detail: hasPluginHeader ? undefined : "no 'Plugin Name:' header comment found",
-          },
-        ],
-        scope: [
-          {
-            name: "only plugins/recent-posts-widget.php created",
-            pass: scope.pass,
-            weight: 2,
-            detail: scope.detail,
-          },
-        ],
-        pattern: [
-          {
-            name: "uses absint() on count input",
-            pass: usesAbsint,
-            weight: 1,
-            detail: usesAbsint ? undefined : "absint() not used",
-          },
-          {
-            name: "uses esc_html() and shortcode returns (not echoes) output",
-            pass: usesEscHtml && returnsOutput,
-            weight: 1,
-            detail:
-              usesEscHtml && returnsOutput
-                ? undefined
-                : `esc_html=${usesEscHtml} returnsOutput=${returnsOutput}`,
-          },
-        ],
-        verification: [
-          {
-            name: "read wp-stubs or php-wp directory before writing",
-            pass: readBeforeWrite,
-            weight: 1,
-          },
-        ],
-        cleanup: [
-          {
-            name: "no var_dump or error_log left in plugin",
-            pass: noDebugOutput && noRawEcho,
-            weight: 2,
-          },
-        ],
-      },
-      {
-        pass: "Plugin implements shortcode with correct clamping, escaping, and plugin header.",
-        partial: "Plugin partially implemented but some rubric checks failed.",
-        fail: "Plugin not created or has XSS/missing plugin header.",
-      }
-    );
 
     return { output, evaluation };
   },
+  evaluate: evaluateSB34,
 };
 
 export default scenario;

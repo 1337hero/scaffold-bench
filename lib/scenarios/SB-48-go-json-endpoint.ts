@@ -3,7 +3,6 @@ import type { ScenarioId } from "../schemas/brands.js";
 import type { Scenario } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
-  PLAYGROUND_SRC,
   firstChangeTurn,
   onlyChangedFiles,
   readOrEmpty,
@@ -14,6 +13,7 @@ import { goTest } from "./_shared/runners/go.js";
 const GO_API_DIR = "playground/go-api";
 const ITEMS_PATH = "playground/go-api/items.go";
 const ITEMS_TEST_PATH = "playground/go-api/items_test.go";
+const HANDLERS_PATH = "playground/go-api/handlers.go";
 
 const FIXED_HANDLERS = `package main
 
@@ -49,7 +49,7 @@ export const meta = {
   prompt: PROMPT,
 } as const;
 
-const ITEMS_TEST_CONTENT = `package main
+export const ITEMS_TEST_CONTENT = `package main
 
 import (
 \t"encoding/json"
@@ -104,6 +104,10 @@ const scenario: Scenario = {
   family: "feature-add",
   requires: ["go"],
   prompt: PROMPT,
+  async buildPrompt({ playgroundDir }) {
+    await Bun.write(join(playgroundDir, ITEMS_TEST_PATH), ITEMS_TEST_CONTENT);
+    return PROMPT;
+  },
   async evaluate({ playgroundDir, toolCalls }) {
     const goApiDir = join(playgroundDir, GO_API_DIR);
 
@@ -114,15 +118,12 @@ const scenario: Scenario = {
 
     const itemsSrc = await readOrEmpty(join(playgroundDir, ITEMS_PATH));
     const itemsTestSrc = await readOrEmpty(join(playgroundDir, ITEMS_TEST_PATH));
-    const itemsTestOriginal = await readOrEmpty(join(PLAYGROUND_SRC, "go-api/items_test.go")).catch(
-      () => ""
-    );
 
     const changeTurn = firstChangeTurn(toolCalls);
 
     const scope = await onlyChangedFiles({
       playgroundDir,
-      allowedPaths: [ITEMS_PATH, "playground/go-api/items.go"],
+      allowedPaths: [ITEMS_PATH, HANDLERS_PATH, ITEMS_TEST_PATH],
     });
 
     const usesStdlibOnly = !/^\s*"[^"]+\.[^"]+\//.test(itemsSrc);
@@ -149,7 +150,7 @@ const scenario: Scenario = {
         scope: [
           {
             name: "only handler file(s) changed; items_test.go untouched",
-            pass: scope.pass && itemsTestSrc === itemsTestOriginal,
+            pass: scope.pass && itemsTestSrc === ITEMS_TEST_CONTENT,
             weight: 2,
             detail: scope.detail,
           },

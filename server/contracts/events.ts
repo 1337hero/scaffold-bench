@@ -77,6 +77,7 @@ export type PersistedEvent =
         verification: number;
         cleanup: number;
       } | null;
+      artifactPath?: string | null;
     })
   | (EventBase & {
       type: "assistant";

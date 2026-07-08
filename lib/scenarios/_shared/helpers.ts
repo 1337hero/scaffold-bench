@@ -261,9 +261,27 @@ export function numberLines(source: string): string {
     .join("\n");
 }
 
-async function* walkFiles(dir: string, root: string): AsyncGenerator<string> {
+const IGNORED_DIRS = new Set(["node_modules", "target", "dist", "vendor", "__pycache__"]);
+const IGNORED_FILENAMES = new Set([
+  ".DS_Store",
+  "Cargo.lock",
+  "bun.lock",
+  "bun.lockb",
+  "package-lock.json",
+  "go.sum",
+  "tsconfig.tsbuildinfo",
+]);
+const IGNORED_EXTENSIONS = [".o", ".pyc"];
+
+function isIgnoredFile(name: string): boolean {
+  return IGNORED_FILENAMES.has(name) || IGNORED_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+export async function* walkFiles(dir: string, root: string): AsyncGenerator<string> {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) continue;
+    if (entry.isFile() && isIgnoredFile(entry.name)) continue;
     const full = join(dir, entry.name);
     const rel = relative(root, full);
     if (entry.isDirectory()) {

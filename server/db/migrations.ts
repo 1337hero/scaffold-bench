@@ -92,6 +92,10 @@ export function runMigrations(): void {
       name: "006_relax_family_check",
       sql: readFileSync(join(import.meta.dir, "migrations", "006_relax_family_check.sql"), "utf8"),
     },
+    {
+      name: "007_artifacts",
+      sql: readFileSync(join(import.meta.dir, "migrations", "007_artifacts.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {

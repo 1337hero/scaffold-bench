@@ -156,8 +156,8 @@ describe("SB-15: Cursor pagination for items", () => {
       expect(overlap).toBe(false);
     });
 
-    test("cursor=9999 returns empty list with null nextCursor", async () => {
-      const res = await fetchItems({ cursor: 9999, limit: 20 });
+    test("cursor at start of id range returns empty list with null nextCursor", async () => {
+      const res = await fetchItems({ cursor: 1, limit: 20 });
       const json = await res.json<{
         items: Array<{ id: number }>;
         nextCursor: string | null;

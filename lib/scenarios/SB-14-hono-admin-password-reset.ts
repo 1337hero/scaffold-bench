@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { RuntimeOutput } from "../scoring.ts";
-import type { Scenario } from "./_shared/types.js";
+import type { RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
+import type { Scenario, ScenarioEvaluateInput } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
@@ -28,6 +28,94 @@ export const meta = {
   prompt: PROMPT,
 } as const;
 
+async function evaluateSB14(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation> {
+  const { playgroundDir, toolCalls } = input;
+  const fixtureDir = join(playgroundDir, "playground/hono-api");
+
+  const testRun = await runBunTest(fixtureDir, "tests/sb-14-password-resets.test.ts");
+  const testsPass = testRun.pass;
+
+  const BASE = fixtureDir;
+  const ORIG = join(PLAYGROUND_SRC, "hono-api");
+  const schema = await readOrEmpty(join(BASE, "schema.sql"));
+  const origSchema = await readFile(join(ORIG, "schema.sql"), "utf-8").catch(() => "");
+  const index = await readOrEmpty(join(BASE, "src/index.ts"));
+  const origIndex = await readFile(join(ORIG, "src/index.ts"), "utf-8").catch(() => "");
+  const resetRoute = await readOrEmpty(join(BASE, "src/routes/password-resets.ts"));
+  const readSpec = toolCalls.some(
+    (c) => c.name === "read" && c.args.includes("admin-password-reset.md")
+  );
+
+  // Strict filesystem scope check (replaces per-file string comparisons)
+  const scope = await onlyChangedFiles({
+    playgroundDir,
+    allowedPaths: [
+      "playground/hono-api/src/routes/password-resets.ts",
+      "playground/hono-api/src/index.ts",
+      "playground/hono-api/schema.sql",
+    ],
+  });
+
+  return rubricToEvaluation(
+    {
+      correctness: [
+        {
+          name: "bun tests pass",
+          pass: testsPass,
+          weight: 3,
+          detail: testsPass ? undefined : testRun.stdout + "\n" + testRun.stderr,
+        },
+      ],
+      scope: [
+        {
+          name: "only expected files changed",
+          pass: scope.pass,
+          weight: 2,
+          detail: scope.detail,
+        },
+      ],
+      pattern: [
+        {
+          name: "uses AppError from lib/errors",
+          pass: /AppError/.test(resetRoute) && /from\s+["'][^"']*errors["']/.test(resetRoute),
+          weight: 0.75,
+        },
+        {
+          name: "index.ts mounts both routers",
+          pass:
+            index !== origIndex &&
+            /adminPasswordResetsRoutes/.test(index) &&
+            /passwordResetsRoutes/.test(index),
+          weight: 0.75,
+        },
+        {
+          name: "schema adds password_resets table with used_at and expires_at",
+          pass:
+            schema !== origSchema &&
+            /CREATE\s+TABLE[^;]*password_resets/i.test(schema) &&
+            /used_at/i.test(schema) &&
+            /expires_at/i.test(schema),
+          weight: 0.5,
+        },
+      ],
+      verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
+      cleanup: [
+        { name: "no console.log added", pass: noConsoleLog(resetRoute), weight: 1 },
+        {
+          name: "no commented-out code",
+          pass: !/^\s*\/\/.*(TODO|FIXME|XXX)/m.test(resetRoute),
+          weight: 1,
+        },
+      ],
+    },
+    {
+      pass: "All tests pass with correct file layout, patterns, and session invalidation.",
+      partial: "Some tests fail, or implementation pieces missing.",
+      fail: "Did not produce a workable implementation.",
+    }
+  );
+}
+
 const scenario: Scenario = {
   id: "SB-14" as ScenarioId,
   name: "hono-admin-password-reset",
@@ -36,7 +124,6 @@ const scenario: Scenario = {
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
-    const fixtureDir = join(workDir, "playground/hono-api");
 
     if (!bunAvailable()) {
       const output: RuntimeOutput = {
@@ -86,91 +173,21 @@ const scenario: Scenario = {
       };
     }
 
-    const testRun = await runBunTest(fixtureDir, "tests/sb-14-password-resets.test.ts");
-    const testsPass = testRun.pass;
-
-    const BASE = fixtureDir;
-    const ORIG = join(PLAYGROUND_SRC, "hono-api");
-    const schema = await readOrEmpty(join(BASE, "schema.sql"));
-    const origSchema = await readFile(join(ORIG, "schema.sql"), "utf-8").catch(() => "");
-    const index = await readOrEmpty(join(BASE, "src/index.ts"));
-    const origIndex = await readFile(join(ORIG, "src/index.ts"), "utf-8").catch(() => "");
-    const resetRoute = await readOrEmpty(join(BASE, "src/routes/password-resets.ts"));
-    const readSpec = output.toolCalls.some(
-      (c) => c.name === "read" && c.args.includes("admin-password-reset.md")
-    );
-
-    // Strict filesystem scope check (replaces per-file string comparisons)
-    const scope = await onlyChangedFiles({
+    const evaluation = await evaluateSB14({
+      stdout: output.stdout,
       playgroundDir: workDir,
-      allowedPaths: [
-        "playground/hono-api/src/routes/password-resets.ts",
-        "playground/hono-api/src/index.ts",
-        "playground/hono-api/schema.sql",
-      ],
+      toolCalls: output.toolCalls,
+      wallTimeMs: output.wallTimeMs,
+      firstTokenMs: output.firstTokenMs,
+      turnWallTimes: output.turnWallTimes,
+      turnFirstTokenMs: output.turnFirstTokenMs,
+      modelMetrics: output.modelMetrics,
+      scenarioMetrics: output.scenarioMetrics,
     });
-
-    const evaluation = rubricToEvaluation(
-      {
-        correctness: [
-          {
-            name: "bun tests pass",
-            pass: testsPass,
-            weight: 3,
-            detail: testsPass ? undefined : testRun.stdout + "\n" + testRun.stderr,
-          },
-        ],
-        scope: [
-          {
-            name: "only expected files changed",
-            pass: scope.pass,
-            weight: 2,
-            detail: scope.detail,
-          },
-        ],
-        pattern: [
-          {
-            name: "uses AppError from lib/errors",
-            pass: /AppError/.test(resetRoute) && /from\s+["'][^"']*errors["']/.test(resetRoute),
-            weight: 0.75,
-          },
-          {
-            name: "index.ts mounts both routers",
-            pass:
-              index !== origIndex &&
-              /adminPasswordResetsRoutes/.test(index) &&
-              /passwordResetsRoutes/.test(index),
-            weight: 0.75,
-          },
-          {
-            name: "schema adds password_resets table with used_at and expires_at",
-            pass:
-              schema !== origSchema &&
-              /CREATE\s+TABLE[^;]*password_resets/i.test(schema) &&
-              /used_at/i.test(schema) &&
-              /expires_at/i.test(schema),
-            weight: 0.5,
-          },
-        ],
-        verification: [{ name: "read the spec file", pass: readSpec, weight: 1 }],
-        cleanup: [
-          { name: "no console.log added", pass: noConsoleLog(resetRoute), weight: 1 },
-          {
-            name: "no commented-out code",
-            pass: !/^\s*\/\/.*(TODO|FIXME|XXX)/m.test(resetRoute),
-            weight: 1,
-          },
-        ],
-      },
-      {
-        pass: "All tests pass with correct file layout, patterns, and session invalidation.",
-        partial: "Some tests fail, or implementation pieces missing.",
-        fail: "Did not produce a workable implementation.",
-      }
-    );
 
     return { output, evaluation };
   },
+  evaluate: evaluateSB14,
 };
 
 export default scenario;

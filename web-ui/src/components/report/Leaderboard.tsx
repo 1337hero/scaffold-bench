@@ -6,7 +6,7 @@ import { SectionTitle } from "./SectionTitle";
 import { SourceBadge } from "./ReportHeader";
 
 type SortKey =
-  | "score"
+  | "solve"
   | "ptsPerRun"
   | "genTps"
   | "promptTps"
@@ -16,13 +16,12 @@ type SortKey =
   | "tools"
   | "requests"
   | "timeouts"
-  | "exempt"
   | "runs";
 
 type SortDir = "asc" | "desc";
 
 const COLUMNS: Record<SortKey, { label: string; align: string }> = {
-  score: { label: "Score", align: "text-right" },
+  solve: { label: "Score", align: "text-right" },
   ptsPerRun: { label: "Pts/run", align: "text-right" },
   genTps: { label: "Gen TPS", align: "text-right" },
   promptTps: { label: "Prompt TPS", align: "text-right" },
@@ -32,7 +31,6 @@ const COLUMNS: Record<SortKey, { label: string; align: string }> = {
   tools: { label: "Tools", align: "text-right" },
   requests: { label: "Requests", align: "text-right" },
   timeouts: { label: "T/O", align: "text-right" },
-  exempt: { label: "Exempt", align: "text-right" },
   runs: { label: "Runs", align: "text-right" },
 };
 
@@ -41,8 +39,8 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
     v === null || v === undefined ? [true, 0] : [false, v];
 
   switch (key) {
-    case "score": {
-      return a.scorePct - b.scorePct;
+    case "solve": {
+      return a.solveRatePct - b.solveRatePct;
     }
     case "ptsPerRun": {
       return a.pointsAvg - b.pointsAvg;
@@ -86,9 +84,6 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
     case "timeouts": {
       return a.timeouts - b.timeouts;
     }
-    case "exempt": {
-      return a.exemptScenarios - b.exemptScenarios;
-    }
     case "runs": {
       return a.runs - b.runs;
     }
@@ -96,7 +91,7 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
 }
 
 export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
-  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortKey, setSortKey] = useState<SortKey>("solve");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const handleSort = (key: SortKey) => {
@@ -142,7 +137,7 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-left py-2 px-2">#</th>
               <th className="text-left py-2 px-2">Model</th>
               <th className="text-left py-2 px-2">Src</th>
-              {sortableTh("score")}
+              {sortableTh("solve")}
               {sortableTh("ptsPerRun")}
               {sortableTh("genTps")}
               {sortableTh("promptTps")}
@@ -152,7 +147,6 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               {sortableTh("tools")}
               {sortableTh("requests")}
               {sortableTh("timeouts")}
-              {sortableTh("exempt")}
               {sortableTh("runs")}
             </tr>
           </thead>
@@ -166,8 +160,13 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                 <td className="py-2 px-2">
                   <SourceBadge source={model.source} />
                 </td>
-                <td className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.scorePct)}`}>
-                  {model.scorePct.toFixed(1)}%
+                <td
+                  className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.solveRatePct)}`}
+                >
+                  {model.solveRatePct.toFixed(1)}%
+                  <span className="ml-1 font-normal text-[10px] text-text-dim">
+                    ±{((model.solveCiHighPct - model.solveCiLowPct) / 2).toFixed(1)}
+                  </span>
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {model.pointsAvg.toFixed(1)} / {model.maxAvg.toFixed(0)}
@@ -193,11 +192,6 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                   className={`py-2 px-2 text-right ${model.timeouts > 0 ? "text-red-main font-bold" : "text-text-dim"}`}
                 >
                   {model.timeouts}
-                </td>
-                <td
-                  className={`py-2 px-2 text-right ${model.exemptScenarios > 0 ? "text-gold font-bold" : "text-text-dim"}`}
-                >
-                  {model.exemptScenarios}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">{model.runs}</td>
               </tr>

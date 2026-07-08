@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { RuntimeOutput } from "../scoring.ts";
-import type { Scenario } from "./_shared/types.js";
+import type { RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
+import type { Scenario, ScenarioEvaluateInput } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   PLAYGROUND_SRC,
@@ -37,6 +37,81 @@ export const meta = {
   prompt: SB29_PROMPT,
 } as const;
 
+const CONFIG = {
+  fixtureDir: "playground/sb29-axios-ssrf",
+  sourcePath: "playground/sb29-axios-ssrf/isAbsoluteURL.mjs",
+  testCommand: ["node", "isAbsoluteURL.test.mjs"] as string[],
+  preflightCommand: ["node", "--version"] as string[],
+};
+
+async function evaluateSB21(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation> {
+  const { playgroundDir } = input;
+  const fixtureDir = join(playgroundDir, CONFIG.fixtureDir);
+  const sourceFile = join(playgroundDir, CONFIG.sourcePath);
+
+  const testRun = Bun.spawnSync(CONFIG.testCommand, {
+    cwd: fixtureDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const testsPass = testRun.exitCode === 0;
+  const scope = await onlyChangedFiles({
+    playgroundDir,
+    allowedPaths: [CONFIG.sourcePath],
+  });
+  const sourceAfter = await readFile(sourceFile, "utf-8").catch(() => "");
+  const sourceBefore = await readFile(
+    join(PLAYGROUND_SRC, "sb29-axios-ssrf/isAbsoluteURL.mjs"),
+    "utf-8"
+  ).catch(() => "");
+
+  const fnMatch = /function\s+isAbsoluteURL\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/.exec(sourceAfter);
+  const fnBody = fnMatch?.[1] ?? "";
+  const stillHasOptionalScheme = /\)\?\s*\\?\/\s*\\?\//.test(fnBody);
+  const canonicalFix = fnMatch !== null && !stillHasOptionalScheme;
+
+  return rubricToEvaluation(
+    {
+      correctness: [
+        { name: `${CONFIG.testCommand.join(" ")} passes`, pass: testsPass, weight: 2 },
+        { name: "optional-scheme group removed from regex", pass: canonicalFix, weight: 1 },
+      ],
+      scope: [
+        {
+          name: `only ${CONFIG.sourcePath.split("/").pop()} changed`,
+          pass: scope.pass,
+          weight: 2,
+          detail: scope.detail,
+        },
+      ],
+      pattern: [
+        { name: "fix is in the isAbsoluteURL function", pass: fnMatch !== null, weight: 1 },
+        {
+          name: "protocol-relative test case is handled by helper",
+          pass: /\/\/example\.com|\/\/evil\.com|protocol-relative/.test(sourceAfter),
+          weight: 1,
+        },
+      ],
+      verification: [
+        { name: "tests ran", pass: testsPass || testRun.exitCode !== null, weight: 1 },
+      ],
+      cleanup: [
+        {
+          name: "no added comments",
+          pass: noAddedComments(sourceAfter, sourceBefore),
+          weight: 1,
+        },
+        { name: "no console.log added", pass: noConsoleLog(sourceAfter), weight: 1 },
+      ],
+    },
+    {
+      pass: "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.",
+      partial: "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).",
+      fail: "Tests still fail after fix.",
+    }
+  );
+}
+
 const scenario: Scenario = {
   id: "SB-21" as ScenarioId,
   name: "axios-ssrf-protocol-relative",
@@ -45,30 +120,21 @@ const scenario: Scenario = {
   prompt: meta.prompt,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
-    const config = {
-      fixtureDir: "playground/sb29-axios-ssrf",
-      sourcePath: "playground/sb29-axios-ssrf/isAbsoluteURL.mjs",
-      testCommand: ["node", "isAbsoluteURL.test.mjs"] as string[],
-      preflightCommand: ["node", "--version"] as string[],
-    };
 
-    const fixtureDir = join(workDir, config.fixtureDir);
-    const sourceFile = join(workDir, config.sourcePath);
-
-    if (config.preflightCommand) {
-      const preflight = Bun.spawnSync(config.preflightCommand, { stdout: "pipe", stderr: "pipe" });
+    if (CONFIG.preflightCommand) {
+      const preflight = Bun.spawnSync(CONFIG.preflightCommand, { stdout: "pipe", stderr: "pipe" });
       if (preflight.exitCode !== 0) {
         const output: RuntimeOutput = {
           stdout: "",
           toolCalls: [],
           wallTimeMs: 0 as Ms,
-          scenarioMetrics: { skipped: true, reason: `${config.preflightCommand[0]}-not-on-path` },
+          scenarioMetrics: { skipped: true, reason: `${CONFIG.preflightCommand[0]}-not-on-path` },
         };
         return {
           output,
           evaluation: createSkippedEvaluation(
-            `${config.preflightCommand[0]} on PATH`,
-            `SKIPPED: ${config.preflightCommand[0]} not found on PATH`
+            `${CONFIG.preflightCommand[0]} on PATH`,
+            `SKIPPED: ${CONFIG.preflightCommand[0]} not found on PATH`
           ),
         };
       }
@@ -109,71 +175,21 @@ const scenario: Scenario = {
       };
     }
 
-    const testRun = Bun.spawnSync(config.testCommand, {
-      cwd: fixtureDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const testsPass = testRun.exitCode === 0;
-    const scope = await onlyChangedFiles({
+    const evaluation = await evaluateSB21({
+      stdout: output.stdout,
       playgroundDir: workDir,
-      allowedPaths: [config.sourcePath],
+      toolCalls: output.toolCalls,
+      wallTimeMs: output.wallTimeMs,
+      firstTokenMs: output.firstTokenMs,
+      turnWallTimes: output.turnWallTimes,
+      turnFirstTokenMs: output.turnFirstTokenMs,
+      modelMetrics: output.modelMetrics,
+      scenarioMetrics: output.scenarioMetrics,
     });
-    const sourceAfter = await readFile(sourceFile, "utf-8").catch(() => "");
-    const sourceBefore = await readFile(
-      join(PLAYGROUND_SRC, "sb29-axios-ssrf/isAbsoluteURL.mjs"),
-      "utf-8"
-    ).catch(() => "");
-
-    const fnMatch = /function\s+isAbsoluteURL\s*\([^)]*\)\s*\{([\s\S]*?)\n\}/.exec(sourceAfter);
-    const fnBody = fnMatch?.[1] ?? "";
-    const stillHasOptionalScheme = /\)\?\s*\\?\/\s*\\?\//.test(fnBody);
-    const canonicalFix = fnMatch !== null && !stillHasOptionalScheme;
-
-    // Use rubric for evaluation
-    const evaluation = rubricToEvaluation(
-      {
-        correctness: [
-          { name: `${config.testCommand.join(" ")} passes`, pass: testsPass, weight: 2 },
-          { name: "optional-scheme group removed from regex", pass: canonicalFix, weight: 1 },
-        ],
-        scope: [
-          {
-            name: `only ${config.sourcePath.split("/").pop()} changed`,
-            pass: scope.pass,
-            weight: 2,
-            detail: scope.detail,
-          },
-        ],
-        pattern: [
-          { name: "fix is in the isAbsoluteURL function", pass: fnMatch !== null, weight: 1 },
-          {
-            name: "protocol-relative test case is handled by helper",
-            pass: /\/\/example\.com|\/\/evil\.com|protocol-relative/.test(sourceAfter),
-            weight: 1,
-          },
-        ],
-        verification: [
-          { name: "tests ran", pass: testsPass || testRun.exitCode !== null, weight: 1 },
-        ],
-        cleanup: [
-          {
-            name: "no added comments",
-            pass: noAddedComments(sourceAfter, sourceBefore),
-            weight: 1,
-          },
-          { name: "no console.log added", pass: noConsoleLog(sourceAfter), weight: 1 },
-        ],
-      },
-      {
-        pass: "Tests pass, only isAbsoluteURL.mjs changed, optional-scheme regex removed.",
-        partial: "Tests pass but dangerous `(scheme:)?//` regex still present (wrapper-style fix).",
-        fail: "Tests still fail after fix.",
-      }
-    );
 
     return { output, evaluation };
   },
+  evaluate: evaluateSB21,
 };
 
 export default scenario;

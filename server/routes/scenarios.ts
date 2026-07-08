@@ -11,6 +11,7 @@ scenariosRouter.get("/", (c) => {
       category: s.category,
       maxPoints: s.maxPoints ?? 10,
       prompt: s.prompt,
+      track: s.track ?? "execution",
     }))
   );
 });
