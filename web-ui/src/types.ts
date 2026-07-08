@@ -315,6 +315,11 @@ export type ReportModelAggregate = {
   completionTpsApprox: boolean;
   promptTps: number | null;
   promptTpsApprox: boolean;
+  avgTokensPerScenario: number;
+  avgTokensPerRun: number;
+  promptTokensAvg: number;
+  completionTokensAvg: number;
+  paretoFrontier: boolean;
   toolCallsTotal: number;
   requests: number;
   timeouts: number;
@@ -341,4 +346,17 @@ export type ReportData = {
     fastestGeneration?: ReportModelAggregate;
     fastestPrompt?: ReportModelAggregate;
   };
+  pareto: ParetoPoint[];
+};
+
+export type ParetoPoint = {
+  model: string;
+  source: ReportSource;
+  scenarioId: string;
+  category: string;
+  points: number;
+  maxPoints: number;
+  scorePct: number;
+  correctness: number | null;
+  totalTokens: number;
 };
