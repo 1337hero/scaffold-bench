@@ -186,6 +186,59 @@ describe("onlyChangedFiles", () => {
   });
 });
 
+describe("onlyChangedFiles ignores build artifacts", () => {
+  test("passes when only the allowed file changed alongside build artifacts", async () => {
+    const base = await makeTempDir();
+    const pristine = join(base, "pristine");
+    const current = join(base, "current", "playground");
+    await mkdir(join(pristine, "src"), { recursive: true });
+    await mkdir(join(current, "src"), { recursive: true });
+    await writeFile(join(pristine, "src", "lib.rs"), "fn main() {}");
+    await writeFile(join(pristine, "Cargo.lock"), "orig-lock");
+    await writeFile(join(current, "src", "lib.rs"), "fn main() { println!(); }");
+    await writeFile(join(current, "Cargo.lock"), "new-lock");
+    await mkdir(join(current, "target", "debug"), { recursive: true });
+    await writeFile(join(current, "target", "debug", "fingerprint"), "artifact");
+    await mkdir(join(current, "node_modules", "pkg"), { recursive: true });
+    await writeFile(join(current, "node_modules", "pkg", "index.js"), "module");
+    await writeFile(join(current, "bun.lock"), "bun-lockfile");
+
+    const result = await onlyChangedFiles({
+      playgroundDir: join(base, "current"),
+      pristineDir: pristine,
+      allowedPaths: ["playground/src/lib.rs"],
+    });
+    expect(result.pass).toBe(true);
+    expect(result.changed).toEqual(["playground/src/lib.rs"]);
+
+    await rm(base, { recursive: true, force: true });
+  });
+
+  test("still fails when a file outside allowedPaths changed", async () => {
+    const base = await makeTempDir();
+    const pristine = join(base, "pristine");
+    const current = join(base, "current", "playground");
+    await mkdir(join(pristine, "src"), { recursive: true });
+    await mkdir(join(current, "src"), { recursive: true });
+    await writeFile(join(pristine, "src", "lib.rs"), "fn main() {}");
+    await writeFile(join(pristine, "src", "extra.rs"), "fn extra() {}");
+    await writeFile(join(current, "src", "lib.rs"), "fn main() { println!(); }");
+    await writeFile(join(current, "src", "extra.rs"), "fn extra() { println!(); }");
+    await mkdir(join(current, "node_modules"), { recursive: true });
+    await writeFile(join(current, "node_modules", "pkg.js"), "module");
+
+    const result = await onlyChangedFiles({
+      playgroundDir: join(base, "current"),
+      pristineDir: pristine,
+      allowedPaths: ["playground/src/lib.rs"],
+    });
+    expect(result.pass).toBe(false);
+    expect(result.changed).toEqual(["playground/src/extra.rs", "playground/src/lib.rs"]);
+
+    await rm(base, { recursive: true, force: true });
+  });
+});
+
 describe("noFilesChanged", () => {
   test("passes when nothing changed", async () => {
     const base = await makeTempDir();

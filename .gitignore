@@ -16,7 +16,7 @@ env/
 
 # Working docs (not source-of-truth)
 docs/
-specs/
+/specs/
 
 # Editor
 .DS_Store
