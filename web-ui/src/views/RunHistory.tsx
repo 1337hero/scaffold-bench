@@ -5,6 +5,7 @@ import { formatTokenCount } from "@/lib/format";
 import {
   AwardsGrid,
   CategoryHeatmap,
+  ContextGrowthChart,
   Leaderboard,
   MetricBars,
   RecentRunsTable,
@@ -154,6 +155,23 @@ export function RunHistory({ onBack, backHref }: RunHistoryProps) {
               color="#9b59b6"
               lowerIsBetter
             />
+            <MetricBars
+              title="Context per turn (lower = tighter)"
+              models={sortByMetric(visibleModels, (model) => model.avgContextPerTurn, true)}
+              value={(model) => model.avgContextPerTurn}
+              format={(value, model) => {
+                if (value === null) return "—";
+                const base = formatTokenCount(value);
+                if (!model.contextPerTurnByHarness) return base;
+                const split = Object.entries(model.contextPerTurnByHarness)
+                  .map(([h, v]) => `${h} ${formatTokenCount(v)}`)
+                  .join(" · ");
+                return `${base}  (${split})`;
+              }}
+              color="#e8590c"
+              lowerIsBetter
+            />
+            <ContextGrowthChart models={scoreModels} />
             <TokenScoreScatter models={scoreModels} cloud={report.pareto} />
           </>
         )}

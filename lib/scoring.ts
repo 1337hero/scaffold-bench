@@ -48,6 +48,13 @@ export interface ModelMetrics {
   promptEvalTimeMs?: Ms;
   completionEvalTokens?: TokenCount;
   completionEvalTimeMs?: Ms;
+  // Per-request series in request order (one entry per model call). Optional so
+  // legacy metrics (and run-level merges) omit it.
+  requests?: Array<{
+    promptTokens: TokenCount;
+    completionTokens: TokenCount;
+    requestTimeMs: Ms;
+  }>;
 }
 
 export interface RuntimeOutput {
