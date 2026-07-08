@@ -1,6 +1,6 @@
 # Project State
 
-_Last updated: 2026-07-02_
+_Last updated: 2026-07-02 (sortable table)_
 
 ## What this project is
 
@@ -11,9 +11,7 @@ SQLite (WAL) storage, JSON reports in `results/`.
 
 ## Current focus
 
-Open-source readiness. Small review completed 2026-07-01: tests green (184 pass), README
-accurate, MIT license, no secrets committed, contributor path documented (Adding a
-scenario / Adding a runtime).
+Leaderboard table now fully sortable (all numeric columns, desc/asc toggle), default sort by Score desc.
 
 ## Next up
 
@@ -23,6 +21,10 @@ scenario / Adding a runtime).
 - `/api/health` reports hardcoded `version: "1.0.0"` while package.json is 3.0.0.
 
 ## Last shipped
+
+2026-07-02 — RecentRunsTable: added client-side column sorting (desc/asc toggle) for Scenarios, Score, Time, Started columns.
+
+2026-07-02 — LeaderboardTable: added client-side column sorting (desc/asc toggle) for all 12 numeric columns (Score, Pts/run, Gen TPS, Prompt TPS, Scen Avg, Total Wall, TTFT, Tools, Requests, T/O, Exempt, Runs). Default sort by Score desc.
 
 2026-07-02 — PR #11 merged (squash, `99f4de5`): overnight runner (`scripts/run-to-target.ts`) — batch-fills
 models to N runs, skips excluded models, manages server lifecycle, prints summary.
@@ -34,6 +36,8 @@ toolchain (php/shellcheck/go/cargo) so no scenarios skip, results volume. Also f
 `scripts/run-piped-models.ts` which had main's CI red.
 
 ## Last verified
+
+2026-07-02 — `npx tsc --noEmit` clean in web-ui/. Leaderboard + Recent Runs tables both fully sortable.
 
 2026-07-01 — Docker image builds (~1.1 GB), container serves UI + `/api/health`, all 50
 scenarios discovered, php/shellcheck/go/cargo on PATH in-container. `bun test test/`: 184
