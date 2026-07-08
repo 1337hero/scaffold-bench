@@ -1,11 +1,16 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
 import type { RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
 import type { Scenario, ScenarioEvaluateInput } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
-import { createSkippedEvaluation, noConsoleLog, onlyChangedFiles } from "./_shared/helpers.js";
+import {
+  PLAYGROUND_SRC,
+  createSkippedEvaluation,
+  noConsoleLog,
+  onlyChangedFiles,
+} from "./_shared/helpers.js";
 
 const SB41_PROMPT = [
   "The auth tests in `playground/express-api` show `/api/me` returning 200 when it should return 401.",
@@ -27,6 +32,13 @@ async function evaluateSB23(input: ScenarioEvaluateInput): Promise<ScenarioEvalu
   const { playgroundDir } = input;
   const fixtureDir = join(playgroundDir, "playground/express-api");
   const sourceFile = join(playgroundDir, "playground/express-api/src/server.ts");
+
+  const nmPath = join(fixtureDir, "node_modules");
+  try {
+    await stat(nmPath);
+  } catch {
+    await symlink(join(PLAYGROUND_SRC, "..", "node_modules"), nmPath);
+  }
 
   const testRun = Bun.spawnSync(["bun", "x", "vitest", "run", "tests/auth-order.test.ts"], {
     cwd: fixtureDir,
