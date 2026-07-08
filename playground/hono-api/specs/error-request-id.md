@@ -1,6 +1,7 @@
 # Add requestId to Error Responses (Without Breaking Other Subsystems)
 
 ## Problem
+
 Support wants a correlation id on every error response so they can match a
 client report to server logs. Add a `requestId` to the JSON error body produced
 by the shared error middleware. This middleware is used by **every** subsystem
@@ -8,6 +9,7 @@ by the shared error middleware. This middleware is used by **every** subsystem
 fields MUST keep working exactly as before.
 
 ## Behavior
+
 - `errorMiddleware` in `src/lib/errors.ts` currently returns:
   ```json
   { "error": { "code": "...", "message": "..." } }
@@ -21,15 +23,18 @@ fields MUST keep working exactly as before.
   status codes must not change.
 
 ## Constraints
+
 - Edit `src/lib/errors.ts` only. Do not touch the route files.
 - Keep the `AppError` class and its constructor signature intact.
 - Both the `AppError` branch and the generic 500 branch must include
   `requestId`.
 
 ## File layout
+
 - **Edit:** `src/lib/errors.ts` only.
 
 ## Done when
+
 - Existing error responses across users/sessions/items still carry the same
   `error.code` and `error.message` (other subsystems unbroken).
 - Every error body now also has a non-empty `error.requestId`.

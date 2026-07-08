@@ -42,8 +42,7 @@ export function TokenScoreScatter({
   const [showCloud, setShowCloud] = useState(true);
 
   const plottedModels = models.filter((m) => m.avgTokensPerScenario > 0);
-  const cloudShown =
-    showCloud && cloud && cloud.length <= CLOUD_CAP ? cloud : undefined;
+  const cloudShown = showCloud && cloud && cloud.length <= CLOUD_CAP ? cloud : undefined;
 
   const tokens = useMemo(() => {
     const vals: number[] = [];
@@ -90,11 +89,7 @@ export function TokenScoreScatter({
       <SectionTitle>Score vs total tokens</SectionTitle>
       <div className="flex items-center gap-4 mb-2 text-[11px] text-text-dim">
         <label className="flex items-center gap-1 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={logX}
-            onChange={(e) => setLogX(e.target.checked)}
-          />
+          <input type="checkbox" checked={logX} onChange={(e) => setLogX(e.target.checked)} />
           log-x
         </label>
         <label className="flex items-center gap-1 cursor-pointer select-none">
@@ -168,9 +163,29 @@ export function TokenScoreScatter({
             );
           })}
           {/* axes */}
-          <line x1={PAD.l} x2={PAD.l} y1={PAD.t} y2={H - PAD.b} stroke="var(--color-text-main)" strokeWidth={1.5} />
-          <line x1={PAD.l} x2={W - PAD.r} y1={H - PAD.b} y2={H - PAD.b} stroke="var(--color-text-main)" strokeWidth={1.5} />
-          <text x={(PAD.l + W - PAD.r) / 2} y={H - 4} textAnchor="middle" fontSize={11} fill="var(--color-text-dim, var(--color-text-main))">
+          <line
+            x1={PAD.l}
+            x2={PAD.l}
+            y1={PAD.t}
+            y2={H - PAD.b}
+            stroke="var(--color-text-main)"
+            strokeWidth={1.5}
+          />
+          <line
+            x1={PAD.l}
+            x2={W - PAD.r}
+            y1={H - PAD.b}
+            y2={H - PAD.b}
+            stroke="var(--color-text-main)"
+            strokeWidth={1.5}
+          />
+          <text
+            x={(PAD.l + W - PAD.r) / 2}
+            y={H - 4}
+            textAnchor="middle"
+            fontSize={11}
+            fill="var(--color-text-dim, var(--color-text-main))"
+          >
             total tokens per scenario (avg) {logX ? "· log" : "· linear"}
           </text>
           <text
@@ -216,13 +231,7 @@ export function TokenScoreScatter({
                   <title>{`${m.model} · ${m.scorePct.toFixed(0)}% · ${formatTokenCount(m.avgTokensPerScenario)} tok${m.paretoFrontier ? " · frontier" : ""}`}</title>
                 </circle>
                 {m.paretoFrontier && (
-                  <text
-                    x={x + 11}
-                    y={y - 9}
-                    fontSize={10}
-                    fill={c}
-                    fontWeight={700}
-                  >
+                  <text x={x + 11} y={y - 9} fontSize={10} fill={c} fontWeight={700}>
                     {m.model}
                   </text>
                 )}

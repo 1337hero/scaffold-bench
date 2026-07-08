@@ -187,7 +187,9 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                   {model.avgScenarioSeconds.toFixed(1)}s
                 </td>
                 <td className="py-2 px-2 text-right text-text-main tabular-nums">
-                  {model.avgTokensPerScenario > 0 ? formatTokenCount(model.avgTokensPerScenario) : "—"}
+                  {model.avgTokensPerScenario > 0
+                    ? formatTokenCount(model.avgTokensPerScenario)
+                    : "—"}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {formatWallTime(model.totalWallSeconds)}

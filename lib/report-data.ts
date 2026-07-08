@@ -138,7 +138,7 @@ export function wilsonInterval(
   const z2 = z * z;
   const center = (p + z2 / (2 * total)) / (1 + z2 / total);
   const halfwidth =
-    (z * Math.sqrt(p * (1 - p) / total + z2 / (4 * total * total))) / (1 + z2 / total);
+    (z * Math.sqrt((p * (1 - p)) / total + z2 / (4 * total * total))) / (1 + z2 / total);
   return {
     low: Math.max(0, center - halfwidth) * 100,
     high: Math.min(1, center + halfwidth) * 100,
@@ -153,10 +153,16 @@ export function computeSolveStats(rows: SolveDimRow[]): SolveStats {
   let disciplineSum = 0;
   let disciplineCount = 0;
   for (const row of rows) {
-    if (row.scope === null && row.pattern === null && row.verification === null && row.cleanup === null) {
+    if (
+      row.scope === null &&
+      row.pattern === null &&
+      row.verification === null &&
+      row.cleanup === null
+    ) {
       continue;
     }
-    const dims = (row.scope ?? 0) + (row.pattern ?? 0) + (row.verification ?? 0) + (row.cleanup ?? 0);
+    const dims =
+      (row.scope ?? 0) + (row.pattern ?? 0) + (row.verification ?? 0) + (row.cleanup ?? 0);
     disciplineSum += (100 * dims) / 7;
     disciplineCount += 1;
   }
@@ -299,7 +305,11 @@ export function buildReportData(): ReportData {
     const metrics = parseMetrics(scenario.model_metrics_json);
     if (metrics) {
       addMetrics(acc, metrics);
-      if (scenario.error_kind !== "infra" && scenario.error_kind !== "aborted" && scenario.error_kind !== "timeout") {
+      if (
+        scenario.error_kind !== "infra" &&
+        scenario.error_kind !== "aborted" &&
+        scenario.error_kind !== "timeout"
+      ) {
         acc.metricScenarioRuns += 1;
       }
     }
@@ -319,7 +329,7 @@ export function buildReportData(): ReportData {
           category: scenario.category ?? "unknown",
           points: scenario.points ?? 0,
           maxPoints: scenario.max_points ?? 0,
-          scorePct: scenario.max_points ? (scenario.points ?? 0) / scenario.max_points * 100 : 0,
+          scorePct: scenario.max_points ? ((scenario.points ?? 0) / scenario.max_points) * 100 : 0,
           correctness: scenario.rubric_kind === "10pt" ? scenario.correctness : null,
           totalTokens: pt,
         });
@@ -410,7 +420,7 @@ function addMetrics(acc: ModelAccumulator, metrics: MetricsShape): void {
   acc.promptTokens += prompt;
   acc.completionTokens += completion;
   // totalTokens falls back to prompt+completion when the field is absent (mirrors local-model.ts).
-  acc.totalTokens += finiteNumber(metrics.totalTokens) || (prompt + completion);
+  acc.totalTokens += finiteNumber(metrics.totalTokens) || prompt + completion;
   acc.totalRequestTimeMs += finiteNumber(metrics.totalRequestTimeMs);
   acc.requests += finiteNumber(metrics.requestCount);
 
@@ -566,13 +576,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function paretoFrontier(points: { idx: number; tokens: number; score: number }[]): number[] {
   return points
-    .filter((p) =>
-      !points.some(
-        (q) =>
-          q.tokens <= p.tokens &&
-          q.score >= p.score &&
-          (q.tokens < p.tokens || q.score > p.score)
-      )
+    .filter(
+      (p) =>
+        !points.some(
+          (q) =>
+            q.tokens <= p.tokens && q.score >= p.score && (q.tokens < p.tokens || q.score > p.score)
+        )
     )
     .map((p) => p.idx);
 }

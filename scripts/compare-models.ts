@@ -17,7 +17,9 @@ const RESET = "\x1b[0m";
 
 export type SolveRow = { scenarioId: string; correctness: number | null };
 
-export function scenarioSolveRates(rows: SolveRow[]): Map<string, { n: number; solveRate: number }> {
+export function scenarioSolveRates(
+  rows: SolveRow[]
+): Map<string, { n: number; solveRate: number }> {
   const groups = new Map<string, { n: number; solved: number }>();
   for (const row of rows) {
     let g = groups.get(row.scenarioId);
@@ -29,7 +31,8 @@ export function scenarioSolveRates(rows: SolveRow[]): Map<string, { n: number; s
     if (row.correctness === 3) g.solved++;
   }
   const rates = new Map<string, { n: number; solveRate: number }>();
-  for (const [scenarioId, g] of groups) rates.set(scenarioId, { n: g.n, solveRate: g.solved / g.n });
+  for (const [scenarioId, g] of groups)
+    rates.set(scenarioId, { n: g.n, solveRate: g.solved / g.n });
   return rates;
 }
 
@@ -91,13 +94,24 @@ if (import.meta.main) {
   const comparisons = scenarioIds.map((scenarioId) => {
     const a = ratesA.get(scenarioId)!;
     const b = ratesB.get(scenarioId)!;
-    return { scenarioId, solveA: a.solveRate, nA: a.n, solveB: b.solveRate, nB: b.n, gap: a.solveRate - b.solveRate };
+    return {
+      scenarioId,
+      solveA: a.solveRate,
+      nA: a.n,
+      solveB: b.solveRate,
+      nB: b.n,
+      gap: a.solveRate - b.solveRate,
+    };
   });
 
   const top15 = comparisons.toSorted((x, y) => Math.abs(y.gap) - Math.abs(x.gap)).slice(0, 15);
 
-  console.log(`\n${CYAN}${modelA}${RESET} vs ${CYAN}${modelB}${RESET} — ${comparisons.length} shared scenarios\n`);
-  console.log(`  ${"scenario".padEnd(12)} ${"solveA".padStart(8)} ${"solveB".padStart(8)} ${"gap".padStart(8)}`);
+  console.log(
+    `\n${CYAN}${modelA}${RESET} vs ${CYAN}${modelB}${RESET} — ${comparisons.length} shared scenarios\n`
+  );
+  console.log(
+    `  ${"scenario".padEnd(12)} ${"solveA".padStart(8)} ${"solveB".padStart(8)} ${"gap".padStart(8)}`
+  );
   for (const c of top15) {
     const gapStr = `${c.gap >= 0 ? "+" : ""}${(c.gap * 100).toFixed(1)}%`;
     const color = c.gap > 0 ? GREEN : c.gap < 0 ? RED : DIM;

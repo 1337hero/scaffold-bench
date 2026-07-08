@@ -1,8 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import {
-  computeTokenMeans,
-  paretoFrontier,
-} from "../lib/report-data.ts";
+import { computeTokenMeans, paretoFrontier } from "../lib/report-data.ts";
 
 describe("computeTokenMeans", () => {
   test("avgTokensPerScenario divides by metricScenarioRuns, not blanket run count", () => {

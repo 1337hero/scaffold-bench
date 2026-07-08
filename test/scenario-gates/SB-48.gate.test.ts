@@ -14,9 +14,7 @@ describe("SB-48 go-json-endpoint gate", () => {
     try {
       const prompt = await scenario.buildPrompt?.({ playgroundDir: workDir });
       expect(prompt).toBe(scenario.prompt);
-      const seeded = await Bun.file(
-        join(workDir, "playground/go-api/items_test.go")
-      ).text();
+      const seeded = await Bun.file(join(workDir, "playground/go-api/items_test.go")).text();
       expect(seeded).toBe(ITEMS_TEST_CONTENT);
     } finally {
       await rm(workDir, { recursive: true, force: true });

@@ -1,6 +1,7 @@
 # CORS + CSRF Hardening
 
 ## Problem
+
 The API is consumed by a browser SPA served from a single trusted origin. Right
 now it sets no CORS headers and performs no cross-site request protection, so any
 website can drive state-changing requests against a logged-in user (CSRF). Harden
@@ -8,10 +9,12 @@ it WITHOUT breaking the existing same-origin tests (which send no `Origin`
 header).
 
 ## The trusted origin
+
 - `https://app.example.com` — the ONLY origin allowed to make
   credentialed cross-origin calls.
 
 ## Where the pieces live
+
 - App + middleware wiring: `src/index.ts`.
 - Hono ships first-party middleware for both concerns — reuse them, do not
   hand-roll header parsing:
@@ -19,6 +22,7 @@ header).
   - `import { csrf } from "hono/csrf"`
 
 ## What to build
+
 - **Create** `src/lib/security.ts` exporting:
   - `ALLOWED_ORIGIN = "https://app.example.com"`.
   - `corsMiddleware` — `cors({ origin: ALLOWED_ORIGIN, credentials: true })`.
@@ -31,6 +35,7 @@ header).
   generic 500. Leave `AppError` handling as-is.
 
 ## Behavior requirements
+
 - A request from the allowed origin gets
   `Access-Control-Allow-Origin: https://app.example.com` and
   `Access-Control-Allow-Credentials: true` reflected back.
@@ -42,11 +47,13 @@ header).
   working unchanged — do not break them.
 
 ## File layout
+
 - **Create:** `src/lib/security.ts`.
 - **Edit:** `src/index.ts` and `src/lib/errors.ts`.
 - Do not modify routes, auth, or schema.
 
 ## Done when
+
 - Allowed origin is reflected with credentials.
 - Foreign origin is not reflected.
 - Foreign-origin POST/DELETE → 403.
