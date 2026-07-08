@@ -213,9 +213,7 @@ export function meanContextPerTurn(ratios: number[]): number | null {
 }
 
 /** Per-harness mean of per-run ratios; undefined unless ≥2 harnesses have data. */
-export function contextPerTurnByHarness(
-  rows: ContextRow[]
-): Record<string, number> | undefined {
+export function contextPerTurnByHarness(rows: ContextRow[]): Record<string, number> | undefined {
   const groups = new Map<string, { sum: number; n: number }>();
   for (const row of rows) {
     const h = row.harness ?? "unknown";

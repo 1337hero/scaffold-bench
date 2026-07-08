@@ -35,9 +35,7 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
     return (
       <section className="mt-8">
         <SectionTitle>Context growth per turn</SectionTitle>
-        <div className="text-text-dim text-[12px]">
-          No per-turn data yet (captured on new runs)
-        </div>
+        <div className="text-text-dim text-[12px]">No per-turn data yet (captured on new runs)</div>
       </section>
     );
   }
@@ -163,7 +161,10 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
             const c = colorFor(m.model);
             const pts = m.contextByTurn!;
             const d = pts
-              .map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(p.turn).toFixed(1)} ${yOf(p.meanPromptTokens).toFixed(1)}`)
+              .map(
+                (p, i) =>
+                  `${i === 0 ? "M" : "L"} ${xOf(p.turn).toFixed(1)} ${yOf(p.meanPromptTokens).toFixed(1)}`
+              )
               .join(" ");
             return (
               <g key={m.model}>
