@@ -32,6 +32,14 @@ export type RubricKind = "10pt" | "custom-5pt" | "custom-3pt";
  */
 export type SignalType = "behavioral" | "regex-shape" | "stdout" | "trace" | "latency";
 
+/**
+ * Track — coding-task shape. Default is "execution" when absent.
+ *
+ * - execution — well-specified coding task
+ * - problem-solving — diagnosis/ambiguity task
+ */
+export type Track = "execution" | "problem-solving";
+
 export type ScenarioMeta = {
   id: string;
   name: string;
@@ -41,6 +49,7 @@ export type ScenarioMeta = {
   signalType: SignalType;
   fixturePath: string;
   prompt: string;
+  track?: Track;
 };
 
 export type ScenarioEvaluateInput = {
@@ -78,6 +87,8 @@ export type ScenarioBase = {
   prompt: string;
   maxPoints?: number;
   requires?: string[];
+  /** Coding-task shape. Default is "execution" when absent. See {@link Track}. */
+  track?: Track;
   buildPrompt?(input: { playgroundDir: string }): Promise<string>;
 };
 
@@ -86,7 +97,7 @@ export type ExecuteScenario = ScenarioBase & {
     output: RuntimeOutput;
     evaluation: ScenarioEvaluation;
   }>;
-  evaluate?: never;
+  evaluate?(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation>;
 };
 
 export type EvaluateScenario = ScenarioBase & {
