@@ -23,6 +23,8 @@ Correctness counts — but a model that gets the right answer by bulldozing surr
 
 **No LLM judge.** Scoring is deterministic. Behavior is graded against a real filesystem diff, and correctness is verified by **actually running the code** — real unit tests executed in a throwaway temp dir, real `tsc --noEmit`, or TypeScript-AST checks — so a correct-but-differently-spelled fix still passes and a regex-matching-but-broken one doesn't.
 
+**No peeking.** The agent runs in an anonymous throwaway workdir, and its `bash` is jailed with bubblewrap when available: filesystem read-only outside the workdir, fresh `/tmp`, bench repo masked entirely, minimal env. Scenario sources, hidden tests, and your API keys are unreachable from inside a run.
+
 ---
 
 ## Quick start
