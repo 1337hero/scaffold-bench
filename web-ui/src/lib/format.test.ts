@@ -7,6 +7,7 @@ import {
   formatRelative,
   formatNowHHMMSS,
   formatWallTime,
+  formatSolveRate,
 } from "./format";
 
 describe("formatElapsed", () => {
@@ -99,6 +100,15 @@ describe("formatRelative", () => {
   });
   test("days branch uses d suffix", () => {
     expect(formatRelative(Date.now() - 4 * 86_400_000)).toBe("4d ago");
+  });
+});
+
+describe("formatSolveRate", () => {
+  test("renders rate with half-CI-width margin", () => {
+    expect(formatSolveRate(72.4, 64.3, 80.5)).toBe("72.4 ±8.1");
+  });
+  test("zero-width CI renders zero margin", () => {
+    expect(formatSolveRate(0, 0, 0)).toBe("0.0 ±0.0");
   });
 });
 

@@ -300,6 +300,12 @@ export type ReportModelAggregate = {
   source: ReportSource;
   runs: number;
   scorePct: number;
+  solveAttempts: number;
+  solveCount: number;
+  solveRatePct: number;
+  solveCiLowPct: number;
+  solveCiHighPct: number;
+  disciplinePct: number;
   pointsAvg: number;
   maxAvg: number;
   totalWallSeconds: number;

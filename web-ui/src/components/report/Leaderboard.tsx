@@ -1,11 +1,13 @@
 import { useState } from "react";
 import type { ReportModelAggregate } from "@/types";
-import { formatSeconds, formatTps, formatWallTime } from "@/lib/format";
+import { formatSeconds, formatSolveRate, formatTps, formatWallTime } from "@/lib/format";
 import { scoreTextColor } from "@/lib/score-color";
 import { SectionTitle } from "./SectionTitle";
 import { SourceBadge } from "./ReportHeader";
 
 type SortKey =
+  | "solve"
+  | "discipline"
   | "score"
   | "ptsPerRun"
   | "genTps"
@@ -22,6 +24,8 @@ type SortKey =
 type SortDir = "asc" | "desc";
 
 const COLUMNS: Record<SortKey, { label: string; align: string }> = {
+  solve: { label: "Solve %", align: "text-right" },
+  discipline: { label: "Discipline %", align: "text-right" },
   score: { label: "Score", align: "text-right" },
   ptsPerRun: { label: "Pts/run", align: "text-right" },
   genTps: { label: "Gen TPS", align: "text-right" },
@@ -41,6 +45,12 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
     v === null || v === undefined ? [true, 0] : [false, v];
 
   switch (key) {
+    case "solve": {
+      return a.solveRatePct - b.solveRatePct;
+    }
+    case "discipline": {
+      return a.disciplinePct - b.disciplinePct;
+    }
     case "score": {
       return a.scorePct - b.scorePct;
     }
@@ -96,7 +106,7 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
 }
 
 export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
-  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortKey, setSortKey] = useState<SortKey>("solve");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const handleSort = (key: SortKey) => {
@@ -142,6 +152,8 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-left py-2 px-2">#</th>
               <th className="text-left py-2 px-2">Model</th>
               <th className="text-left py-2 px-2">Src</th>
+              {sortableTh("solve")}
+              {sortableTh("discipline")}
               {sortableTh("score")}
               {sortableTh("ptsPerRun")}
               {sortableTh("genTps")}
@@ -165,6 +177,14 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                 </td>
                 <td className="py-2 px-2">
                   <SourceBadge source={model.source} />
+                </td>
+                <td
+                  className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.solveRatePct)}`}
+                >
+                  {formatSolveRate(model.solveRatePct, model.solveCiLowPct, model.solveCiHighPct)}%
+                </td>
+                <td className="py-2 px-2 text-right text-text-main">
+                  {model.disciplinePct.toFixed(1)}%
                 </td>
                 <td className={`py-2 px-2 text-right font-bold ${scoreTextColor(model.scorePct)}`}>
                   {model.scorePct.toFixed(1)}%
