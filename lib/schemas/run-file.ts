@@ -48,6 +48,16 @@ export const ModelMetricsSchema = Schema.Struct({
   promptEvalTimeMs: Schema.optional(Ms),
   completionEvalTokens: Schema.optional(TokenCount),
   completionEvalTimeMs: Schema.optional(Ms),
+  // Per-request series (request order). Optional so legacy run files still parse.
+  requests: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        promptTokens: TokenCount,
+        completionTokens: TokenCount,
+        requestTimeMs: Ms,
+      })
+    )
+  ),
 });
 
 const RuntimeErrorKindSchema = Schema.Literal("infra", "timeout", "aborted", "runtime");

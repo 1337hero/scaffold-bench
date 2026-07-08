@@ -50,6 +50,12 @@ export type ReportModelAggregate = {
   categories: Record<string, ReportCategoryScore>;
   scenarioCount: number;
   latestTimestamp: string;
+  // Phase A: prompt tokens per request, mean of per-run ratios (lower = tighter context).
+  avgContextPerTurn: number | null;
+  // Per-harness split of avgContextPerTurn — emitted only when ≥2 harnesses have data.
+  contextPerTurnByHarness?: Record<string, number>;
+  // Phase B: positional mean prompt tokens by turn index across a model's runs.
+  contextByTurn?: Array<{ turn: number; meanPromptTokens: number; runs: number }>;
 };
 
 export type ReportData = {
@@ -109,6 +115,7 @@ type ScenarioRow = {
   pattern: number | null;
   verification: number | null;
   cleanup: number | null;
+  harness: string | null;
 };
 
 export type SolveDimRow = {
@@ -187,7 +194,63 @@ type MetricsShape = {
   promptEvalTimeMs?: number;
   completionEvalTokens?: number;
   completionEvalTimeMs?: number;
+  requests?: Array<{
+    promptTokens: number;
+    completionTokens: number;
+    requestTimeMs: number;
+  }>;
 };
+
+type ContextRow = { harness: string | null; ratio: number };
+type RequestSeries = Array<{ promptTokens: number }>;
+
+// ── Context-per-turn helpers (pure, for unit testing) ────────────────────────
+
+/** Mean of per-run ratios; null when no contributing rows. */
+export function meanContextPerTurn(ratios: number[]): number | null {
+  if (ratios.length === 0) return null;
+  return ratios.reduce((a, b) => a + b, 0) / ratios.length;
+}
+
+/** Per-harness mean of per-run ratios; undefined unless ≥2 harnesses have data. */
+export function contextPerTurnByHarness(
+  rows: ContextRow[]
+): Record<string, number> | undefined {
+  const groups = new Map<string, { sum: number; n: number }>();
+  for (const row of rows) {
+    const h = row.harness ?? "unknown";
+    const g = groups.get(h) ?? { sum: 0, n: 0 };
+    g.sum += row.ratio;
+    g.n += 1;
+    groups.set(h, g);
+  }
+  const withData = [...groups.entries()].filter(([, g]) => g.n > 0);
+  if (withData.length < 2) return undefined;
+  const out: Record<string, number> = {};
+  for (const [h, g] of withData) out[h] = g.sum / g.n;
+  return out;
+}
+
+/** Positional mean of prompt tokens at each turn index across runs (survivor-biased). */
+export function positionalMeans(
+  series: RequestSeries[]
+): Array<{ turn: number; meanPromptTokens: number; runs: number }> {
+  if (series.length === 0) return [];
+  const maxLen = Math.max(...series.map((s) => s.length));
+  const out: Array<{ turn: number; meanPromptTokens: number; runs: number }> = [];
+  for (let i = 0; i < maxLen; i++) {
+    let sum = 0;
+    let n = 0;
+    for (const s of series) {
+      if (i < s.length) {
+        sum += s[i].promptTokens;
+        n += 1;
+      }
+    }
+    if (n > 0) out.push({ turn: i + 1, meanPromptTokens: sum / n, runs: n });
+  }
+  return out;
+}
 
 type CategoryAggregate = { points: number; maxPoints: number };
 
@@ -219,6 +282,8 @@ type ModelAccumulator = {
   scenarioIds: Set<string>;
   latestFinishedAt: number;
   solveRows: SolveDimRow[];
+  contextRows: ContextRow[];
+  seriesRuns: RequestSeries[];
 };
 
 export function buildReportData(): ReportData {
@@ -237,7 +302,7 @@ export function buildReportData(): ReportData {
 
   const scenarios = db
     .query<ScenarioRow, []>(
-      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json, sr.error_kind, sr.rubric_kind, sr.correctness, sr.scope, sr.pattern, sr.verification, sr.cleanup
+      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json, sr.error_kind, sr.rubric_kind, sr.correctness, sr.scope, sr.pattern, sr.verification, sr.cleanup, r.harness
        FROM scenario_runs sr
        JOIN runs r ON r.id = sr.run_id
        WHERE r.status = 'done'`
@@ -305,12 +370,22 @@ export function buildReportData(): ReportData {
     const metrics = parseMetrics(scenario.model_metrics_json);
     if (metrics) {
       addMetrics(acc, metrics);
-      if (
-        scenario.error_kind !== "infra" &&
-        scenario.error_kind !== "aborted" &&
-        scenario.error_kind !== "timeout"
-      ) {
+      const exempt =
+        scenario.error_kind === "infra" ||
+        scenario.error_kind === "aborted" ||
+        scenario.error_kind === "timeout";
+      if (!exempt) {
         acc.metricScenarioRuns += 1;
+        const prompt = finiteNumber(metrics.promptTokens);
+        const reqs = finiteNumber(metrics.requestCount);
+        // Per-run ratio of prompt tokens per request; exclude zero/absent so they
+        // don't deflate the mean of ratios.
+        if (prompt > 0 && reqs > 0) {
+          acc.contextRows.push({ harness: scenario.harness, ratio: prompt / reqs });
+        }
+      }
+      if (metrics.requests && metrics.requests.length > 0) {
+        acc.seriesRuns.push(metrics.requests.map((r) => ({ promptTokens: r.promptTokens })));
       }
     }
 
@@ -411,6 +486,8 @@ function createAccumulator(): ModelAccumulator {
     scenarioIds: new Set<string>(),
     latestFinishedAt: 0,
     solveRows: [],
+    contextRows: [],
+    seriesRuns: [],
   };
 }
 
@@ -461,6 +538,7 @@ function parseMetrics(raw: string | null): MetricsShape | undefined {
     promptEvalTimeMs: maybeNumber(parsed.promptEvalTimeMs),
     completionEvalTokens: maybeNumber(parsed.completionEvalTokens),
     completionEvalTimeMs: maybeNumber(parsed.completionEvalTimeMs),
+    requests: parseRequestSeries(parsed.requests),
   };
 }
 
@@ -469,6 +547,11 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
   const prompt = promptTps(acc);
   const runCount = Math.max(1, acc.runIds.size);
   const solve = computeSolveStats(acc.solveRows);
+
+  const ratios = acc.contextRows.map((r) => r.ratio);
+  const avgContextPerTurn = meanContextPerTurn(ratios);
+  const byHarness = contextPerTurnByHarness(acc.contextRows);
+  const contextByTurnArr = positionalMeans(acc.seriesRuns);
 
   return {
     model,
@@ -506,6 +589,9 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     categories: categoryScores(acc.categories),
     scenarioCount: acc.scenarioIds.size,
     latestTimestamp: acc.latestFinishedAt > 0 ? new Date(acc.latestFinishedAt).toISOString() : "",
+    avgContextPerTurn,
+    ...(byHarness ? { contextPerTurnByHarness: byHarness } : {}),
+    ...(contextByTurnArr.length > 0 ? { contextByTurn: contextByTurnArr } : {}),
   };
 }
 
@@ -592,4 +678,19 @@ function maybeNumber(value: unknown): number | undefined {
 
 function finiteNumber(value: number | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function parseRequestSeries(value: unknown): MetricsShape["requests"] {
+  if (!Array.isArray(value)) return undefined;
+  const out: NonNullable<MetricsShape["requests"]> = [];
+  for (const entry of value) {
+    if (!isRecord(entry)) return undefined;
+    const promptTokens = maybeNumber(entry.promptTokens);
+    const completionTokens = maybeNumber(entry.completionTokens);
+    const requestTimeMs = maybeNumber(entry.requestTimeMs);
+    if (promptTokens === undefined || completionTokens === undefined || requestTimeMs === undefined)
+      return undefined;
+    out.push({ promptTokens, completionTokens, requestTimeMs });
+  }
+  return out;
 }

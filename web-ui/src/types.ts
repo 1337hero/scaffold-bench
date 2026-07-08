@@ -327,6 +327,9 @@ export type ReportModelAggregate = {
   categories: Record<string, ReportCategoryScore>;
   scenarioCount: number;
   latestTimestamp: string;
+  avgContextPerTurn: number | null;
+  contextPerTurnByHarness?: Record<string, number>;
+  contextByTurn?: Array<{ turn: number; meanPromptTokens: number; runs: number }>;
 };
 
 export type ReportData = {

@@ -366,6 +366,7 @@ function createModelMetrics(model: string): ModelMetrics {
     completionTokens: 0 as TokenCount,
     totalTokens: 0 as TokenCount,
     totalRequestTimeMs: 0 as Ms,
+    requests: [],
   };
 }
 
@@ -388,4 +389,14 @@ function applyModelCallMetrics(target: ModelMetrics, metrics: ModelCallMetrics):
     target.completionEvalTimeMs = ((target.completionEvalTimeMs ?? 0) +
       metrics.completionEvalTimeMs) as Ms;
   }
+
+  // Persist per-request series in call order — powers the context-growth curve.
+  target.requests = [
+    ...(target.requests ?? []),
+    {
+      promptTokens: metrics.promptTokens,
+      completionTokens: metrics.completionTokens,
+      requestTimeMs: metrics.totalRequestTimeMs,
+    },
+  ];
 }
