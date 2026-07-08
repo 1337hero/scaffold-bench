@@ -26,6 +26,51 @@ import type { ToolCall } from "../scoring.ts";
 import type { BeforeToolCallInput, RuntimeSessionContext } from "./types.ts";
 import type { OpenAIToolCall } from "./local-model.ts";
 
+const PROJECT_ROOT = resolve(import.meta.dir, "..", "..");
+const BWRAP_PATH = Bun.which("bwrap");
+
+// Minimal env for agent bash: Bun auto-loads .env into process.env, so inheriting
+// the full env would hand the agent our API keys via a single `env` call.
+function bashEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const key of ["PATH", "HOME", "SHELL", "USER", "LANG", "LC_ALL", "TERM"]) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
+}
+
+// Jail agent bash with bubblewrap when available: filesystem read-only except the
+// scenario workdir, /tmp replaced by a fresh tmpfs (hides sibling workdirs), and the
+// bench repo masked entirely so scenario sources / hidden tests are unreachable.
+// Network stays available. Falls back to unjailed execution when bwrap is missing.
+function bashCmd(command: string, cwd: string): string[] {
+  const shell = process.env.SHELL || "/bin/zsh";
+  if (!BWRAP_PATH) return ["setsid", shell, "-lc", command];
+  return [
+    "setsid",
+    BWRAP_PATH,
+    "--ro-bind",
+    "/",
+    "/",
+    "--dev",
+    "/dev",
+    "--proc",
+    "/proc",
+    "--tmpfs",
+    "/tmp",
+    "--bind",
+    cwd,
+    cwd,
+    "--tmpfs",
+    PROJECT_ROOT,
+    "--die-with-parent",
+    shell,
+    "-lc",
+    command,
+  ];
+}
+
 export const OUTPUT_CAP = 8192;
 export const DEFAULT_BASH_TIMEOUT_MS = 5000;
 export const MAX_BASH_TIMEOUT_MS = 10000;
@@ -148,8 +193,9 @@ export async function runBash(args: BashArgs, cwd: string, signal?: AbortSignal)
     Math.max(1, Math.floor(args.timeout_ms ?? DEFAULT_BASH_TIMEOUT_MS))
   );
   const proc = spawn({
-    cmd: ["setsid", process.env.SHELL || "/bin/zsh", "-lc", command],
+    cmd: bashCmd(command, cwd),
     cwd,
+    env: bashEnv(),
     stdout: "pipe",
     stderr: "pipe",
   });

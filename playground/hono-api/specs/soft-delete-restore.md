@@ -1,9 +1,11 @@
 # Restore Soft-Deleted Items
 
 ## Problem
+
 The `items` table already has a `deleted_at` column, and `DELETE /items/:id` does a soft delete. Users ask to undo. Build the restore endpoint using the column that already exists — no schema changes.
 
 ## Behavior
+
 - `POST /items/:id/restore`
 - Requires auth (existing `requireUser`).
 - Only the item's owner can restore it.
@@ -12,14 +14,17 @@ The `items` table already has a `deleted_at` column, and `DELETE /items/:id` doe
 - If the item exists and is not deleted: `409` with `AppError` code `"not_deleted"`.
 
 ## Constraints
+
 - Use `AppError` from `src/lib/errors.ts` for every error response.
 - No schema changes. The column exists; use it.
 - Do not modify the existing `GET /items`, `POST /items`, or `DELETE /items/:id` handlers.
 
 ## File layout
+
 - **Edit:** `src/routes/items.ts` only.
 
 ## Done when
+
 - Owner can restore a previously-deleted item.
 - A restored item appears in subsequent `GET /items` responses.
 - Non-owner (or unknown id) → 404.

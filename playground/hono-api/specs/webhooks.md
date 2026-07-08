@@ -11,6 +11,7 @@ All requests must include an `X-Signature` header formatted as `sha256=<hex-hmac
 ### Deduplication
 
 Each event has a unique `event_id` field. The endpoint must:
+
 1. Store processed event IDs in the `webhook_events` table
 2. Return 200 OK for duplicate events (idempotent)
 3. Only process each event once

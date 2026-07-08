@@ -60,9 +60,10 @@ const BASE = `http://localhost:${PORT}`;
 
 function getRunCounts(): Map<string, number> {
   const db = new Database(DB_PATH);
-  const rows = db
-    .query("SELECT model, COUNT(*) as cnt FROM runs GROUP BY model")
-    .all() as { model: string; cnt: number }[];
+  const rows = db.query("SELECT model, COUNT(*) as cnt FROM runs GROUP BY model").all() as {
+    model: string;
+    cnt: number;
+  }[];
   db.close();
   const map = new Map<string, number>();
   for (const r of rows) map.set(r.model, r.cnt);
@@ -200,7 +201,10 @@ const { local, remote } = await getJSON<{
 }>("/api/models");
 
 const candidates = INCLUDE_REMOTE
-  ? [...local.map((m) => ({ id: m.id, source: "local" as const })), ...remote.map((m) => ({ id: m.id, source: "remote" as const }))]
+  ? [
+      ...local.map((m) => ({ id: m.id, source: "local" as const })),
+      ...remote.map((m) => ({ id: m.id, source: "remote" as const })),
+    ]
   : local.map((m) => ({ id: m.id, source: "local" as const }));
 
 // 3. Filter to models below target
@@ -251,7 +255,9 @@ let cumulativeIndex = 0;
 for (let mi = 0; mi < deficits.length; mi++) {
   const m = deficits[mi]!;
   console.log(`\n${hr()}`);
-  console.log(`  ${CYAN}${m.id}${RESET}  ${DIM}(${m.source})${RESET} — need ${GOLD}+${m.needed}${RESET} to reach ${TARGET}`);
+  console.log(
+    `  ${CYAN}${m.id}${RESET}  ${DIM}(${m.source})${RESET} — need ${GOLD}+${m.needed}${RESET} to reach ${TARGET}`
+  );
   console.log(hr());
 
   for (let run = 1; run <= m.needed; run++) {

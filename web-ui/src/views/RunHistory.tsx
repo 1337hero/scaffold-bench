@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import { formatTokenCount } from "@/lib/format";
 import {
   AwardsGrid,
   CategoryHeatmap,
@@ -8,6 +9,7 @@ import {
   MetricBars,
   RecentRunsTable,
   ReportHeader,
+  TokenScoreScatter,
   sortByMetric,
   sortByScore,
 } from "@/components/report";
@@ -144,6 +146,15 @@ export function RunHistory({ onBack, backHref }: RunHistoryProps) {
               color="#b38bff"
               lowerIsBetter
             />
+            <MetricBars
+              title="Tokens per scenario (lower = cheaper)"
+              models={sortByMetric(visibleModels, (model) => model.avgTokensPerScenario, true)}
+              value={(model) => model.avgTokensPerScenario}
+              format={(value) => (value > 0 ? formatTokenCount(value) : "—")}
+              color="#9b59b6"
+              lowerIsBetter
+            />
+            <TokenScoreScatter models={scoreModels} cloud={report.pareto} />
           </>
         )}
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReportModelAggregate } from "@/types";
-import { formatSeconds, formatTps, formatWallTime } from "@/lib/format";
+import { formatSeconds, formatTps, formatTokenCount, formatWallTime } from "@/lib/format";
 import { scoreTextColor } from "@/lib/score-color";
 import { SectionTitle } from "./SectionTitle";
 import { SourceBadge } from "./ReportHeader";
@@ -11,6 +11,7 @@ type SortKey =
   | "genTps"
   | "promptTps"
   | "scenAvg"
+  | "tokens"
   | "totalWall"
   | "ttft"
   | "tools"
@@ -26,6 +27,7 @@ const COLUMNS: Record<SortKey, { label: string; align: string }> = {
   genTps: { label: "Gen TPS", align: "text-right" },
   promptTps: { label: "Prompt TPS", align: "text-right" },
   scenAvg: { label: "Scen Avg", align: "text-right" },
+  tokens: { label: "Tokens/scen", align: "text-right" },
   totalWall: { label: "Total Wall", align: "text-right" },
   ttft: { label: "TTFT", align: "text-right" },
   tools: { label: "Tools", align: "text-right" },
@@ -63,6 +65,9 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
     }
     case "scenAvg": {
       return a.avgScenarioSeconds - b.avgScenarioSeconds;
+    }
+    case "tokens": {
+      return a.avgTokensPerScenario - b.avgTokensPerScenario;
     }
     case "totalWall": {
       return a.totalWallSeconds - b.totalWallSeconds;
@@ -142,6 +147,7 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               {sortableTh("genTps")}
               {sortableTh("promptTps")}
               {sortableTh("scenAvg")}
+              {sortableTh("tokens")}
               {sortableTh("totalWall")}
               {sortableTh("ttft")}
               {sortableTh("tools")}
@@ -179,6 +185,11 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {model.avgScenarioSeconds.toFixed(1)}s
+                </td>
+                <td className="py-2 px-2 text-right text-text-main tabular-nums">
+                  {model.avgTokensPerScenario > 0
+                    ? formatTokenCount(model.avgTokensPerScenario)
+                    : "—"}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {formatWallTime(model.totalWallSeconds)}

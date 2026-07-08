@@ -23,6 +23,8 @@ Correctness counts — but a model that gets the right answer by bulldozing surr
 
 **No LLM judge.** Scoring is deterministic. Behavior is graded against a real filesystem diff, and correctness is verified by **actually running the code** — real unit tests executed in a throwaway temp dir, real `tsc --noEmit`, or TypeScript-AST checks — so a correct-but-differently-spelled fix still passes and a regex-matching-but-broken one doesn't.
 
+**No peeking.** The agent runs in an anonymous throwaway workdir, and its `bash` is jailed with bubblewrap when available: filesystem read-only outside the workdir, fresh `/tmp`, bench repo masked entirely, minimal env. Scenario sources, hidden tests, and your API keys are unreachable from inside a run.
+
 ---
 
 ## Quick start
@@ -108,6 +110,35 @@ Scope is checked from a real filesystem diff, so changes made through `bash` (e.
 **Timeouts** are scored fairly: a run that hits its timeout is evaluated against the playground state as-is (not auto-failed), with `timedOut` recorded. Speed is reported separately as `efficiencyPointsPerMinute` so it never inflates or deflates capability.
 
 Many scenarios verify correctness **behaviorally** rather than by regex: hidden unit tests live under `lib/scenarios/_shared/behaviors/` and are copied into a throwaway temp dir at scoring time (so models can't read the assertions), while others use TypeScript-AST checks in `lib/scenarios/_shared/evaluators/ast.ts`.
+
+### Leaderboard: outcome first
+
+The blended 0–10 score let models harvest process points while failing the actual task, compressing real capability differences. The leaderboard now separates the two:
+
+- **Solve %** — primary metric and default sort. A scenario counts as solved only on full correctness (3/3), reported with a Wilson 95% confidence interval.
+- **Discipline %** — the process dimensions (scope + pattern + verification + cleanup, /7) as a separate column.
+- **Score %** — the legacy blended number, kept but demoted.
+
+All three are computed over historical runs — no re-runs needed.
+
+### Artifacts & rescoring
+
+Every scenario-run archives its workspace diff and transcript to `artifacts/<runId>/<scenarioId>.json` (path recorded in `scenario_runs.artifact_path`). `scripts/rescore.ts` reconstructs the workspace from an artifact and replays `evaluate()` with **zero model invocations** — so rubric changes re-grade history instead of forcing re-runs. SB-19 is the one exclusion (its per-turn timing can't replay from an end-state archive).
+
+```bash
+bun scripts/rescore.ts --all --dry-run          # preview what would change
+bun scripts/rescore.ts --run <runId>
+bun scripts/rescore.ts --model <name> [--scenario SB-14] [--dry-run]
+```
+
+### Bench health tooling
+
+```bash
+bun scripts/check-health.ts                     # flag rubric checks that measure nothing
+bun scripts/compare-models.ts <modelA> <modelB> # paired per-scenario diff + sign test
+```
+
+`check-health.ts` lints every rubric check against the DB: **saturated** checks (≥97% pass for every model) measure nothing; **never-pass** checks are structurally unearnable (exits 1 on those). `compare-models.ts` compares two models scenario-by-scenario with an exact binomial sign test, so "A beats B" claims come with significance.
 
 ---
 

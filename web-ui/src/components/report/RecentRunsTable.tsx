@@ -74,7 +74,11 @@ export function RecentRunsTable({ runs }: { runs: RunSummary[] }) {
               <th className="text-left py-2 px-3">Status</th>
               <th className="text-left py-2 px-3">Model</th>
               {Object.entries(SORTABLE_COLUMNS).map(([key, col]) => (
-                <th key={key} className={`${col.align} py-2 px-3 cursor-pointer select-none hover:text-text-main transition-colors`} onClick={() => handleSort(key as SortKey)}>
+                <th
+                  key={key}
+                  className={`${col.align} py-2 px-3 cursor-pointer select-none hover:text-text-main transition-colors`}
+                  onClick={() => handleSort(key as SortKey)}
+                >
                   {col.label}
                   {arrow(key as SortKey)}
                 </th>

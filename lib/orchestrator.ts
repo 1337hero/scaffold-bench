@@ -1,6 +1,7 @@
 import { cp, mkdtemp, rm } from "node:fs/promises";
+import { lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.ts";
 import type { Scenario } from "./scenarios/index.js";
 import { PLAYGROUND_SRC } from "./scenarios/index.js";
@@ -95,8 +96,14 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
     }
   }
 
-  const workDir = await mkdtemp(join(tmpdir(), "scaffold-bench-"));
-  await cp(PLAYGROUND_SRC, join(workDir, "playground"), { recursive: true });
+  // Neutral prefix: the workdir path is visible to the agent (pwd); don't advertise the bench.
+  const workDir = await mkdtemp(join(tmpdir(), "ws-"));
+  await cp(PLAYGROUND_SRC, join(workDir, "playground"), {
+    recursive: true,
+    // Exclude cargo build caches: target/**/*.d files embed the app repo's absolute
+    // path, pointing the agent straight at scenario sources and hidden tests.
+    filter: (source) => basename(source) !== "target" || !lstatSync(source).isDirectory(),
+  });
 
   try {
     let output: RuntimeOutput;

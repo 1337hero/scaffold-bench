@@ -1,12 +1,14 @@
 # Typed Validation Errors for POST /users
 
 ## Problem
+
 `POST /users` (registration) currently does a loose `if (!email || !password)`
 check and returns a generic `400`. We want structured, field-level validation
 so clients can show errors next to the right input. Use **zod** (already a
 dependency) to validate and emit a typed error response.
 
 ## Behavior
+
 - `POST /users` body: `{ email: string, password: string }`.
 - Validate with zod:
   - `email` must be a valid email address.
@@ -21,6 +23,7 @@ dependency) to validate and emit a typed error response.
   with `201`. Duplicate email still returns `409` with code `"conflict"`.
 
 ## Constraints
+
 - Import `z` from `zod`. Derive the field messages from zod's parse result;
   do not hand-roll the validation conditions.
 - Use the existing `AppError` for the duplicate-email `409` only. The `422`
@@ -29,9 +32,11 @@ dependency) to validate and emit a typed error response.
 - All SQL parameterized.
 
 ## File layout
+
 - **Edit:** `src/routes/users.ts` only.
 
 ## Done when
+
 - Invalid email → 422 with `error.fields.email` set.
 - Short password → 422 with `error.fields.password` set.
 - Missing both → 422 with both fields present, and no user row created.

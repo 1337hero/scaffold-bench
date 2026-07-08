@@ -38,6 +38,11 @@ export type ReportModelAggregate = {
   completionTpsApprox: boolean;
   promptTps: number | null;
   promptTpsApprox: boolean;
+  avgTokensPerScenario: number;
+  avgTokensPerRun: number;
+  promptTokensAvg: number;
+  completionTokensAvg: number;
+  paretoFrontier: boolean;
   toolCallsTotal: number;
   requests: number;
   timeouts: number;
@@ -64,6 +69,19 @@ export type ReportData = {
     fastestGeneration?: ReportModelAggregate;
     fastestPrompt?: ReportModelAggregate;
   };
+  pareto: ParetoPoint[];
+};
+
+export type ParetoPoint = {
+  model: string;
+  source: ReportSource;
+  scenarioId: string;
+  category: string;
+  points: number;
+  maxPoints: number;
+  scorePct: number;
+  correctness: number | null;
+  totalTokens: number;
 };
 
 type RunRow = {
@@ -120,7 +138,7 @@ export function wilsonInterval(
   const z2 = z * z;
   const center = (p + z2 / (2 * total)) / (1 + z2 / total);
   const halfwidth =
-    (z * Math.sqrt(p * (1 - p) / total + z2 / (4 * total * total))) / (1 + z2 / total);
+    (z * Math.sqrt((p * (1 - p)) / total + z2 / (4 * total * total))) / (1 + z2 / total);
   return {
     low: Math.max(0, center - halfwidth) * 100,
     high: Math.min(1, center + halfwidth) * 100,
@@ -135,10 +153,16 @@ export function computeSolveStats(rows: SolveDimRow[]): SolveStats {
   let disciplineSum = 0;
   let disciplineCount = 0;
   for (const row of rows) {
-    if (row.scope === null && row.pattern === null && row.verification === null && row.cleanup === null) {
+    if (
+      row.scope === null &&
+      row.pattern === null &&
+      row.verification === null &&
+      row.cleanup === null
+    ) {
       continue;
     }
-    const dims = (row.scope ?? 0) + (row.pattern ?? 0) + (row.verification ?? 0) + (row.cleanup ?? 0);
+    const dims =
+      (row.scope ?? 0) + (row.pattern ?? 0) + (row.verification ?? 0) + (row.cleanup ?? 0);
     disciplineSum += (100 * dims) / 7;
     disciplineCount += 1;
   }
@@ -157,6 +181,7 @@ type MetricsShape = {
   requestCount?: number;
   promptTokens?: number;
   completionTokens?: number;
+  totalTokens?: number;
   totalRequestTimeMs?: number;
   promptEvalTokens?: number;
   promptEvalTimeMs?: number;
@@ -183,6 +208,8 @@ type ModelAccumulator = {
   hasCompletionTiming: boolean;
   promptTokens: number;
   completionTokens: number;
+  totalTokens: number;
+  metricScenarioRuns: number;
   totalRequestTimeMs: number;
   requests: number;
   toolCalls: number;
@@ -219,6 +246,7 @@ export function buildReportData(): ReportData {
 
   const runsById = new Map<string, RunRow>(runs.map((run) => [run.id, run]));
   const accByModel = new Map<string, ModelAccumulator>();
+  const paretoPoints: ParetoPoint[] = [];
 
   for (const run of runs) {
     const model = run.model ?? "unknown";
@@ -275,7 +303,38 @@ export function buildReportData(): ReportData {
     acc.categories[categoryName] = category;
 
     const metrics = parseMetrics(scenario.model_metrics_json);
-    if (metrics) addMetrics(acc, metrics);
+    if (metrics) {
+      addMetrics(acc, metrics);
+      if (
+        scenario.error_kind !== "infra" &&
+        scenario.error_kind !== "aborted" &&
+        scenario.error_kind !== "timeout"
+      ) {
+        acc.metricScenarioRuns += 1;
+      }
+    }
+
+    if (
+      metrics &&
+      scenario.error_kind !== "infra" &&
+      scenario.error_kind !== "aborted" &&
+      scenario.error_kind !== "timeout"
+    ) {
+      const pt = finiteNumber(metrics.totalTokens);
+      if (pt > 0) {
+        paretoPoints.push({
+          model,
+          source: model.includes("/") ? "api" : "local",
+          scenarioId: scenario.scenario_id,
+          category: scenario.category ?? "unknown",
+          points: scenario.points ?? 0,
+          maxPoints: scenario.max_points ?? 0,
+          scorePct: scenario.max_points ? ((scenario.points ?? 0) / scenario.max_points) * 100 : 0,
+          correctness: scenario.rubric_kind === "10pt" ? scenario.correctness : null,
+          totalTokens: pt,
+        });
+      }
+    }
 
     accByModel.set(model, acc);
   }
@@ -283,6 +342,13 @@ export function buildReportData(): ReportData {
   const models = [...accByModel.entries()]
     .map(([model, acc]) => finalizeModel(model, acc))
     .toSorted((a, b) => b.solveRatePct - a.solveRatePct || b.scorePct - a.scorePct);
+
+  const frontierIdx = paretoFrontier(
+    models
+      .map((m, idx) => ({ idx, tokens: m.avgTokensPerScenario, score: m.scorePct }))
+      .filter((p) => p.tokens > 0)
+  );
+  for (const i of frontierIdx) models[i].paretoFrontier = true;
 
   const scored = models.filter((model) => model.avgScenarioSeconds > 0);
   const bestAligned = scored.toSorted(
@@ -312,6 +378,7 @@ export function buildReportData(): ReportData {
       fastestGeneration,
       fastestPrompt,
     },
+    pareto: paretoPoints,
   };
 }
 
@@ -333,6 +400,8 @@ function createAccumulator(): ModelAccumulator {
     hasCompletionTiming: false,
     promptTokens: 0,
     completionTokens: 0,
+    totalTokens: 0,
+    metricScenarioRuns: 0,
     totalRequestTimeMs: 0,
     requests: 0,
     toolCalls: 0,
@@ -346,8 +415,12 @@ function createAccumulator(): ModelAccumulator {
 }
 
 function addMetrics(acc: ModelAccumulator, metrics: MetricsShape): void {
-  acc.promptTokens += finiteNumber(metrics.promptTokens);
-  acc.completionTokens += finiteNumber(metrics.completionTokens);
+  const prompt = finiteNumber(metrics.promptTokens);
+  const completion = finiteNumber(metrics.completionTokens);
+  acc.promptTokens += prompt;
+  acc.completionTokens += completion;
+  // totalTokens falls back to prompt+completion when the field is absent (mirrors local-model.ts).
+  acc.totalTokens += finiteNumber(metrics.totalTokens) || prompt + completion;
   acc.totalRequestTimeMs += finiteNumber(metrics.totalRequestTimeMs);
   acc.requests += finiteNumber(metrics.requestCount);
 
@@ -382,6 +455,7 @@ function parseMetrics(raw: string | null): MetricsShape | undefined {
     requestCount: maybeNumber(parsed.requestCount),
     promptTokens: maybeNumber(parsed.promptTokens),
     completionTokens: maybeNumber(parsed.completionTokens),
+    totalTokens: maybeNumber(parsed.totalTokens),
     totalRequestTimeMs: maybeNumber(parsed.totalRequestTimeMs),
     promptEvalTokens: maybeNumber(parsed.promptEvalTokens),
     promptEvalTimeMs: maybeNumber(parsed.promptEvalTimeMs),
@@ -417,6 +491,14 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     completionTpsApprox: completion.approx,
     promptTps: prompt.value,
     promptTpsApprox: prompt.approx,
+    ...computeTokenMeans(
+      acc.totalTokens,
+      acc.metricScenarioRuns,
+      acc.promptTokens,
+      acc.completionTokens,
+      runCount
+    ),
+    paretoFrontier: false,
     toolCallsTotal: Math.round(acc.toolCalls / runCount),
     requests: Math.round(acc.requests / runCount),
     timeouts: acc.timeouts,
@@ -424,6 +506,29 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     categories: categoryScores(acc.categories),
     scenarioCount: acc.scenarioIds.size,
     latestTimestamp: acc.latestFinishedAt > 0 ? new Date(acc.latestFinishedAt).toISOString() : "",
+  };
+}
+
+export function computeTokenMeans(
+  totalTokens: number,
+  metricScenarioRuns: number,
+  promptTokens: number,
+  completionTokens: number,
+  runCount: number
+): {
+  avgTokensPerScenario: number;
+  avgTokensPerRun: number;
+  promptTokensAvg: number;
+  completionTokensAvg: number;
+} {
+  // avgTokensPerScenario divides only by scenario-runs that contributed token metrics
+  // (metricScenarioRuns), not the blanket scenario-run count — exempt/timeout rows with no
+  // metrics must not deflate the mean for flaky models.
+  return {
+    avgTokensPerScenario: metricScenarioRuns > 0 ? totalTokens / metricScenarioRuns : 0,
+    avgTokensPerRun: runCount > 0 ? totalTokens / runCount : 0,
+    promptTokensAvg: runCount > 0 ? promptTokens / runCount : 0,
+    completionTokensAvg: runCount > 0 ? completionTokens / runCount : 0,
   };
 }
 
@@ -467,6 +572,18 @@ function categoryScores(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+export function paretoFrontier(points: { idx: number; tokens: number; score: number }[]): number[] {
+  return points
+    .filter(
+      (p) =>
+        !points.some(
+          (q) =>
+            q.tokens <= p.tokens && q.score >= p.score && (q.tokens < p.tokens || q.score > p.score)
+        )
+    )
+    .map((p) => p.idx);
 }
 
 function maybeNumber(value: unknown): number | undefined {

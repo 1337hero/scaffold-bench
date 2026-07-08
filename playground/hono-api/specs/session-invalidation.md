@@ -1,12 +1,14 @@
 # Invalidate Sessions on Password Change
 
 ## Problem
+
 When a user changes their password we must revoke every existing session except
 the one making the change. Today there is no password-change endpoint, so a
 leaked session token lives until it expires even after the user "changes their
 password" — there is nothing to change it.
 
 ## Behavior
+
 - `POST /users/:id/password`
 - Requires auth (existing `requireUser`).
 - Body: `{ "currentPassword": string, "newPassword": string }`.
@@ -24,6 +26,7 @@ password" — there is nothing to change it.
   - Return `{ ok: true }`.
 
 ## Constraints
+
 - Use `AppError` from `src/lib/errors.ts` for every error response.
 - All SQL must be parameterized.
 - The current session must remain valid after the change.
@@ -32,9 +35,11 @@ password" — there is nothing to change it.
 - Do not modify the existing `POST /users` or `GET /users/:id` handlers.
 
 ## File layout
+
 - **Edit:** `src/routes/users.ts` only.
 
 ## Done when
+
 - A user with two active sessions who changes their password keeps the
   request's session working and finds the other session rejected (401).
 - Wrong `currentPassword` → 401, sessions untouched.
