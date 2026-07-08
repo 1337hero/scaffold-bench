@@ -73,6 +73,7 @@ export interface ScenarioRunRow {
   evaluation_json: string | null;
   error_kind: "infra" | "timeout" | "aborted" | "runtime" | null;
   error: string | null;
+  artifact_path: string | null;
 }
 
 export interface RunEventRow {
@@ -137,8 +138,8 @@ export function upsertScenarioRun(
       points, max_points, rubric_kind,
       correctness, scope, pattern, verification, cleanup,
       wall_time_ms, first_token_ms, tool_call_count,
-      model_metrics_json, evaluation_json, error_kind, error
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      model_metrics_json, evaluation_json, error_kind, error, artifact_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(run_id, scenario_id) DO UPDATE SET
       category = COALESCE(excluded.category, category),
       family = COALESCE(excluded.family, family),
@@ -159,7 +160,8 @@ export function upsertScenarioRun(
       model_metrics_json = COALESCE(excluded.model_metrics_json, model_metrics_json),
       evaluation_json = COALESCE(excluded.evaluation_json, evaluation_json),
       error_kind = COALESCE(excluded.error_kind, error_kind),
-      error = COALESCE(excluded.error, error)`,
+      error = COALESCE(excluded.error, error),
+      artifact_path = COALESCE(excluded.artifact_path, artifact_path)`,
     [
       row.run_id,
       row.scenario_id,
@@ -183,6 +185,7 @@ export function upsertScenarioRun(
       row.evaluation_json ?? null,
       row.error_kind ?? null,
       row.error ?? null,
+      row.artifact_path ?? null,
     ]
   );
 }

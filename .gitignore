@@ -7,6 +7,7 @@ results/*
 results/.probe-cache.json
 bench-report.html
 web-ui/dist/
+artifacts/
 
 # Environment / secrets
 env/

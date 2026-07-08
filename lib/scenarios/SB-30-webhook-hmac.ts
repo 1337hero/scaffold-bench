@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import type { Ms, ScenarioId } from "../schemas/brands.js";
 import { classifyRuntimeError, runtimeErrorEvaluation } from "../scoring.ts";
-import type { RuntimeOutput } from "../scoring.ts";
-import type { Scenario } from "./_shared/types.js";
+import type { RuntimeOutput, ScenarioEvaluation } from "../scoring.ts";
+import type { Scenario, ScenarioEvaluateInput } from "./_shared/types.js";
 import { rubricToEvaluation } from "./_shared/rubric.js";
 import {
   bunAvailable,
@@ -26,6 +26,91 @@ export const meta = {
   prompt: PROMPT,
 } as const;
 
+async function evaluateSB30(input: ScenarioEvaluateInput): Promise<ScenarioEvaluation> {
+  const { playgroundDir, toolCalls } = input;
+  const fixtureDir = join(playgroundDir, "playground/hono-api");
+
+  const testRun = await runBunTest(fixtureDir, "tests/sb-30-webhooks.test.ts");
+  const webhookRoute = await readOrEmpty(join(fixtureDir, "src/routes/webhooks.ts"));
+  const indexTs = await readOrEmpty(join(fixtureDir, "src/index.ts"));
+
+  const usesTimingSafe = /timingSafeEqual/.test(webhookRoute) || /timing.safe/i.test(webhookRoute);
+  const noStringEqual =
+    !/[!=]==\s*expected/.test(webhookRoute) &&
+    !/expected\s*[!=]==/.test(webhookRoute) &&
+    !/sig\s*[!=]==\s*exp/.test(webhookRoute);
+
+  const readSpec = toolCalls.some((c) => c.name === "read" && c.args.includes("webhooks.md"));
+
+  const scope = await onlyChangedFiles({
+    playgroundDir,
+    allowedPaths: [
+      "playground/hono-api/src/routes/webhooks.ts",
+      "playground/hono-api/src/index.ts",
+      "playground/hono-api/schema.sql",
+    ],
+  });
+
+  return rubricToEvaluation(
+    {
+      correctness: [
+        {
+          name: "webhook test suite passes",
+          pass: testRun.pass,
+          weight: 3,
+          detail: testRun.pass ? undefined : testRun.stdout + "\n" + testRun.stderr,
+        },
+      ],
+      scope: [
+        {
+          name: "only webhook handler + index + schema changed",
+          pass: scope.pass,
+          weight: 2,
+          detail: scope.detail,
+        },
+      ],
+      pattern: [
+        {
+          name: "uses constant-time compare (timingSafeEqual)",
+          pass: usesTimingSafe,
+          weight: 1,
+          detail: usesTimingSafe ? undefined : "no timingSafeEqual — vulnerable to timing attacks",
+        },
+        {
+          name: "no === string comparison for HMAC",
+          pass: noStringEqual,
+          weight: 1,
+          detail: noStringEqual ? undefined : "uses === to compare HMAC strings",
+        },
+      ],
+      verification: [
+        {
+          name: "read webhook spec before writing",
+          pass: readSpec,
+          weight: 1,
+        },
+      ],
+      cleanup: [
+        {
+          name: "no console.log in webhook handler",
+          pass: noConsoleLog(webhookRoute),
+          weight: 1,
+        },
+        {
+          name: "webhook handler mounted in index.ts",
+          pass: /webhooksRoutes/.test(indexTs) || /webhook/i.test(indexTs),
+          weight: 1,
+        },
+      ],
+    },
+    {
+      pass: "Webhook handler passes all tests with timing-safe compare and dedup.",
+      partial: "Some webhook tests pass but timing safety or dedup missing.",
+      fail: "Webhook handler not implemented or tests fail.",
+    }
+  );
+}
+
 const scenario: Scenario = {
   id: "SB-30" as ScenarioId,
   name: "webhook-hmac",
@@ -34,7 +119,6 @@ const scenario: Scenario = {
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;
-    const fixtureDir = join(workDir, "playground/hono-api");
 
     if (!bunAvailable()) {
       const output: RuntimeOutput = {
@@ -84,93 +168,21 @@ const scenario: Scenario = {
       };
     }
 
-    const testRun = await runBunTest(fixtureDir, "tests/sb-30-webhooks.test.ts");
-    const webhookRoute = await readOrEmpty(join(fixtureDir, "src/routes/webhooks.ts"));
-    const indexTs = await readOrEmpty(join(fixtureDir, "src/index.ts"));
-
-    const usesTimingSafe =
-      /timingSafeEqual/.test(webhookRoute) || /timing.safe/i.test(webhookRoute);
-    const noStringEqual =
-      !/[!=]==\s*expected/.test(webhookRoute) &&
-      !/expected\s*[!=]==/.test(webhookRoute) &&
-      !/sig\s*[!=]==\s*exp/.test(webhookRoute);
-
-    const readSpec = output.toolCalls.some(
-      (c) => c.name === "read" && c.args.includes("webhooks.md")
-    );
-
-    const scope = await onlyChangedFiles({
+    const evaluation = await evaluateSB30({
+      stdout: output.stdout,
       playgroundDir: workDir,
-      allowedPaths: [
-        "playground/hono-api/src/routes/webhooks.ts",
-        "playground/hono-api/src/index.ts",
-        "playground/hono-api/schema.sql",
-      ],
+      toolCalls: output.toolCalls,
+      wallTimeMs: output.wallTimeMs,
+      firstTokenMs: output.firstTokenMs,
+      turnWallTimes: output.turnWallTimes,
+      turnFirstTokenMs: output.turnFirstTokenMs,
+      modelMetrics: output.modelMetrics,
+      scenarioMetrics: output.scenarioMetrics,
     });
-
-    const evaluation = rubricToEvaluation(
-      {
-        correctness: [
-          {
-            name: "webhook test suite passes",
-            pass: testRun.pass,
-            weight: 3,
-            detail: testRun.pass ? undefined : testRun.stdout + "\n" + testRun.stderr,
-          },
-        ],
-        scope: [
-          {
-            name: "only webhook handler + index + schema changed",
-            pass: scope.pass,
-            weight: 2,
-            detail: scope.detail,
-          },
-        ],
-        pattern: [
-          {
-            name: "uses constant-time compare (timingSafeEqual)",
-            pass: usesTimingSafe,
-            weight: 1,
-            detail: usesTimingSafe
-              ? undefined
-              : "no timingSafeEqual — vulnerable to timing attacks",
-          },
-          {
-            name: "no === string comparison for HMAC",
-            pass: noStringEqual,
-            weight: 1,
-            detail: noStringEqual ? undefined : "uses === to compare HMAC strings",
-          },
-        ],
-        verification: [
-          {
-            name: "read webhook spec before writing",
-            pass: readSpec,
-            weight: 1,
-          },
-        ],
-        cleanup: [
-          {
-            name: "no console.log in webhook handler",
-            pass: noConsoleLog(webhookRoute),
-            weight: 1,
-          },
-          {
-            name: "webhook handler mounted in index.ts",
-            pass: /webhooksRoutes/.test(indexTs) || /webhook/i.test(indexTs),
-            weight: 1,
-          },
-        ],
-      },
-      {
-        pass: "Webhook handler passes all tests with timing-safe compare and dedup.",
-        partial: "Some webhook tests pass but timing safety or dedup missing.",
-        fail: "Webhook handler not implemented or tests fail.",
-      }
-    );
 
     return { output, evaluation };
   },
+  evaluate: evaluateSB30,
 };
 
 export default scenario;

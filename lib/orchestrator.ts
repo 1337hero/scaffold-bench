@@ -5,6 +5,7 @@ import type { Runtime, RuntimeEvent, ToolExecutionMode } from "./runtimes/types.
 import type { Scenario } from "./scenarios/index.js";
 import { PLAYGROUND_SRC } from "./scenarios/index.js";
 import { hasTool } from "./scenarios/_shared/toolchain.js";
+import { captureWorkspace } from "./artifacts.ts";
 import type { Ms } from "./schemas/brands.js";
 import {
   applyHallucinationPenalty,
@@ -182,12 +183,15 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
       };
     }
 
+    const archive = await captureWorkspace(workDir).catch(() => undefined);
+
     return {
       scenarioId: opts.scenario.id,
       category: opts.scenario.category,
       runtime: opts.runtime.name,
       evaluation,
       output,
+      ...(archive ? { archive } : {}),
     };
   } finally {
     await rm(workDir, { recursive: true, force: true });

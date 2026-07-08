@@ -115,6 +115,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
 
       results.push(result);
       const errorKind = scenarioErrorKind(result);
+      const artifactPath = result.archive ? await writeArtifact(runId, scenario.id, result) : null;
 
       opts.onEvent?.({
         type: "scenario_finished",
@@ -133,6 +134,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         family: scenario.family,
         rubricKind: result.evaluation.rubricKind,
         rubricBreakdown: result.evaluation.rubricBreakdown ?? null,
+        artifactPath,
         seq: nextSeq(),
         ts: Date.now(),
       });
@@ -212,6 +214,38 @@ export async function runBench(opts: RunBenchOptions): Promise<{
   return { results, totalPoints, maxPoints, resultsPath };
 }
 
+async function writeArtifact(
+  runId: string,
+  scenarioId: string,
+  result: ScenarioResult
+): Promise<string | null> {
+  try {
+    const relPath = join("artifacts", runId, `${scenarioId}.json`);
+    const fullPath = join(import.meta.dir, "..", relPath);
+    await mkdir(join(import.meta.dir, "..", "artifacts", runId), { recursive: true });
+    await Bun.write(
+      fullPath,
+      JSON.stringify({
+        version: 1,
+        runId,
+        scenarioId,
+        archive: result.archive,
+        toolCalls: result.output.toolCalls,
+        stdout: result.output.stdout,
+        wallTimeMs: result.output.wallTimeMs,
+        firstTokenMs: result.output.firstTokenMs,
+        turnWallTimes: result.output.turnWallTimes,
+        turnFirstTokenMs: result.output.turnFirstTokenMs,
+        modelMetrics: result.output.modelMetrics,
+        scenarioMetrics: result.output.scenarioMetrics,
+      })
+    );
+    return relPath;
+  } catch {
+    return null;
+  }
+}
+
 function scenarioErrorKind(result: ScenarioResult): RuntimeErrorKind | undefined {
   const fromMetrics = result.output.scenarioMetrics?.runtimeErrorKind;
   if (typeof fromMetrics === "string" && RUNTIME_ERROR_KINDS.has(fromMetrics))
@@ -253,6 +287,7 @@ function mirrorScenarioState(runId: string, evt: PersistedEvent): void {
       evaluation_json: JSON.stringify(evt.evaluation),
       error_kind: evt.errorKind ?? null,
       model_metrics_json: evt.modelMetrics ? JSON.stringify(evt.modelMetrics) : null,
+      artifact_path: evt.artifactPath ?? null,
     });
   }
 }
