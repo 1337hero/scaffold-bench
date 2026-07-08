@@ -27,6 +27,10 @@ function prefix(label: string, color: string, stream: ReadableStream<Uint8Array>
 
 const procs: Subprocess[] = [];
 
+// Kill anything still holding the API port from a previous run
+const PORT = Number(Bun.env.SCAFFOLD_WEB_PORT ?? 4317);
+Bun.spawnSync(["fuser", "-k", `${PORT}/tcp`], { stderr: "ignore" });
+
 function shutdown(code = 0) {
   for (const p of procs) {
     try {
