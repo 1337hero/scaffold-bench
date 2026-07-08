@@ -26,11 +26,6 @@ export function formatSeconds(value: number | null, digits: number): string {
   return value === null ? "—" : `${value.toFixed(digits)}s`;
 }
 
-export function formatSolveRate(ratePct: number, ciLowPct: number, ciHighPct: number): string {
-  const halfWidth = (ciHighPct - ciLowPct) / 2;
-  return `${ratePct.toFixed(1)} ±${halfWidth.toFixed(1)}`;
-}
-
 export function formatDuration(startedAt: number, finishedAt: number | null): string {
   if (!finishedAt) return "—";
   const totalSec = Math.floor((finishedAt - startedAt) / 1000);
