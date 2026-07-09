@@ -15,24 +15,53 @@ import { summarizeRepeatRuns } from "../lib/aggregates.ts";
 // ── config ────────────────────────────────────────────────────────────────────
 // Edit these before running.
 
-const RUNS_PER_MODEL = 1;
+const RUNS_PER_MODEL = 5;
 
+// Ordered fastest → slowest by measured decode t/s (llama-server timings.predicted_per_second).
+// Probe: warm 8 tok (load) + measure 96 tok, short prompt, enable_thinking=false. 2026-07-09.
+// AntAngelMed intentionally excluded.
+//
+// DONE (5 full suite runs each) — leave commented so re-runs don't re-queue them:
+//   GPT-OSS               156.1 t/s
+//   GLM-4.7-Flash         106.9 t/s
+//   nemotron-cascade-2     93.1 t/s
+//   nemotron               92.7 t/s
+//   Qwen-Coder-30B         87.8 t/s
+//   Llama3.2-3B            78.3 t/s
+//   Qwen3.6                77.8 t/s
+//   Ornith-1.0-35B         77.6 t/s
+//   Qwen3.6-Uncensored     74.3 t/s
+//   Gemma4-26B-A4B         72.0 t/s
+//   Qwen3-Coder-Next       61.1 t/s
+//
+// NEXT batch (pending):
 const MODELS: string[] = [
-  "Qwen3.6-27B",
-  "Qwen3.6",
-  "Qwen-Coder-30B",
-  "Qwen3-Coder-Next",
-  "Qwen3.5-122B",
-  "Devstral-Small-24B",
-  "Gemma4-12B",
-  "Gemma4-26B-A4B",
-  "Gemma4-31B",
-  "GLM-4.7-Flash",
-  "IBM-Granite",
-  "Kimi-Dev-72B",
-  "nemotron",
-  "nemotron-cascade-2",
+  "GPT-OSS-120B-F16", // 71.0 t/s — 120B MoE
+  "Ornith-1.0-9B", // 31.6 t/s — 9B dense
+  "Qwen3.5-122B", // 25.8 t/s — 122B-A10B MoE
+  "Gemma4-12B", // 21.4 t/s — 12B dense
+  "Devstral-Small-24B", // 17.1 t/s — 24B dense
+  "Qwen3.6-27B", // 16.2 t/s — 27B dense
+  "IBM-Granite", // 15.0 t/s — 30B dense
+  "Gemma4-31B", // 13.7 t/s — 31B dense
+  "Kimi-Dev-72B", // 9.9 t/s — 72B dense
+  "Mistral-Medium-3.5-128B", // 6.0 t/s — 128B dense
 ];
+
+// Same IDs as comments above, ready to uncomment if you want a re-run:
+// const DONE_MODELS: string[] = [
+//   "GPT-OSS", // 156.1 t/s
+//   "GLM-4.7-Flash", // 106.9 t/s
+//   "nemotron-cascade-2", // 93.1 t/s
+//   "nemotron", // 92.7 t/s
+//   "Qwen-Coder-30B", // 87.8 t/s
+//   "Llama3.2-3B", // 78.3 t/s
+//   "Qwen3.6", // 77.8 t/s
+//   "Ornith-1.0-35B", // 77.6 t/s
+//   "Qwen3.6-Uncensored", // 74.3 t/s
+//   "Gemma4-26B-A4B", // 72.0 t/s
+//   "Qwen3-Coder-Next", // 61.1 t/s
+// ];
 
 // ── end config ────────────────────────────────────────────────────────────────
 
@@ -183,7 +212,14 @@ const [modelsByGroup, scenarios] = await Promise.all([
 
 const allModels = [...modelsByGroup.local, ...modelsByGroup.remote];
 
-const models = MODELS.length > 0 ? allModels.filter((m) => MODELS.includes(m.id)) : allModels;
+const byId = new Map(allModels.map((m) => [m.id, m]));
+const models =
+  MODELS.length > 0 ? MODELS.map((id) => byId.get(id)).filter((m) => m != null) : allModels;
+
+const missing = MODELS.filter((id) => !byId.has(id));
+if (missing.length > 0) {
+  console.warn(`${RED}Configured but not discovered (skipped): ${missing.join(", ")}${RESET}`);
+}
 
 if (models.length === 0) {
   if (MODELS.length > 0) {
