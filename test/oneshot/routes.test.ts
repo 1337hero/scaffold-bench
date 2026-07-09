@@ -33,7 +33,7 @@ describe("oneshot routes", () => {
     globalThis.fetch = ORIGINAL_FETCH;
   });
 
-  test("GET /api/oneshot/tests returns 5 prompts without body", async () => {
+  test("GET /api/oneshot/tests returns 15 prompts without body", async () => {
     const app = new Hono();
     app.route("/api/oneshot", oneshotRouter);
 
@@ -41,11 +41,30 @@ describe("oneshot routes", () => {
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as Array<Record<string, unknown>>;
-    expect(json).toHaveLength(5);
+    expect(json).toHaveLength(15);
     expect(json[0].id).toBeDefined();
     expect(json[0].title).toBeDefined();
     expect(json[0].category).toBeDefined();
     expect(json[0].prompt).toBeUndefined();
+  });
+
+  test("POST /api/oneshot/runs/:id/stop returns 404 for inactive run", async () => {
+    const app = new Hono();
+    app.route("/api/oneshot", oneshotRouter);
+
+    const res = await app.request("/api/oneshot/runs/nope/stop", { method: "POST" });
+    expect(res.status).toBe(404);
+  });
+
+  test("GET /api/oneshot/artifacts/:promptId rejects bad ids and misses", async () => {
+    const app = new Hono();
+    app.route("/api/oneshot", oneshotRouter);
+
+    const traversal = await app.request("/api/oneshot/artifacts/..%2Fsecret");
+    expect(traversal.status).toBe(400);
+
+    const missing = await app.request("/api/oneshot/artifacts/no-such-prompt");
+    expect(missing.status).toBe(404);
   });
 
   test("POST /api/oneshot/runs returns 201 and runId", async () => {

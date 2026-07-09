@@ -186,6 +186,93 @@ describe("oneshot-state-reducer", () => {
 
     expect(next.status).toBe("stopped");
   });
+
+  test("new single-prompt run keeps other prompts' results", () => {
+    const finished = oneshotStateReducer(seed(), {
+      type: "oneshot_test_finished",
+      runId: "r1",
+      promptId: "p1",
+      output: "p1 output",
+      metrics: null,
+      finishReason: "stop",
+      wallTimeMs: 10,
+      artifact: true,
+      seq: 2,
+    });
+
+    const rerun = oneshotStateReducer(finished, {
+      type: "oneshot_run_started",
+      runId: "r2",
+      promptIds: ["p2"],
+      model: "m2",
+      seq: -1,
+    });
+
+    expect(rerun.prompts.p1.status).toBe("done");
+    expect(rerun.prompts.p1.output).toBe("p1 output");
+    expect(rerun.prompts.p1.artifact).toBe(true);
+    expect(rerun.prompts.p2.status).toBe("pending");
+    expect(rerun.prompts.p2.output).toBe("");
+  });
+
+  test("hydrate merges cross-run results and counts only live-run rows for seq", () => {
+    const next = oneshotStateReducer(INITIAL_ONESHOT_STATE, {
+      type: "hydrate",
+      latest: {
+        runId: "r2",
+        status: "running",
+        model: "m2",
+        endpoint: null,
+        promptIds: ["p2"],
+        startedAt: 100,
+        finishedAt: null,
+        error: null,
+        results: [
+          {
+            promptId: "p1",
+            runId: "r1",
+            model: "m1",
+            artifact: true,
+            startedAt: 10,
+            finishedAt: 20,
+            status: "done",
+            output: "old p1",
+            finishReason: "stop",
+            wallTimeMs: 10,
+            firstTokenMs: 1,
+            promptTokens: 5,
+            completionTokens: 9,
+            error: null,
+          },
+          {
+            promptId: "p2",
+            runId: "r2",
+            model: "m2",
+            artifact: false,
+            startedAt: 100,
+            finishedAt: null,
+            status: "running",
+            output: "partial",
+            finishReason: null,
+            wallTimeMs: null,
+            firstTokenMs: null,
+            promptTokens: null,
+            completionTokens: null,
+            error: null,
+          },
+        ],
+      },
+    });
+
+    expect(next.runId).toBe("r2");
+    expect(next.status).toBe("running");
+    expect(next.prompts.p1.status).toBe("done");
+    expect(next.prompts.p1.model).toBe("m1");
+    expect(next.prompts.p1.artifact).toBe(true);
+    expect(next.prompts.p2.status).toBe("running");
+    expect(next.prompts.p2.output).toBe("partial");
+    expect(next.lastSeenSeq).toBe(1);
+  });
 });
 
 function seed(): OneshotState {

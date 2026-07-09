@@ -6,6 +6,9 @@ export type OneshotPromptState = {
   id: string;
   status: OneshotPromptStatus;
   output: string;
+  model?: string | null;
+  artifact?: boolean;
+  artifactVersion?: number;
   finishReason?: string;
   wallTimeMs?: number;
   firstTokenMs?: number;
@@ -40,40 +43,42 @@ export function oneshotStateReducer(
 ): OneshotState {
   if (event.type === "hydrate") {
     const { latest } = event;
+    const runIsLive = latest.status === "running";
     const prompts: Record<string, OneshotPromptState> = {};
     for (const id of latest.promptIds) {
       prompts[id] = { id, status: "pending", output: "" };
     }
+    // Results are latest-per-prompt across runs; count only the live run's rows
+    // toward lastSeenSeq so replayed SSE events are not dropped.
     let lastSeenSeq = 0;
     for (const row of latest.results) {
-      const hasStarted =
-        row.startedAt != null || row.status != null || row.output != null || row.error != null;
-      if (!hasStarted) continue;
-      prompts[row.promptId] = {
-        ...prompts[row.promptId],
-        id: row.promptId,
-        status: "running",
-        output: row.output ?? "",
-      };
       const isFinished =
-        row.finishedAt != null ||
-        row.status === "done" ||
-        row.status === "failed" ||
-        row.error != null;
-      if (isFinished) {
-        prompts[row.promptId] = {
-          ...prompts[row.promptId],
-          status: row.error ? "failed" : "done",
-          output: row.output ?? "",
-          finishReason: row.finishReason ?? undefined,
-          wallTimeMs: row.wallTimeMs ?? undefined,
-          firstTokenMs: row.firstTokenMs ?? undefined,
-          promptTokens: row.promptTokens ?? undefined,
-          completionTokens: row.completionTokens ?? undefined,
-          error: row.error ?? undefined,
-        };
-      }
-      lastSeenSeq++;
+        row.finishedAt != null || row.status === "done" || row.status === "failed";
+      const belongsToRun = row.runId === latest.runId;
+      const status: OneshotPromptStatus = isFinished
+        ? row.error
+          ? "failed"
+          : "done"
+        : runIsLive && belongsToRun
+          ? row.status === "running"
+            ? "running"
+            : "pending"
+          : "stopped";
+      prompts[row.promptId] = {
+        id: row.promptId,
+        status,
+        output: row.output ?? "",
+        model: row.model,
+        artifact: row.artifact,
+        artifactVersion: row.finishedAt ?? undefined,
+        finishReason: row.finishReason ?? undefined,
+        wallTimeMs: row.wallTimeMs ?? undefined,
+        firstTokenMs: row.firstTokenMs ?? undefined,
+        promptTokens: row.promptTokens ?? undefined,
+        completionTokens: row.completionTokens ?? undefined,
+        error: row.error ?? undefined,
+      };
+      if (belongsToRun && (row.startedAt != null || isFinished)) lastSeenSeq++;
     }
     return {
       runId: latest.runId,
@@ -95,15 +100,17 @@ export function oneshotStateReducer(
   if (event.type !== "oneshot_run_started" && event.seq <= state.lastSeenSeq) return state;
 
   if (event.type === "oneshot_run_started") {
-    const prompts: Record<string, OneshotPromptState> = {};
+    // Merge: only the prompts in this run reset; other prompts keep their results.
+    const prompts = { ...state.prompts };
     for (const id of event.promptIds) {
-      prompts[id] = { id, status: "pending", output: "" };
+      prompts[id] = { id, status: "pending", output: "", model: event.model };
     }
+    const promptIds = [...new Set([...state.promptIds, ...event.promptIds])];
     return {
       runId: event.runId,
       status: "running",
       model: event.model,
-      promptIds: [...event.promptIds],
+      promptIds,
       prompts,
       lastSeenSeq: event.seq,
     };
@@ -119,7 +126,7 @@ export function oneshotStateReducer(
       ...state,
       prompts: {
         ...state.prompts,
-        [event.promptId]: { ...current, status: "running" },
+        [event.promptId]: { ...current, status: "running", output: "" },
       },
       lastSeenSeq: event.seq,
     };
@@ -156,6 +163,9 @@ export function oneshotStateReducer(
           ...current,
           status: event.error ? "failed" : "done",
           output: event.output,
+          model: current.model ?? state.model,
+          artifact: event.artifact ?? false,
+          artifactVersion: Date.now(),
           finishReason: event.finishReason,
           wallTimeMs: event.wallTimeMs,
           firstTokenMs: event.firstTokenMs,

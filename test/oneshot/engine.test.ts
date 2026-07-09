@@ -77,7 +77,7 @@ describe("oneshot engine", () => {
     expect(latest!.id).toBe(runId);
     expect(["done", "failed", "stopped"]).toContain(latest!.status);
 
-    const results = getOneshotResults(runId);
+    const results = getOneshotResults();
     expect(results).toHaveLength(1);
   });
 
@@ -93,7 +93,7 @@ describe("oneshot engine", () => {
     const latest = getLatestOneshotRun();
     expect(latest).not.toBeNull();
 
-    const results = getOneshotResults(runId);
+    const results = getOneshotResults();
     expect(results.length).toBeGreaterThan(0);
   });
 
@@ -145,7 +145,7 @@ describe("oneshot engine", () => {
     await waitForRunToFinish(runId);
 
     expect(requestedUrl).toBe("http://127.0.0.1:19000/v1/chat/completions");
-    expect(getOneshotResults(runId)[0].output).toBe("ok");
+    expect(getOneshotResults()[0].output).toBe("ok");
   });
 });
 

@@ -1,64 +1,155 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Copy, Download, ExternalLink, Maximize2, RotateCw } from "lucide-react";
 import { extractHtml } from "@/lib/extract-html";
+import { api } from "@/api/client";
+import type { OneshotPromptState } from "@/hooks/oneshot-state-reducer";
 
 interface OneshotCanvasProps {
-  text: string;
+  promptId: string | null;
+  prompt?: OneshotPromptState;
 }
 
-export function OneshotCanvas({ text }: OneshotCanvasProps) {
+export function OneshotCanvas({ promptId, prompt }: OneshotCanvasProps) {
   const [showRaw, setShowRaw] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const streamRef = useRef<HTMLPreElement>(null);
 
-  const extraction = useMemo(() => extractHtml(text), [text]);
-  const isComplete = extraction !== null && /<\/html>/i.test(extraction.html);
+  const text = prompt?.output ?? "";
+  const streaming = prompt?.status === "running";
+  const hasArtifact = Boolean(prompt?.artifact) && promptId !== null;
+  const artifactUrl = hasArtifact
+    ? api.oneshotArtifactUrl(promptId, prompt?.artifactVersion)
+    : null;
+
+  const extraction = useMemo(
+    () => (hasArtifact || streaming ? null : extractHtml(text)),
+    [hasArtifact, streaming, text]
+  );
+
+  // New prompt or fresh run: reset to artifact view
+  useEffect(() => {
+    setShowRaw(false);
+    setReloadKey(0);
+  }, [promptId]);
+
+  // Follow the live stream
+  useEffect(() => {
+    if (!streaming || !streamRef.current) return;
+    streamRef.current.scrollTop = streamRef.current.scrollHeight;
+  }, [streaming, text]);
 
   const copyRaw = async () => {
     await navigator.clipboard.writeText(text);
   };
 
-  const sourceLabel =
-    extraction?.source === "fence" ? "from ```html fence" : extraction ? "from raw text" : null;
+  const downloadHtml = () => {
+    const html = extraction?.html ?? extractHtml(text)?.html ?? text;
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${promptId ?? "oneshot"}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void containerRef.current?.requestFullscreen();
+    }
+  };
+
+  const renderable = hasArtifact || extraction !== null;
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div ref={containerRef} className="flex flex-col h-full min-h-0 bg-bg-main">
       <div className="flex items-center justify-between px-2 py-1 border-b border-border-main text-[11px] text-text-dim">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowRaw((v) => !v)}
-            className="px-2 py-0.5 border border-border-main rounded-sm hover:border-gold hover:text-gold"
+            disabled={streaming}
+            className="px-2 py-0.5 border border-border-main rounded-sm hover:border-gold hover:text-gold disabled:opacity-40"
           >
             {showRaw ? "Show artifact" : "Show raw text"}
           </button>
-          {!showRaw && sourceLabel ? <span className="text-text-dim">{sourceLabel}</span> : null}
+          {streaming ? (
+            <span className="text-gold">
+              Streaming… {text.length.toLocaleString()} chars
+            </span>
+          ) : null}
         </div>
-        <button
-          onClick={copyRaw}
-          disabled={text.length === 0}
-          className="px-2 py-0.5 border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Copy
-        </button>
+        <div className="flex items-center gap-1">
+          <ToolbarButton
+            label="Reload artifact"
+            disabled={!renderable || streaming}
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
+            <RotateCw size={12} />
+          </ToolbarButton>
+          {artifactUrl ? (
+            <a
+              href={artifactUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open in new tab"
+              className="p-1 border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main"
+            >
+              <ExternalLink size={12} />
+            </a>
+          ) : (
+            <ToolbarButton label="Open in new tab" disabled>
+              <ExternalLink size={12} />
+            </ToolbarButton>
+          )}
+          <ToolbarButton label="Download HTML" disabled={text.length === 0} onClick={downloadHtml}>
+            <Download size={12} />
+          </ToolbarButton>
+          <ToolbarButton label="Copy raw output" disabled={text.length === 0} onClick={copyRaw}>
+            <Copy size={12} />
+          </ToolbarButton>
+          <ToolbarButton label="Fullscreen" onClick={toggleFullscreen}>
+            <Maximize2 size={12} />
+          </ToolbarButton>
+        </div>
       </div>
 
-      <div className="flex flex-1 min-h-[52vh] bg-bg-main">
-        {showRaw ? (
-          <pre className="flex-1 min-h-0 overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
+      <div className="flex flex-1 min-h-[52vh]">
+        {streaming ? (
+          <pre
+            ref={streamRef}
+            className="flex-1 min-h-0 max-h-[72vh] overflow-auto p-3 text-xs whitespace-pre-wrap font-mono text-text-main"
+          >
+            {text || "Waiting for first token…"}
+          </pre>
+        ) : showRaw ? (
+          <pre className="flex-1 min-h-0 max-h-[72vh] overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
             {text || "(no output yet)"}
           </pre>
-        ) : text.length === 0 ? (
+        ) : text.length === 0 && !hasArtifact ? (
           <div className="flex flex-1 items-center justify-center text-xs text-text-dim">
-            Waiting for model output…
+            No output yet — run this prompt to see its artifact.
           </div>
-        ) : extraction && isComplete ? (
+        ) : artifactUrl ? (
+          // Deliberately unsandboxed: artifacts need localStorage (high scores,
+          // kanban persistence) and are locally-generated model output.
+          // eslint-disable-next-line react/iframe-missing-sandbox
           <iframe
+            key={`${artifactUrl}-${reloadKey}`}
+            title="Model artifact"
+            src={artifactUrl}
+            className="w-full flex-1 min-h-0 block bg-white"
+          />
+        ) : extraction ? (
+          <iframe
+            key={reloadKey}
             title="Model artifact"
             srcDoc={extraction.html}
             sandbox="allow-scripts"
             className="w-full flex-1 min-h-0 block bg-white"
           />
-        ) : extraction ? (
-          <div className="flex flex-1 items-center justify-center text-xs text-text-dim">
-            Streaming artifact… renders when the document closes.
-          </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-text-dim">
             <div>No renderable HTML found in the model output.</div>
@@ -72,5 +163,28 @@ export function OneshotCanvas({ text }: OneshotCanvasProps) {
         )}
       </div>
     </div>
+  );
+}
+
+function ToolbarButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      className="p-1 border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
   );
 }

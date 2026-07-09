@@ -135,6 +135,7 @@ export type OneshotEvent =
       finishReason: string;
       wallTimeMs: number;
       firstTokenMs?: number;
+      artifact?: boolean;
       error?: string;
     })
   | (EventBase & { type: "oneshot_run_finished"; runId: string })

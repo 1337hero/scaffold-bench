@@ -95,7 +95,12 @@ export function OneShotLab({
     },
   });
 
+  const stopMutation = useMutation({
+    mutationFn: api.stopOneshot,
+  });
+
   const prompts = testsQuery.data ?? [];
+  const running = state.status === "running" || runMutation.isPending;
 
   const runAll = () => {
     if (!selectedModelId || prompts.length === 0) return;
@@ -103,9 +108,14 @@ export function OneShotLab({
     runMutation.mutate({ modelId: selectedModelId, promptIds });
   };
 
-  const rerunSingle = (promptId: string) => {
+  const runSingle = (promptId: string) => {
     if (!selectedModelId) return;
+    setFocusedPromptId(promptId);
     runMutation.mutate({ modelId: selectedModelId, promptIds: [promptId] });
+  };
+
+  const stopRun = () => {
+    if (state.runId) stopMutation.mutate(state.runId);
   };
 
   const focusedId = focusedPromptId ?? state.promptIds[0] ?? prompts[0]?.id ?? null;
@@ -159,15 +169,14 @@ export function OneShotLab({
         <div className="md:col-span-4 space-y-4">
           <Panel title="Test Queue" rightTag={`${prompts.length} prompts`}>
             <OneshotControls
-              prompts={prompts}
+              promptCount={prompts.length}
               models={allModels}
               selectedModelId={selectedModelId}
-              running={state.status === "running" || runMutation.isPending}
-              focusedPromptId={focusedId}
+              running={running}
+              stopping={stopMutation.isPending}
               onModelChange={setSelectedModelId}
-              onStartAll={runAll}
-              onRerunAll={runAll}
-              onRerunSingle={rerunSingle}
+              onRunAll={runAll}
+              onStop={stopRun}
             />
             {testsQuery.isError ? (
               <div className="p-3 text-xs text-red-main">Failed to load oneshot prompts.</div>
@@ -176,7 +185,9 @@ export function OneShotLab({
                 prompts={prompts}
                 rows={state.prompts}
                 focusedPromptId={focusedId}
+                canRun={!running && selectedModelId.length > 0}
                 onFocus={setFocusedPromptId}
+                onRunSingle={runSingle}
               />
             )}
           </Panel>
@@ -187,13 +198,17 @@ export function OneShotLab({
                 Live stream interrupted. Recovering from latest snapshot…
               </div>
             ) : null}
-            <OneshotMetadata model={state.model} promptId={focusedId} metrics={focusedPrompt} />
+            <OneshotMetadata
+              model={focusedPrompt?.model ?? state.model}
+              promptId={focusedId}
+              metrics={focusedPrompt}
+            />
           </Panel>
         </div>
 
         <div className="md:col-span-8">
           <Panel title="Canvas" rightTag={focusedId ?? "—"} className="min-h-[72vh]">
-            <OneshotCanvas text={focusedPrompt?.output ?? ""} />
+            <OneshotCanvas promptId={focusedId} prompt={focusedPrompt} />
           </Panel>
         </div>
       </div>
