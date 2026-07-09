@@ -203,15 +203,38 @@ export function anyBashPassed(calls: ToolCall[]): boolean {
 }
 
 /**
- * Matches test runners and static checks used as post-change self-verification.
+ * Explicit test runners and static checks — count as verification wherever they
+ * appear in a command, so chains like `cd app && bun test` still match.
  * Single definition site — unit-tested. Case-insensitive.
  *
- * Positive: bun test, npm test, node --test, vitest, jest, pytest, cargo test/check,
- * go test/vet/build, php -l, shellcheck, tsc, and generic \b(test|spec)s?\b.
- * Negative: ls, cat, grep, echo, and other non-verification shell.
+ * Covers: bun test, npm test, node --test, vitest, jest, pytest, cargo test/check,
+ * go test/vet/build, php -l, shellcheck, tsc, make test/check, deno test, and
+ * runner-script forms like `node foo.test.mjs` / `python x_test.py`.
  */
-export const VERIFY_COMMAND_PATTERN =
-  /\b(?:bun\s+test|npm\s+(?:run\s+)?test|npx\s+(?:vitest|jest|tsc)\b|node\s+--test|vitest\b|jest\b|pytest\b|cargo\s+(?:test|check)\b|go\s+(?:test|vet|build)\b|php\s+-l\b|shellcheck\b|tsc\b|(?:test|spec)s?\b)/i;
+export const VERIFY_RUNNER_PATTERN =
+  /\b(?:bun\s+test|npm\s+(?:run\s+)?test|npx\s+(?:vitest|jest|tsc)\b|node\s+--test|node\s+-c\b|vitest\b|jest\b|pytest\b|cargo\s+(?:test|check)\b|go\s+(?:test|vet|build)\b|php\s+-l\b|shellcheck\b|tsc\b|make\s+(?:test|check)\b|deno\s+test\b|(?:node|bun|deno|tsx|python3?)\s+\S*(?:test|spec)\S*\.\w+)/i;
+
+/**
+ * Bare "test"/"spec" token — a legitimate signal for informal runners
+ * (`make test`, `./run-tests.sh`) but NOT when the command merely inspects or
+ * mutates a test/spec path (`cat test/foo.ts`, `ls tests/`, `rm -rf tests`).
+ * Guarded by VERIFY_INSPECTION_LEAD so those don't inflate verify_passes.
+ */
+export const VERIFY_GENERIC_PATTERN = /\b(?:test|spec)s?\b/i;
+
+/** Leading verbs that read/navigate/mutate rather than verify. */
+export const VERIFY_INSPECTION_LEAD =
+  /^\s*(?:sudo\s+)?(?:cat|bat|less|more|head|tail|ls|ll|tree|grep|rg|ag|find|fd|sed|awk|gawk|rm|cp|mv|touch|mkdir|echo|printf|stat|file|wc|du|nano|vim|nvim|git|diff|chmod|chown|cd|export|open|xdg-open)\b/i;
+
+/**
+ * Whether a bash command counts as post-change self-verification. An explicit
+ * runner always counts; a bare test/spec mention counts only when the command
+ * doesn't lead with an inspection/destructive verb.
+ */
+export function isVerifyCommand(command: string): boolean {
+  if (VERIFY_RUNNER_PATTERN.test(command)) return true;
+  return VERIFY_GENERIC_PATTERN.test(command) && !VERIFY_INSPECTION_LEAD.test(command);
+}
 
 export type VerifyMetrics = {
   bash_calls: number;
@@ -243,7 +266,7 @@ function isSuccessfulMutation(call: ToolCall): boolean {
 
 function isPassingVerification(call: ToolCall): boolean {
   if (call.name !== "bash") return false;
-  if (!VERIFY_COMMAND_PATTERN.test(bashCommandText(call))) return false;
+  if (!isVerifyCommand(bashCommandText(call))) return false;
   return bashExitCode(call) === 0;
 }
 

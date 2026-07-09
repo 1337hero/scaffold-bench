@@ -34,6 +34,10 @@ type CandidateRow = {
 
 async function main(): Promise<void> {
   const dryRun = process.argv.includes("--dry-run");
+  // --force re-derives every row with an artifact, overwriting already-populated
+  // metrics. Needed after a scoring-logic change (the default NULL gate only fills
+  // fresh rows). Without it, existing rows keep their stale values.
+  const force = process.argv.includes("--force");
   runMigrations();
   const db = getDb();
 
@@ -45,7 +49,7 @@ async function main(): Promise<void> {
       `SELECT run_id, scenario_id, artifact_path
        FROM scenario_runs
        WHERE artifact_path IS NOT NULL
-         AND mutated IS NULL`
+         ${force ? "" : "AND mutated IS NULL"}`
     )
     .all();
 
