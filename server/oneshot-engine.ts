@@ -1,14 +1,22 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { callModel, normalizeEndpoint } from "../lib/runtimes/local-model.ts";
 import { loadOneshotPrompts, type OneshotPrompt } from "../lib/oneshot/loader.ts";
+import { extractHtml } from "../lib/oneshot/extract-html.ts";
 import { globalBus } from "./event-bus.ts";
 import { globalRegistry } from "./run-registry.ts";
 import {
-  clearPreviousOneshot,
   insertOneshotRun,
+  resetOneshotPrompts,
   updateOneshotRun,
   upsertOneshotResult,
 } from "./db/oneshot-queries.ts";
 import type { OneshotEvent } from "./contracts/events.ts";
+
+// Big single-file briefs (chess AI, WebGL racer) stream 20k+ tokens; give them room.
+const PROMPT_DEADLINE_MS = 600_000;
+
+export const ONESHOT_ARTIFACTS_DIR = join(import.meta.dir, "..", "artifacts", "oneshot");
 
 export interface OneshotEngineOptions {
   promptIds: string[];
@@ -24,22 +32,26 @@ export async function startOneshotRun(opts: OneshotEngineOptions): Promise<{ run
 
   opts.onRunId?.(runId);
 
-  clearPreviousOneshot();
-  insertOneshotRun({
-    id: runId,
-    started_at: Date.now(),
-    status: "running",
-    model: opts.modelId,
-    endpoint: opts.endpoint,
-    prompt_ids: JSON.stringify(opts.promptIds),
-  });
-
   const prompts = loadOneshotPrompts();
   const selected = selectPrompts(prompts, opts.promptIds);
   if (selected.length === 0) {
     globalRegistry.delete(runId);
     throw new Error(`No matching prompts for: ${opts.promptIds.join(", ")}`);
   }
+
+  resetOneshotPrompts({
+    run_id: runId,
+    model: opts.modelId,
+    promptIds: selected.map((p) => p.id),
+  });
+  insertOneshotRun({
+    id: runId,
+    started_at: Date.now(),
+    status: "running",
+    model: opts.modelId,
+    endpoint: opts.endpoint,
+    prompt_ids: JSON.stringify(selected.map((p) => p.id)),
+  });
 
   publish({
     type: "oneshot_run_started",
@@ -60,6 +72,13 @@ export async function startOneshotRun(opts: OneshotEngineOptions): Promise<{ run
 
         const prompt = selected[i];
         const startedAt = Date.now();
+        upsertOneshotResult({
+          run_id: runId,
+          prompt_id: prompt.id,
+          model: opts.modelId,
+          started_at: startedAt,
+          status: "running",
+        });
         publish({
           type: "oneshot_test_started",
           runId,
@@ -71,10 +90,12 @@ export async function startOneshotRun(opts: OneshotEngineOptions): Promise<{ run
         });
 
         const finished = await runPrompt({ runId, prompt, opts, signal: controller.signal });
+        const artifactPath = finished.error ? null : await saveArtifact(prompt.id, finished.output);
 
         upsertOneshotResult({
           run_id: runId,
           prompt_id: prompt.id,
+          model: opts.modelId,
           started_at: startedAt,
           finished_at: finished.ts,
           status: finished.error ? "failed" : "done",
@@ -84,6 +105,7 @@ export async function startOneshotRun(opts: OneshotEngineOptions): Promise<{ run
           first_token_ms: finished.firstTokenMs,
           prompt_tokens: finished.metrics?.promptTokens ?? null,
           completion_tokens: finished.metrics?.completionTokens ?? null,
+          artifact_path: artifactPath,
           error: finished.error,
         });
 
@@ -96,6 +118,7 @@ export async function startOneshotRun(opts: OneshotEngineOptions): Promise<{ run
           finishReason: finished.finishReason,
           wallTimeMs: finished.wallTimeMs,
           firstTokenMs: finished.firstTokenMs,
+          artifact: artifactPath !== null,
           ...(finished.error ? { error: finished.error } : {}),
           seq: globalRegistry.nextSeq(runId),
           ts: finished.ts,
@@ -147,6 +170,22 @@ export function stopOneshotRun(runId: string): void {
   globalRegistry.get(runId)?.abort();
 }
 
+/** Extract the HTML artifact from raw model output and persist it to disk. */
+async function saveArtifact(promptId: string, output: string): Promise<string | null> {
+  const extraction = extractHtml(output);
+  if (!extraction) return null;
+
+  const relPath = join("artifacts", "oneshot", `${promptId}.html`);
+  try {
+    await mkdir(ONESHOT_ARTIFACTS_DIR, { recursive: true });
+    await writeFile(join(ONESHOT_ARTIFACTS_DIR, `${promptId}.html`), extraction.html, "utf8");
+    return relPath;
+  } catch (error) {
+    console.error(`Failed to save oneshot artifact for ${promptId}:`, error);
+    return null;
+  }
+}
+
 function selectPrompts(all: OneshotPrompt[], ids: string[]): OneshotPrompt[] {
   return ids
     .map((id) => all.find((p) => p.id === id))
@@ -184,7 +223,7 @@ async function runPrompt(params: {
 }> {
   const startedAt = Date.now();
   let firstTokenMs = 0;
-  const deadline = performance.now() + 120_000;
+  const deadline = performance.now() + PROMPT_DEADLINE_MS;
 
   try {
     const response = await callModel(

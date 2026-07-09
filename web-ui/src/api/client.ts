@@ -67,6 +67,9 @@ export const api = {
   oneshotTests: (signal?: AbortSignal) => get<OneshotTestSummary[]>("/oneshot/tests", signal),
   startOneshot: (body: { modelId: string; promptIds: string[] }) =>
     post<{ runId: string }>("/oneshot/runs", body),
+  stopOneshot: (id: string) => post<{ ok: boolean }>(`/oneshot/runs/${id}/stop`),
   latestOneshot: (signal?: AbortSignal) =>
     get<OneshotLatestRun | null>("/oneshot/runs/latest", signal),
+  oneshotArtifactUrl: (promptId: string, version?: number | null) =>
+    `${BASE}/oneshot/artifacts/${promptId}${version ? `?v=${version}` : ""}`,
 };

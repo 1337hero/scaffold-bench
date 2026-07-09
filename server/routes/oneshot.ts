@@ -1,13 +1,16 @@
 import { Hono } from "hono";
+import { join } from "node:path";
 import { parseBody } from "../lib/parse-body.ts";
 import { OneshotStartRequestSchema } from "../contracts/api.ts";
-import { startOneshotRun } from "../oneshot-engine.ts";
+import { ONESHOT_ARTIFACTS_DIR, startOneshotRun } from "../oneshot-engine.ts";
 import { RunInProgressError } from "../run-registry.ts";
 import { getRemoteApiKey, resolveModel } from "../models/discovery.ts";
 import { loadOneshotPrompts } from "../../lib/oneshot/loader.ts";
 import { getLatestOneshotRun, getOneshotResults, updateOneshotRun } from "../db/oneshot-queries.ts";
 import { streamRunEvents } from "../lib/sse-stream.ts";
 import { globalRegistry } from "../run-registry.ts";
+
+const PROMPT_ID_RE = /^[\w-]+$/;
 
 export const oneshotRouter = new Hono();
 
@@ -40,6 +43,16 @@ oneshotRouter.post("/runs", async (c) => {
   }
 });
 
+oneshotRouter.post("/runs/:id/stop", (c) => {
+  const id = c.req.param("id");
+  const controller = globalRegistry.get(id);
+  if (!controller) {
+    return c.json({ error: "run not found or not active" }, 404);
+  }
+  controller.abort();
+  return c.json({ ok: true, runId: id, status: "stopping" }, 202);
+});
+
 oneshotRouter.get("/runs/:id/stream", (c) => {
   const runId = c.req.param("id");
   return streamRunEvents(c, {
@@ -49,6 +62,21 @@ oneshotRouter.get("/runs/:id/stream", (c) => {
       type === "oneshot_run_finished" ||
       type === "oneshot_run_failed" ||
       type === "oneshot_run_stopped",
+  });
+});
+
+oneshotRouter.get("/artifacts/:promptId", async (c) => {
+  const promptId = c.req.param("promptId");
+  if (!PROMPT_ID_RE.test(promptId)) {
+    return c.json({ error: "invalid prompt id" }, 400);
+  }
+  const file = Bun.file(join(ONESHOT_ARTIFACTS_DIR, `${promptId}.html`));
+  if (!(await file.exists())) {
+    return c.json({ error: "artifact not found" }, 404);
+  }
+  return c.body(await file.arrayBuffer(), 200, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
   });
 });
 
@@ -67,7 +95,7 @@ oneshotRouter.get("/runs/latest", (c) => {
     });
   }
 
-  const results = getOneshotResults(run.id);
+  const results = getOneshotResults();
   return c.json({
     runId: run.id,
     status: run.status,
@@ -79,6 +107,8 @@ oneshotRouter.get("/runs/latest", (c) => {
     error: run.error,
     results: results.map((r) => ({
       promptId: r.prompt_id,
+      runId: r.run_id,
+      model: r.model,
       startedAt: r.started_at,
       finishedAt: r.finished_at,
       status: r.status,
@@ -88,6 +118,7 @@ oneshotRouter.get("/runs/latest", (c) => {
       firstTokenMs: r.first_token_ms,
       promptTokens: r.prompt_tokens,
       completionTokens: r.completion_tokens,
+      artifact: r.artifact_path !== null,
       error: r.error,
     })),
   });

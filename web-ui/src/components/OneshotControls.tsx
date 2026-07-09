@@ -1,29 +1,25 @@
 import type { Model } from "@/types";
 
-type PromptMeta = { id: string; title: string; category: string };
-
 interface OneshotControlsProps {
-  prompts: PromptMeta[];
+  promptCount: number;
   models: Model[];
   selectedModelId: string;
   running: boolean;
-  focusedPromptId: string | null;
+  stopping: boolean;
   onModelChange: (modelId: string) => void;
-  onStartAll: () => void;
-  onRerunAll: () => void;
-  onRerunSingle: (promptId: string) => void;
+  onRunAll: () => void;
+  onStop: () => void;
 }
 
 export function OneshotControls({
-  prompts,
+  promptCount,
   models,
   selectedModelId,
   running,
-  focusedPromptId,
+  stopping,
   onModelChange,
-  onStartAll,
-  onRerunAll,
-  onRerunSingle,
+  onRunAll,
+  onStop,
 }: OneshotControlsProps) {
   const canRun = !running && selectedModelId.length > 0;
   const hasModels = models.length > 0;
@@ -51,27 +47,23 @@ export function OneshotControls({
       </div>
 
       <div className="grid grid-cols-1 gap-1">
-        <button
-          onClick={onStartAll}
-          disabled={!canRun || !hasModels}
-          className="px-2 py-1 text-[11px] uppercase border border-border-main rounded-sm hover:border-gold hover:text-gold disabled:opacity-40"
-        >
-          {running ? "Run in progress" : `Start One-Shot Run (${prompts.length})`}
-        </button>
-        <button
-          onClick={onRerunAll}
-          disabled={!canRun || !hasModels}
-          className="px-2 py-1 text-[11px] uppercase border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main disabled:opacity-40"
-        >
-          Rerun All
-        </button>
-        <button
-          onClick={() => focusedPromptId && onRerunSingle(focusedPromptId)}
-          disabled={!canRun || !hasModels || !focusedPromptId}
-          className="px-2 py-1 text-[11px] uppercase border border-border-main rounded-sm hover:border-blue-main hover:text-blue-main disabled:opacity-40"
-        >
-          Rerun Single
-        </button>
+        {running ? (
+          <button
+            onClick={onStop}
+            disabled={stopping}
+            className="px-2 py-1 text-[11px] uppercase border border-red-main text-red-main rounded-sm hover:bg-red-main/10 disabled:opacity-40"
+          >
+            {stopping ? "Stopping…" : "Stop Run"}
+          </button>
+        ) : (
+          <button
+            onClick={onRunAll}
+            disabled={!canRun || !hasModels}
+            className="px-2 py-1 text-[11px] uppercase border border-border-main rounded-sm hover:border-gold hover:text-gold disabled:opacity-40"
+          >
+            Run All ({promptCount})
+          </button>
+        )}
       </div>
     </div>
   );

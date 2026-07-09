@@ -96,6 +96,10 @@ export function runMigrations(): void {
       name: "007_artifacts",
       sql: readFileSync(join(import.meta.dir, "migrations", "007_artifacts.sql"), "utf8"),
     },
+    {
+      name: "008_oneshot_per_prompt",
+      sql: readFileSync(join(import.meta.dir, "migrations", "008_oneshot_per_prompt.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {

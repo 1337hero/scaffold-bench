@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { loadOneshotPrompts } from "../../lib/oneshot/loader.ts";
 
 describe("loadOneshotPrompts", () => {
-  test("returns exactly 5 prompts sorted by filename", () => {
+  test("returns exactly 15 prompts sorted by filename", () => {
     const prompts = loadOneshotPrompts();
-    expect(prompts).toHaveLength(5);
+    expect(prompts).toHaveLength(15);
     // Verify sorted by id (filename stem)
     for (let i = 1; i < prompts.length; i++) {
       expect(prompts[i].id > prompts[i - 1].id).toBe(true);
@@ -32,10 +32,16 @@ describe("loadOneshotPrompts", () => {
     expect(prompts[0].prompt).toContain("meadow");
   });
 
-  test("last prompt is haiku trio", () => {
+  test("haiku trio sits at index 4", () => {
     const prompts = loadOneshotPrompts();
     expect(prompts[4].id).toBe("05-haiku-trio");
     expect(prompts[4].category).toBe("creative-writing");
+  });
+
+  test("last prompt is flowforge", () => {
+    const prompts = loadOneshotPrompts();
+    expect(prompts[14].id).toBe("15-flowforge");
+    expect(prompts[14].category).toBe("tool");
   });
 
   test("frontmatter body excludes frontmatter markers", () => {
@@ -54,5 +60,8 @@ describe("loadOneshotPrompts", () => {
     expect(titles).toContain("SVG Self-Portrait");
     expect(titles).toContain("Bouncy Balls Physics");
     expect(titles).toContain("Haiku Trio");
+    expect(titles).toContain("Driftwood Landing Page");
+    expect(titles).toContain("Chessmind");
+    expect(titles).toContain("FlowForge");
   });
 });

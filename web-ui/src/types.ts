@@ -238,6 +238,9 @@ export type OneshotTestSummary = {
 
 export type OneshotLatestResult = {
   promptId: string;
+  runId: string;
+  model: string | null;
+  artifact: boolean;
   startedAt: number | null;
   finishedAt: number | null;
   status: string | null;
@@ -282,6 +285,7 @@ export type OneshotEvent =
       finishReason: string;
       wallTimeMs: number;
       firstTokenMs?: number;
+      artifact?: boolean;
       error?: string;
       seq: number;
     }
