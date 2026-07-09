@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  VERIFY_COMMAND_PATTERN,
+  isVerifyCommand,
   deriveVerifyMetrics,
   type ToolCall,
 } from "../lib/scoring.ts";
@@ -48,7 +48,7 @@ function archive(
   };
 }
 
-describe("VERIFY_COMMAND_PATTERN", () => {
+describe("isVerifyCommand", () => {
   const positive = [
     "bun test",
     "bun test playground/foo.test.ts",
@@ -72,7 +72,15 @@ describe("VERIFY_COMMAND_PATTERN", () => {
     "npx tsc -p .",
     "cd playground && bun test",
     "make test",
-    "run the specs again",
+    "make check",
+    "deno test",
+    "node -c app.js",
+    "cd playground && node -c \"import x from './y.js'\"",
+    // Runner scripts matched by the explicit-runner or non-inspection generic path.
+    "node slugify.test.mjs",
+    "python user_test.py",
+    "./run-tests.sh",
+    "bash run-specs.sh",
   ];
 
   const negative = [
@@ -88,23 +96,34 @@ describe("VERIFY_COMMAND_PATTERN", () => {
     "rm -rf node_modules",
     "curl http://localhost",
     "which node",
+    // Inspecting/mutating a test/spec path is NOT verification (the false-positive
+    // hole this suite previously missed).
+    "cat test/foo.ts",
+    "ls tests/",
+    "grep -r foo test/",
+    "rm -rf tests",
+    "cat specs/plan.md",
+    "cat playground/hono-api/specs/webhooks.md",
+    "git diff test/foo.ts",
+    "head -n 20 tests/setup.ts",
   ];
 
   test("matches verification commands", () => {
     for (const cmd of positive) {
-      expect(VERIFY_COMMAND_PATTERN.test(cmd), `expected match: ${cmd}`).toBe(true);
+      expect(isVerifyCommand(cmd), `expected match: ${cmd}`).toBe(true);
     }
   });
 
   test("rejects non-verification commands", () => {
     for (const cmd of negative) {
-      expect(VERIFY_COMMAND_PATTERN.test(cmd), `expected no match: ${cmd}`).toBe(false);
+      expect(isVerifyCommand(cmd), `expected no match: ${cmd}`).toBe(false);
     }
   });
 
   test("is case-insensitive", () => {
-    expect(VERIFY_COMMAND_PATTERN.test("BUN TEST")).toBe(true);
-    expect(VERIFY_COMMAND_PATTERN.test("Cargo Test")).toBe(true);
+    expect(isVerifyCommand("BUN TEST")).toBe(true);
+    expect(isVerifyCommand("Cargo Test")).toBe(true);
+    expect(isVerifyCommand("CAT TEST/FOO.TS")).toBe(false);
   });
 });
 
