@@ -182,8 +182,14 @@ export function RunHistory({ onBack, backHref }: RunHistoryProps) {
               color="#e8590c"
               lowerIsBetter
             />
-            <ContextGrowthChart models={scoreModels} />
-            <TokenScoreScatter models={scoreModels} cloud={report.pareto} />
+            <div className="flex flex-wrap gap-x-8 items-start">
+              <div className="flex-1 min-w-[480px]">
+                <ContextGrowthChart models={scoreModels} />
+              </div>
+              <div className="flex-1 min-w-[480px]">
+                <TokenScoreScatter models={scoreModels} cloud={report.pareto} />
+              </div>
+            </div>
           </>
         )}
 
