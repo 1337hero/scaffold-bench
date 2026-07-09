@@ -116,16 +116,16 @@ export function OneshotCanvas({ promptId, prompt }: OneshotCanvasProps) {
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-[52vh]">
+      <div className="flex flex-1 min-h-0">
         {streaming ? (
           <pre
             ref={streamRef}
-            className="flex-1 min-h-0 max-h-[72vh] overflow-auto p-3 text-xs whitespace-pre-wrap font-mono text-text-main"
+            className="flex-1 min-h-0 overflow-auto p-3 text-xs whitespace-pre-wrap font-mono text-text-main"
           >
             {text || "Waiting for first token…"}
           </pre>
         ) : showRaw ? (
-          <pre className="flex-1 min-h-0 max-h-[72vh] overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
+          <pre className="flex-1 min-h-0 overflow-auto p-3 text-sm whitespace-pre-wrap font-mono text-text-main">
             {text || "(no output yet)"}
           </pre>
         ) : text.length === 0 && !hasArtifact ? (

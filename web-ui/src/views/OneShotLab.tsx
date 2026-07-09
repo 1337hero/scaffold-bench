@@ -122,7 +122,7 @@ export function OneShotLab({
   const focusedPrompt = focusedId ? state.prompts[focusedId] : undefined;
 
   return (
-    <div className="min-h-screen text-text-main font-mono p-4 md:px-6 md:pt-6 pb-6 text-[13px] leading-[1.4]">
+    <div className="min-h-screen md:h-screen md:overflow-hidden flex flex-col text-text-main font-mono p-4 md:px-6 md:pt-6 pb-6 text-[13px] leading-[1.4]">
       <header className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-4 pb-4 border-b border-border-main flex-none">
         <div className="flex gap-3 items-center">
           <div className="text-gold">
@@ -165,9 +165,13 @@ export function OneShotLab({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-4 space-y-4">
-          <Panel title="Test Queue" rightTag={`${prompts.length} prompts`}>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 flex-1 min-h-0">
+        <div className="md:col-span-4 flex flex-col gap-4 min-h-0">
+          <Panel
+            title="Test Queue"
+            rightTag={`${prompts.length} prompts`}
+            className="flex-1 min-h-0"
+          >
             <OneshotControls
               promptCount={prompts.length}
               models={allModels}
@@ -192,7 +196,7 @@ export function OneShotLab({
             )}
           </Panel>
 
-          <Panel title="Metadata" rightTag={state.status.toUpperCase()}>
+          <Panel title="Metadata" rightTag={state.status.toUpperCase()} className="flex-none">
             {streamHasError && state.status === "running" ? (
               <div className="px-2 pb-2 text-[11px] text-red-main">
                 Live stream interrupted. Recovering from latest snapshot…
@@ -206,8 +210,8 @@ export function OneShotLab({
           </Panel>
         </div>
 
-        <div className="md:col-span-8">
-          <Panel title="Canvas" rightTag={focusedId ?? "—"} className="min-h-[72vh]">
+        <div className="md:col-span-8 flex flex-col min-h-0">
+          <Panel title="Canvas" rightTag={focusedId ?? "—"} className="h-full">
             <OneshotCanvas promptId={focusedId} prompt={focusedPrompt} />
           </Panel>
         </div>
