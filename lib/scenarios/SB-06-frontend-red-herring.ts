@@ -17,6 +17,7 @@ export const meta = {
   name: "frontend-red-herring",
   category: "read-only-analysis" as const,
   family: "regex-style" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "stdout" as const,
   fixturePath: "playground/frontend/",
@@ -28,6 +29,7 @@ const scenario: Scenario = {
   name: "frontend-red-herring",
   category: "read-only-analysis",
   family: "regex-style",
+  difficulty: "low",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls, stdout }) {
     const pageOriginal = await readFile(join(PLAYGROUND_SRC, "frontend/ReportsPage.tsx"), "utf-8");

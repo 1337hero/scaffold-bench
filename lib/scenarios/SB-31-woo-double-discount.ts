@@ -17,6 +17,7 @@ export const meta = {
   name: "woo-double-discount",
   category: "surgical-edit" as const,
   family: "bug-fix" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/php-wp/",
@@ -139,6 +140,7 @@ const scenario: Scenario = {
   name: "woo-double-discount",
   category: "surgical-edit",
   family: "bug-fix",
+  difficulty: "low",
   requires: ["php"],
   prompt: PROMPT,
   async execute(ctx) {

@@ -19,6 +19,7 @@ export const meta = {
   name: "liquid-soldout",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/liquid-shop/",
@@ -35,6 +36,7 @@ const scenario: Scenario = {
   name: "liquid-soldout",
   category: "surgical-edit",
   family: "regex-style",
+  difficulty: "medium",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const filePath = join(playgroundDir, TEMPLATE_PATH);

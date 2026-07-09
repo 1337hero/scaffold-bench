@@ -166,10 +166,13 @@ export type RunState = {
   model?: string | null;
 };
 
+export type Difficulty = "low" | "medium" | "high";
+
 export type ScenarioInfo = {
   id: string;
   name: string;
   category: string;
+  difficulty: Difficulty;
   maxPoints: number;
   prompt: string;
 };
@@ -295,6 +298,8 @@ export type ReportCategoryScore = {
   pct: number | null;
 };
 
+export type ReportDifficultyScore = ReportCategoryScore;
+
 export type ReportModelAggregate = {
   model: string;
   source: ReportSource;
@@ -325,6 +330,7 @@ export type ReportModelAggregate = {
   timeouts: number;
   exemptScenarios: number;
   categories: Record<string, ReportCategoryScore>;
+  tiers: Partial<Record<Difficulty, ReportDifficultyScore>>;
   scenarioCount: number;
   latestTimestamp: string;
   avgContextPerTurn: number | null;

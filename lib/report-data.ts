@@ -1,4 +1,6 @@
 import { getDb } from "../server/db/migrations.ts";
+import { scenarios } from "./scenarios/index.js";
+import type { Difficulty } from "./scenarios/_shared/types.ts";
 
 export const REPORT_CATEGORIES = [
   "surgical-edit",
@@ -11,6 +13,16 @@ export const REPORT_CATEGORIES = [
 ] as const;
 
 export type ReportSource = "local" | "api";
+
+/** Difficulty tiers, fixed order for UI columns. */
+export const REPORT_DIFFICULTIES: Difficulty[] = ["low", "medium", "high"];
+
+// Module-scope map: scenario id → difficulty. Built once from the registry so a
+// re-tag re-slices all historical runs at read time without a DB migration.
+// Scenario ids in the DB but absent from the current registry (renamed/removed)
+// are skipped from tier aggregation — self-healing, same staleness trade-off as
+// the category snapshot.
+const DIFFICULTY_BY_ID = new Map<string, Difficulty>(scenarios.map((s) => [s.id, s.difficulty]));
 
 export type ReportCategoryScore = {
   points: number;
@@ -48,6 +60,7 @@ export type ReportModelAggregate = {
   timeouts: number;
   exemptScenarios: number;
   categories: Record<string, ReportCategoryScore>;
+  tiers: Partial<Record<Difficulty, ReportCategoryScore>>;
   scenarioCount: number;
   latestTimestamp: string;
   // Phase A: prompt tokens per request, mean of per-run ratios (lower = tighter context).
@@ -277,6 +290,7 @@ type ModelAccumulator = {
   timeouts: number;
   exemptScenarios: number;
   categories: Record<string, CategoryAggregate>;
+  tiers: Record<string, CategoryAggregate>;
   scenarioIds: Set<string>;
   latestFinishedAt: number;
   solveRows: SolveDimRow[];
@@ -364,6 +378,17 @@ export function buildReportData(): ReportData {
     category.points += scenario.points ?? 0;
     category.maxPoints += scenario.max_points ?? 0;
     acc.categories[categoryName] = category;
+
+    // Tier aggregation mirrors category accumulation exactly (same rows, same
+    // exempt treatment) so tier % and category % stay consistent. Ids absent
+    // from the registry are skipped — see DIFFICULTY_BY_ID doc comment.
+    const difficulty = DIFFICULTY_BY_ID.get(scenario.scenario_id);
+    if (difficulty) {
+      const tier = acc.tiers[difficulty] ?? { points: 0, maxPoints: 0 };
+      tier.points += scenario.points ?? 0;
+      tier.maxPoints += scenario.max_points ?? 0;
+      acc.tiers[difficulty] = tier;
+    }
 
     const metrics = parseMetrics(scenario.model_metrics_json);
     if (metrics) {
@@ -481,6 +506,7 @@ function createAccumulator(): ModelAccumulator {
     timeouts: 0,
     exemptScenarios: 0,
     categories: {},
+    tiers: {},
     scenarioIds: new Set<string>(),
     latestFinishedAt: 0,
     solveRows: [],
@@ -585,6 +611,7 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     timeouts: acc.timeouts,
     exemptScenarios: acc.exemptScenarios,
     categories: categoryScores(acc.categories),
+    tiers: tierScores(acc.tiers),
     scenarioCount: acc.scenarioIds.size,
     latestTimestamp: acc.latestFinishedAt > 0 ? new Date(acc.latestFinishedAt).toISOString() : "",
     avgContextPerTurn,
@@ -656,6 +683,24 @@ function categoryScores(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function tierScores(
+  aggregates: Record<string, CategoryAggregate>
+): Partial<Record<Difficulty, ReportCategoryScore>> {
+  const scores: Partial<Record<Difficulty, ReportCategoryScore>> = {};
+  for (const tier of REPORT_DIFFICULTIES) {
+    const aggregate = aggregates[tier];
+    // Omit tiers with no scored weight so the UI shows "—" rather than a misleading 0%.
+    if (aggregate && aggregate.maxPoints > 0) {
+      scores[tier] = {
+        points: aggregate.points,
+        maxPoints: aggregate.maxPoints,
+        pct: (aggregate.points / aggregate.maxPoints) * 100,
+      };
+    }
+  }
+  return scores;
 }
 
 export function paretoFrontier(points: { idx: number; tokens: number; score: number }[]): number[] {

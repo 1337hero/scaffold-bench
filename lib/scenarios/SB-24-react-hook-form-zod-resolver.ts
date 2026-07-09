@@ -17,6 +17,7 @@ export const meta = {
   name: "react-hook-form-zod-resolver",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
@@ -28,6 +29,7 @@ const scenario: Scenario = {
   name: "react-hook-form-zod-resolver",
   category: "scope-discipline",
   family: "regex-style",
+  difficulty: "medium",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const formPath = join(playgroundDir, "playground/frontend/SignupForm.tsx");

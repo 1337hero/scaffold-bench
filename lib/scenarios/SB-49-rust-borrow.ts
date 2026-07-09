@@ -16,6 +16,7 @@ export const meta = {
   name: "rust-borrow",
   category: "surgical-edit" as const,
   family: "bug-fix" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: RUST_LIB_DIR,
@@ -28,6 +29,7 @@ const scenario: Scenario = {
   name: "rust-borrow",
   category: "surgical-edit",
   family: "bug-fix",
+  difficulty: "medium",
   requires: ["cargo"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {

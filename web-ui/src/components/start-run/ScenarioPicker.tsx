@@ -60,6 +60,7 @@ export function ScenarioPicker({
                   />
                   <span className="text-text-dim w-16 flex-shrink-0">{scenario.id}</span>
                   <span className="text-text-main">{scenario.name}</span>
+                  <DifficultyBadge difficulty={scenario.difficulty} />
                 </label>
               ))}
             </div>
@@ -67,5 +68,23 @@ export function ScenarioPicker({
         })}
       </div>
     </div>
+  );
+}
+
+function DifficultyBadge({ difficulty }: { difficulty: string }) {
+  const label = difficulty.slice(0, 1).toUpperCase();
+  const tone =
+    difficulty === "low"
+      ? "text-green-main border-green-main/50"
+      : difficulty === "medium"
+        ? "text-gold border-gold/50"
+        : "text-red-main border-red-main/50";
+  return (
+    <span
+      className={`ml-auto text-[9px] uppercase tracking-widest border px-1 py-0.5 ${tone}`}
+      title={`difficulty: ${difficulty}`}
+    >
+      {label}
+    </span>
   );
 }

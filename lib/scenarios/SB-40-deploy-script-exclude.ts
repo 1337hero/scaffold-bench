@@ -20,6 +20,7 @@ export const meta = {
   name: "deploy-script-exclude",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/ops/",
@@ -32,6 +33,7 @@ const scenario: Scenario = {
   name: "deploy-script-exclude",
   category: "scope-discipline",
   family: "regex-style",
+  difficulty: "medium",
   prompt: PROMPT,
   requires: ["shellcheck"],
   async evaluate({ playgroundDir, toolCalls }) {

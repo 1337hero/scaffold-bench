@@ -30,6 +30,7 @@ function model(id: string, overrides: Partial<ReportModelAggregate> = {}): Repor
     timeouts: 0,
     exemptScenarios: 0,
     categories: {},
+    tiers: {},
     scenarioCount: 0,
     latestTimestamp: "",
     ...overrides,

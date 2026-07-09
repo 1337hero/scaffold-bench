@@ -18,6 +18,7 @@ export const meta = {
   name: "frontend-no-op",
   category: "read-only-analysis" as const,
   family: "regex-style" as const,
+  difficulty: "low" as const, // discipline override: pass% 0 reflects over-eager edits, not load
   rubricKind: "10pt" as const,
   signalType: "stdout" as const,
   fixturePath: "playground/frontend/",
@@ -29,6 +30,7 @@ const scenario: Scenario = {
   name: "frontend-no-op",
   category: "read-only-analysis",
   family: "regex-style",
+  difficulty: "low",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls, stdout }) {
     const original = await readFile(join(PLAYGROUND_SRC, "frontend/ProjectsPanel.tsx"), "utf-8");

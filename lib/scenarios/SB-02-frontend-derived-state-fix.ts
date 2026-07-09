@@ -20,6 +20,7 @@ export const meta = {
   name: "frontend-derived-state-fix",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   evaluatorKind: "ast" as const,
@@ -32,6 +33,7 @@ const scenario: Scenario = {
   name: "frontend-derived-state-fix",
   category: "surgical-edit",
   family: "regex-style",
+  difficulty: "medium",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const filePath = join(playgroundDir, "playground/frontend/InventoryPanel.tsx");

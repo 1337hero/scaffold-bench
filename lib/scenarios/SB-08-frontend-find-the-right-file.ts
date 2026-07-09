@@ -19,6 +19,7 @@ export const meta = {
   name: "frontend-find-the-right-file",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   evaluatorKind: "unit" as const,
@@ -33,6 +34,7 @@ const scenario: Scenario = {
   name: "frontend-find-the-right-file",
   category: "surgical-edit",
   family: "regex-style",
+  difficulty: "high",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const helper = await readFile(join(playgroundDir, "playground/frontend/currency.ts"), "utf-8");

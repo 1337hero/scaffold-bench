@@ -24,6 +24,7 @@ export const meta = {
   name: "go-nil-map",
   category: "verify-and-repair" as const,
   family: "bug-fix" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: GO_API_DIR,
@@ -36,6 +37,7 @@ const scenario: Scenario = {
   name: "go-nil-map",
   category: "verify-and-repair",
   family: "bug-fix",
+  difficulty: "medium",
   requires: ["go"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {

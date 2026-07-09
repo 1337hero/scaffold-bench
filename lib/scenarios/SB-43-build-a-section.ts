@@ -20,6 +20,7 @@ export const meta = {
   name: "build-a-section",
   category: "implementation" as const,
   family: "feature-add" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/liquid-shop/",
@@ -49,6 +50,7 @@ const scenario: Scenario = {
   name: "build-a-section",
   category: "implementation",
   family: "feature-add",
+  difficulty: "high",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const sectionPath = join(playgroundDir, NEW_SECTION_PATH);

@@ -42,6 +42,7 @@ export const meta = {
   name: "go-json-endpoint",
   category: "implementation" as const,
   family: "feature-add" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: GO_API_DIR,
@@ -102,6 +103,7 @@ const scenario: Scenario = {
   name: "go-json-endpoint",
   category: "implementation",
   family: "feature-add",
+  difficulty: "low",
   requires: ["go"],
   prompt: PROMPT,
   async buildPrompt({ playgroundDir }) {

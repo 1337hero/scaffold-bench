@@ -20,6 +20,7 @@ export const meta = {
   name: "long-context-retrieval",
   category: "long-context" as const,
   family: "regex-style" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "custom-3pt" as const,
   signalType: "latency" as const,
   fixturePath: "playground/",
@@ -76,6 +77,7 @@ const scenario: Scenario = {
   name: "long-context-retrieval",
   category: "long-context",
   family: "regex-style",
+  difficulty: "high",
   maxPoints: 3,
   prompt: meta.prompt,
   async execute({ runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides }) {

@@ -20,6 +20,7 @@ export const meta = {
   name: "fix-throttle",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "regex-shape" as const,
   fixturePath: "playground/",
@@ -33,6 +34,7 @@ const scenario: Scenario = {
   name: "fix-throttle",
   category: "surgical-edit",
   family: "regex-style",
+  difficulty: "low",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const utils = await readFile(join(playgroundDir, "playground/utils.js"), "utf-8");

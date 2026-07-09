@@ -18,6 +18,7 @@ export const meta = {
   name: "actions-trigger",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/ops/",
@@ -29,6 +30,7 @@ const scenario: Scenario = {
   name: "actions-trigger",
   category: "surgical-edit",
   family: "regex-style",
+  difficulty: "low",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const filePath = join(playgroundDir, WORKFLOW_PATH);

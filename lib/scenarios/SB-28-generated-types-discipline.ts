@@ -18,6 +18,7 @@ export const meta = {
   name: "generated-types-discipline",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "regex-shape" as const,
   fixturePath: "playground/types-api/",
@@ -29,6 +30,7 @@ const scenario: Scenario = {
   name: "generated-types-discipline",
   category: "scope-discipline",
   family: "regex-style",
+  difficulty: "low",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const queriesPath = join(playgroundDir, "playground/types-api/queries.ts");

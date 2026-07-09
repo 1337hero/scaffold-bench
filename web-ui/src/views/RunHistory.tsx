@@ -107,7 +107,18 @@ export function RunHistory({ onBack, backHref }: RunHistoryProps) {
           <>
             <AwardsGrid awards={report.awards} />
             <Leaderboard models={scoreModels} />
-            <CategoryHeatmap models={scoreModels} categories={report.categories} />
+            <CategoryHeatmap
+              models={scoreModels}
+              columns={report.categories}
+              scoreFor={(model) => model.categories}
+              title="Category heatmap (%)"
+            />
+            <CategoryHeatmap
+              models={scoreModels}
+              columns={["low", "medium", "high"]}
+              scoreFor={(model) => model.tiers}
+              title="Score by difficulty (%)"
+            />
             <MetricBars
               title="Quality score (% of scored max)"
               models={scoreModels}

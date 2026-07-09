@@ -9,6 +9,7 @@ scenariosRouter.get("/", (c) => {
       id: s.id,
       name: s.name,
       category: s.category,
+      difficulty: s.difficulty,
       maxPoints: s.maxPoints ?? 10,
       prompt: s.prompt,
       track: s.track ?? "execution",

@@ -19,6 +19,7 @@ export const meta = {
   name: "responsive-grid",
   category: "implementation" as const,
   family: "feature-add" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/css-ui/",
@@ -30,6 +31,7 @@ const scenario: Scenario = {
   name: "responsive-grid",
   category: "implementation",
   family: "feature-add",
+  difficulty: "low",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const mainCssPath = join(playgroundDir, MAIN_CSS_PATH);

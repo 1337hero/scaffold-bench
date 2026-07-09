@@ -40,11 +40,19 @@ export type SignalType = "behavioral" | "regex-shape" | "stdout" | "trace" | "la
  */
 export type Track = "execution" | "problem-solving";
 
+/**
+ * Cognitive-load tier. Assigned per scenario in metadata (code), not the DB —
+ * the report derives tiers at read time from the registry, so a re-tag
+ * re-slices all historical runs for free. See specs/difficulty-tiers.md.
+ */
+export type Difficulty = "low" | "medium" | "high";
+
 export type ScenarioMeta = {
   id: string;
   name: string;
   category: Category;
   family: Family;
+  difficulty: Difficulty;
   rubricKind: RubricKind;
   signalType: SignalType;
   fixturePath: string;
@@ -83,6 +91,7 @@ export type ScenarioBase = {
   name: string;
   category: Category;
   family: Family;
+  difficulty: Difficulty;
   rubricKind?: RubricKind;
   prompt: string;
   maxPoints?: number;

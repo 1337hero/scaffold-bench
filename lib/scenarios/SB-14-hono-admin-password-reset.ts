@@ -22,6 +22,7 @@ export const meta = {
   name: "hono-admin-password-reset",
   category: "implementation" as const,
   family: "spec-impl" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/hono-api/",
@@ -121,6 +122,7 @@ const scenario: Scenario = {
   name: "hono-admin-password-reset",
   category: "implementation",
   family: "spec-impl",
+  difficulty: "high",
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;

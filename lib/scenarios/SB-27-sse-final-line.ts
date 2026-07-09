@@ -17,6 +17,7 @@ export const meta = {
   name: "sse-final-line",
   category: "surgical-edit" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/streaming/lib/sse-client.mjs",
@@ -37,6 +38,7 @@ const scenario: Scenario = {
   name: "sse-final-line",
   category: "surgical-edit",
   family: "regex-style",
+  difficulty: "medium",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const clientPath = join(playgroundDir, "playground/streaming/lib/sse-client.mjs");

@@ -17,6 +17,7 @@ export const meta = {
   name: "template-escaping",
   category: "scope-discipline" as const,
   family: "feature-add" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/php-wp/",
@@ -139,6 +140,7 @@ const scenario: Scenario = {
   name: "template-escaping",
   category: "scope-discipline",
   family: "feature-add",
+  difficulty: "low",
   requires: ["php"],
   prompt: PROMPT,
   async execute(ctx) {

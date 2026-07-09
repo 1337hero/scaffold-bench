@@ -19,6 +19,7 @@ export const meta = {
   name: "astro-frontmatter-field",
   category: "scope-discipline" as const,
   family: "feature-add" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/astro-site/",
@@ -30,6 +31,7 @@ const scenario: Scenario = {
   name: "astro-frontmatter-field",
   category: "scope-discipline",
   family: "feature-add",
+  difficulty: "low",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const configPath = join(playgroundDir, CONFIG_PATH);

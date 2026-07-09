@@ -12,6 +12,7 @@ export const meta = {
   name: "plugin-conflict-red-herring",
   category: "read-only-analysis" as const,
   family: "red-herring" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "stdout" as const,
   fixturePath: "playground/php-wp/",
@@ -24,6 +25,7 @@ const scenario: Scenario = {
   name: "plugin-conflict-red-herring",
   category: "read-only-analysis",
   family: "red-herring",
+  difficulty: "high",
   requires: ["php"],
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls, stdout }) {

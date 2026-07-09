@@ -20,6 +20,7 @@ export const meta = {
   name: "theme-variable-scope",
   category: "scope-discipline" as const,
   family: "bug-fix" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/css-ui/",
@@ -31,6 +32,7 @@ const scenario: Scenario = {
   name: "theme-variable-scope",
   category: "scope-discipline",
   family: "bug-fix",
+  difficulty: "medium",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const themeCssPath = join(playgroundDir, THEME_CSS_PATH);

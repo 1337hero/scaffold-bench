@@ -23,6 +23,7 @@ export const meta = {
   name: "iterate-to-green",
   category: "verify-and-repair" as const,
   family: "regression" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   evaluatorKind: "unit" as const,
@@ -40,6 +41,7 @@ const scenario: Scenario = {
   name: "iterate-to-green",
   category: "verify-and-repair",
   family: "regression",
+  difficulty: "medium",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const normalizeTag = await readFile(

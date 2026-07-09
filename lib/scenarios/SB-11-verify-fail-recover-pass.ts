@@ -22,6 +22,7 @@ export const meta = {
   name: "verify-fail-recover-pass",
   category: "verify-and-repair" as const,
   family: "regression" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   evaluatorKind: "unit" as const,
@@ -36,6 +37,7 @@ const scenario: Scenario = {
   name: "verify-fail-recover-pass",
   category: "verify-and-repair",
   family: "regression",
+  difficulty: "low",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const slugify = await readFile(join(playgroundDir, "playground/slugify.mjs"), "utf-8");

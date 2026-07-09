@@ -22,6 +22,7 @@ export const meta = {
   name: "hono-audit-log",
   category: "implementation" as const,
   family: "spec-impl" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/hono-api/",
@@ -115,6 +116,7 @@ const scenario: Scenario = {
   name: "hono-audit-log",
   category: "implementation",
   family: "spec-impl",
+  difficulty: "medium",
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;

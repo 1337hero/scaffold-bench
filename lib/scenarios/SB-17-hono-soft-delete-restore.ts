@@ -23,6 +23,7 @@ export const meta = {
   name: "hono-soft-delete-restore",
   category: "implementation" as const,
   family: "spec-impl" as const,
+  difficulty: "low" as const,
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/hono-api/",
@@ -99,6 +100,7 @@ const scenario: Scenario = {
   name: "hono-soft-delete-restore",
   category: "implementation",
   family: "spec-impl",
+  difficulty: "low",
   prompt: PROMPT,
   async execute(ctx) {
     const { runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides } = ctx;

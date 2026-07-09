@@ -18,6 +18,7 @@ export const meta = {
   name: "frontend-scope-discipline",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "regex-shape" as const,
   fixturePath: "playground/frontend/",
@@ -29,6 +30,7 @@ const scenario: Scenario = {
   name: "frontend-scope-discipline",
   category: "scope-discipline",
   family: "regex-style",
+  difficulty: "medium",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const current = await readFile(

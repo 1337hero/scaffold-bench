@@ -17,6 +17,7 @@ export const meta = {
   name: "frontend-reuse-existing-abstraction",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   evaluatorKind: "ast" as const,
@@ -29,6 +30,7 @@ const scenario: Scenario = {
   name: "frontend-reuse-existing-abstraction",
   category: "scope-discipline",
   family: "regex-style",
+  difficulty: "high",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const sidebarPath = join(playgroundDir, "playground/frontend/TeamSidebar.tsx");

@@ -63,6 +63,7 @@ export const meta = {
   name: "high-frequency-loop",
   category: "responsiveness" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "custom-5pt" as const,
   signalType: "latency" as const,
   fixturePath: "playground/",
@@ -74,6 +75,7 @@ const scenario: Scenario = {
   name: "high-frequency-loop",
   category: "responsiveness",
   family: "regex-style",
+  difficulty: "medium",
   maxPoints: 5,
   prompt: meta.prompt,
   async execute({ runtime, workDir, timeoutMs, onRuntimeEvent, runtimeOverrides }) {

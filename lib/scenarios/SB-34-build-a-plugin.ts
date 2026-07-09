@@ -17,6 +17,7 @@ export const meta = {
   name: "build-a-plugin",
   category: "implementation" as const,
   family: "spec-impl" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/php-wp/",
@@ -152,6 +153,7 @@ const scenario: Scenario = {
   name: "build-a-plugin",
   category: "implementation",
   family: "spec-impl",
+  difficulty: "high",
   requires: ["php"],
   prompt: PROMPT,
   async execute(ctx) {

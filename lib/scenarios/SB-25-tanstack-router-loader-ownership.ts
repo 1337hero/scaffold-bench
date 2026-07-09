@@ -16,6 +16,7 @@ export const meta = {
   name: "tanstack-router-loader-ownership",
   category: "scope-discipline" as const,
   family: "regex-style" as const,
+  difficulty: "medium" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "regex-shape" as const,
   fixturePath: "playground/tanstack-router-app/",
@@ -27,6 +28,7 @@ const scenario: Scenario = {
   name: "tanstack-router-loader-ownership",
   category: "scope-discipline",
   family: "regex-style",
+  difficulty: "medium",
   prompt: meta.prompt,
   async evaluate({ playgroundDir, toolCalls }) {
     const routePath = join(playgroundDir, "playground/tanstack-router-app/src/routes/projects.tsx");

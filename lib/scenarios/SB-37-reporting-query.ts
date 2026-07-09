@@ -18,6 +18,7 @@ export const meta = {
   name: "reporting-query",
   category: "implementation" as const,
   family: "regex-style" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/sql-reports/",
@@ -64,6 +65,7 @@ const scenario: Scenario = {
   name: "reporting-query",
   category: "implementation",
   family: "regex-style",
+  difficulty: "high",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const sqlDir = join(playgroundDir, "playground/sql-reports");

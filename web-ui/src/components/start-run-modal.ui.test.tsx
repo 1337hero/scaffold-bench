@@ -32,6 +32,7 @@ describe("StartRunModal user flow", () => {
           id: "SB-01",
           name: "First scenario",
           category: "core",
+          difficulty: "low",
           maxPoints: 10,
           prompt: "Do the thing",
         },

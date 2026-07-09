@@ -1,46 +1,59 @@
-import type { ReportModelAggregate } from "@/types";
+import type { ReportModelAggregate, ReportCategoryScore } from "@/types";
 import { SectionTitle } from "./SectionTitle";
 import { SourceBadge } from "./ReportHeader";
 
+/**
+ * Presentational heatmap: one row per model, one column per score dimension.
+ * Generalized from the category heatmap so the difficulty tier grid reuses the
+ * same layout. `scoreFor` returns the per-model record (categories or tiers);
+ * missing cells render as "—".
+ */
 export function CategoryHeatmap({
   models,
-  categories,
+  columns,
+  scoreFor,
+  title,
 }: {
   models: ReportModelAggregate[];
-  categories: string[];
+  columns: string[];
+  scoreFor: (model: ReportModelAggregate) => Record<string, ReportCategoryScore> | undefined;
+  title: string;
 }) {
   return (
     <section className="mt-8">
-      <SectionTitle>Category heatmap (%)</SectionTitle>
+      <SectionTitle>{title}</SectionTitle>
       <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full border-collapse text-[11px]">
           <thead>
             <tr className="bg-border-main/50 text-text-dim uppercase tracking-widest">
               <th className="text-left border border-border-main py-2 px-2">Model</th>
               <th className="text-left border border-border-main py-2 px-2">Src</th>
-              {categories.map((category) => (
-                <th key={category} className="border border-border-main py-2 px-2">
-                  {category}
+              {columns.map((column) => (
+                <th key={column} className="border border-border-main py-2 px-2">
+                  {column}
                 </th>
               ))}
               <th className="border border-border-main py-2 px-2">Overall</th>
             </tr>
           </thead>
           <tbody>
-            {models.map((model) => (
-              <tr key={model.model}>
-                <td className="border border-border-main py-1.5 px-2 text-text-main font-bold whitespace-nowrap">
-                  {model.model}
-                </td>
-                <td className="border border-border-main py-1.5 px-2">
-                  <SourceBadge source={model.source} />
-                </td>
-                {categories.map((category) => (
-                  <HeatCell key={category} pct={model.categories[category]?.pct ?? null} />
-                ))}
-                <HeatCell pct={model.scorePct} />
-              </tr>
-            ))}
+            {models.map((model) => {
+              const scores = scoreFor(model) ?? {};
+              return (
+                <tr key={model.model}>
+                  <td className="border border-border-main py-1.5 px-2 text-text-main font-bold whitespace-nowrap">
+                    {model.model}
+                  </td>
+                  <td className="border border-border-main py-1.5 px-2">
+                    <SourceBadge source={model.source} />
+                  </td>
+                  {columns.map((column) => (
+                    <HeatCell key={column} pct={scores[column]?.pct ?? null} />
+                  ))}
+                  <HeatCell pct={model.scorePct} />
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

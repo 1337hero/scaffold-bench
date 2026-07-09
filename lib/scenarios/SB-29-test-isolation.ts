@@ -19,6 +19,7 @@ export const meta = {
   name: "test-isolation",
   category: "verify-and-repair" as const,
   family: "regex-style" as const,
+  difficulty: "high" as const, // cognitive-load override (field mean inflated by strong-model sample)
   rubricKind: "10pt" as const,
   signalType: "behavioral" as const,
   fixturePath: "playground/frontend/",
@@ -30,6 +31,7 @@ const scenario: Scenario = {
   name: "test-isolation",
   category: "verify-and-repair",
   family: "regex-style",
+  difficulty: "high",
   prompt: PROMPT,
   async evaluate({ playgroundDir, toolCalls }) {
     const testPath = join(playgroundDir, "playground/frontend/cache.test.js");
