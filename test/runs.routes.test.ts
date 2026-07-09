@@ -111,6 +111,99 @@ describe("runs routes", () => {
     expect(body.status).toBe("stopping");
   });
 
+  test("POST /api/runs/:id/stop marks stale DB-running run as stopped", async () => {
+    const app = new Hono();
+    app.route("/api/runs", runsRouter);
+
+    const runId = "stale-stopped";
+    insertRun({
+      id: runId,
+      started_at: Date.now() - 60_000,
+      status: "running",
+      scenario_ids: '["SB-01","SB-02"]',
+      runtime: "local",
+      runtime_kind: "llama.cpp",
+      endpoint: null,
+      model: "stale-model",
+      model_file: null,
+      quant: null,
+      quant_tier: null,
+      quant_source: null,
+      context_size: null,
+      harness: null,
+      gpu_backend: null,
+      gpu_model: null,
+      gpu_count: null,
+      vram_total_mb: null,
+      host_thermal_note: null,
+    });
+    upsertScenarioRun({
+      run_id: runId,
+      scenario_id: "SB-01",
+      status: "pass",
+      points: 10,
+      max_points: 10,
+      finished_at: Date.now() - 30_000,
+    });
+    upsertScenarioRun({
+      run_id: runId,
+      scenario_id: "SB-02",
+      status: "running",
+      max_points: 10,
+      started_at: Date.now() - 10_000,
+    });
+
+    const res = await app.request(`/api/runs/${runId}/stop`, { method: "POST" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; status: string };
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("stopped");
+
+    const detail = await app.request(`/api/runs/${runId}`);
+    const json = (await detail.json()) as {
+      status: string;
+      totalPoints: number;
+      maxPoints: number;
+      scenarioRuns: Array<{ scenarioId: string; status: string }>;
+    };
+    expect(json.status).toBe("stopped");
+    expect(json.totalPoints).toBe(10);
+    expect(json.maxPoints).toBe(10);
+    expect(json.scenarioRuns.find((s) => s.scenarioId === "SB-02")?.status).toBe("stopped");
+  });
+
+  test("GET /api/runs reconciles stale running runs without a live controller", async () => {
+    const app = new Hono();
+    app.route("/api/runs", runsRouter);
+
+    insertRun({
+      id: "ghost-run",
+      started_at: Date.now() - 120_000,
+      status: "running",
+      scenario_ids: '["SB-01"]',
+      runtime: "local",
+      runtime_kind: "llama.cpp",
+      endpoint: null,
+      model: "ghost",
+      model_file: null,
+      quant: null,
+      quant_tier: null,
+      quant_source: null,
+      context_size: null,
+      harness: null,
+      gpu_backend: null,
+      gpu_model: null,
+      gpu_count: null,
+      vram_total_mb: null,
+      host_thermal_note: null,
+    });
+
+    const res = await app.request("/api/runs");
+    expect(res.status).toBe(200);
+    const rows = (await res.json()) as Array<{ id: string; status: string }>;
+    expect(rows.find((r) => r.id === "ghost-run")?.status).toBe("stopped");
+  });
+
   test("GET /api/runs/:id withEvents paginates events", async () => {
     const app = new Hono();
     app.route("/api/runs", runsRouter);

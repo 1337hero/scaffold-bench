@@ -12,6 +12,8 @@ import {
   getRunEvents,
   getScenarioEvents,
   clearRunData,
+  markRunStopped,
+  reconcileStaleRunningRuns,
 } from "../db/queries.ts";
 
 export const runsRouter = new Hono();
@@ -58,6 +60,7 @@ runsRouter.post("/", async (c) => {
 });
 
 runsRouter.get("/", (c) => {
+  reconcileStaleRunningRuns((id) => globalRegistry.get(id) !== undefined);
   const rows = listRuns();
   return c.json(
     rows.map((r) => ({
@@ -84,8 +87,14 @@ runsRouter.post("/clear", (c) => {
 
 runsRouter.get("/:id", (c) => {
   const id = c.req.param("id");
-  const run = getRun(id);
+  let run = getRun(id);
   if (!run) return c.json({ error: "not found" }, 404);
+
+  // Process death leaves status=running with no controller — heal on read.
+  if (run.status === "running" && !globalRegistry.get(id)) {
+    markRunStopped(id, { error: "stale_running_run" });
+    run = getRun(id)!;
+  }
 
   const scenarioRuns = getScenarioRuns(id);
   const withEvents = c.req.query("withEvents") === "true";
@@ -148,11 +157,19 @@ runsRouter.get("/:id/scenarios/:scenarioId/events", (c) => {
 runsRouter.post("/:id/stop", (c) => {
   const id = c.req.param("id");
   const controller = globalRegistry.get(id);
-  if (!controller) {
-    return c.json({ error: "run not found or not active" }, 404);
+  if (controller) {
+    controller.abort();
+    return c.json({ ok: true, runId: id, status: "stopping" }, 202);
   }
-  controller.abort();
-  return c.json({ ok: true, runId: id, status: "stopping" }, 202);
+
+  // Hard kill / restart: no live controller, but DB may still say running.
+  const run = getRun(id);
+  if (run?.status === "running") {
+    markRunStopped(id, { error: "stale_running_run" });
+    return c.json({ ok: true, runId: id, status: "stopped" }, 200);
+  }
+
+  return c.json({ error: "run not found or not active" }, 404);
 });
 
 runsRouter.get("/:id/stream", (c) => {

@@ -315,6 +315,10 @@ export type ReportModelAggregate = {
   solveCiLowPct: number;
   solveCiHighPct: number;
   disciplinePct: number;
+  verifyRatePct: number | null;
+  verifyEligibleRuns: number;
+  bashCallsPerRun: number | null;
+  verifyPassesPerRun: number | null;
   pointsAvg: number;
   maxAvg: number;
   totalWallSeconds: number;

@@ -69,6 +69,10 @@ export interface ScenarioRunRow {
   wall_time_ms: number | null;
   first_token_ms: number | null;
   tool_call_count: number | null;
+  bash_calls: number | null;
+  post_change_bash_calls: number | null;
+  verify_passes: number | null;
+  mutated: number | null;
   model_metrics_json: string | null;
   evaluation_json: string | null;
   error_kind: "infra" | "timeout" | "aborted" | "runtime" | null;
@@ -138,8 +142,9 @@ export function upsertScenarioRun(
       points, max_points, rubric_kind,
       correctness, scope, pattern, verification, cleanup,
       wall_time_ms, first_token_ms, tool_call_count,
+      bash_calls, post_change_bash_calls, verify_passes, mutated,
       model_metrics_json, evaluation_json, error_kind, error, artifact_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(run_id, scenario_id) DO UPDATE SET
       category = COALESCE(excluded.category, category),
       family = COALESCE(excluded.family, family),
@@ -157,6 +162,10 @@ export function upsertScenarioRun(
       wall_time_ms = COALESCE(excluded.wall_time_ms, wall_time_ms),
       first_token_ms = COALESCE(excluded.first_token_ms, first_token_ms),
       tool_call_count = COALESCE(excluded.tool_call_count, tool_call_count),
+      bash_calls = COALESCE(excluded.bash_calls, bash_calls),
+      post_change_bash_calls = COALESCE(excluded.post_change_bash_calls, post_change_bash_calls),
+      verify_passes = COALESCE(excluded.verify_passes, verify_passes),
+      mutated = COALESCE(excluded.mutated, mutated),
       model_metrics_json = COALESCE(excluded.model_metrics_json, model_metrics_json),
       evaluation_json = COALESCE(excluded.evaluation_json, evaluation_json),
       error_kind = COALESCE(excluded.error_kind, error_kind),
@@ -181,6 +190,10 @@ export function upsertScenarioRun(
       row.wall_time_ms ?? null,
       row.first_token_ms ?? null,
       row.tool_call_count ?? null,
+      row.bash_calls ?? null,
+      row.post_change_bash_calls ?? null,
+      row.verify_passes ?? null,
+      row.mutated ?? null,
       row.model_metrics_json ?? null,
       row.evaluation_json ?? null,
       row.error_kind ?? null,
@@ -206,6 +219,50 @@ export function listRuns(): RunRow[] {
 export function getRun(id: string): RunRow | null {
   const db = getDb();
   return db.query<RunRow, [string]>("SELECT * FROM runs WHERE id = ?").get(id);
+}
+
+/** Mark a DB-side running run as stopped (process death / hard interrupt). */
+export function markRunStopped(
+  runId: string,
+  opts: { finishedAt?: number; error?: string | null } = {}
+): void {
+  const finishedAt = opts.finishedAt ?? Date.now();
+  const db = getDb();
+  withTransaction(() => {
+    db.run(
+      `UPDATE scenario_runs
+       SET status = 'stopped', finished_at = COALESCE(finished_at, ?)
+       WHERE run_id = ? AND status IN ('running', 'pending')`,
+      [finishedAt, runId]
+    );
+    const totals = db
+      .query<{ total: number | null; max: number | null }, [string]>(
+        `SELECT SUM(points) as total, SUM(max_points) as max
+         FROM scenario_runs
+         WHERE run_id = ? AND status IN ('pass', 'partial', 'fail')`
+      )
+      .get(runId);
+    updateRun(runId, {
+      status: "stopped",
+      finished_at: finishedAt,
+      total_points: totals?.total ?? 0,
+      max_points: totals?.max ?? 0,
+      ...(opts.error !== undefined ? { error: opts.error } : {}),
+    });
+  });
+}
+
+/** Reconcile runs left `running` after process death (no live controller). */
+export function reconcileStaleRunningRuns(isLive: (runId: string) => boolean): number {
+  const db = getDb();
+  const stale = db
+    .query<{ id: string }, []>("SELECT id FROM runs WHERE status = 'running'")
+    .all()
+    .filter((row) => !isLive(row.id));
+  for (const row of stale) {
+    markRunStopped(row.id, { error: "stale_running_run" });
+  }
+  return stale.length;
 }
 
 export function getScenarioRuns(runId: string): ScenarioRunRow[] {

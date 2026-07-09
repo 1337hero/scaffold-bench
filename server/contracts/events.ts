@@ -78,6 +78,10 @@ export type PersistedEvent =
         cleanup: number;
       } | null;
       artifactPath?: string | null;
+      bashCalls?: number;
+      postChangeBashCalls?: number;
+      verifyPasses?: number;
+      mutated?: 0 | 1;
     })
   | (EventBase & {
       type: "assistant";

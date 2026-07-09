@@ -117,9 +117,10 @@ The blended 0–10 score let models harvest process points while failing the act
 
 - **Solve %** — primary metric and default sort. A scenario counts as solved only on full correctness (3/3), reported with a Wilson 95% confidence interval.
 - **Discipline %** — the process dimensions (scope + pattern + verification + cleanup, /7) as a separate column.
+- **Verify %** — the share of *mutating* scored runs in which the model ran a passing test/typecheck command after changing code. Measured from the tool-call trace (behavioral fingerprint), independent of rubric points. Descriptive only — the bench makes no claim that Verify % predicts Solve %.
 - **Score %** — the legacy blended number, kept but demoted.
 
-All three are computed over historical runs — no re-runs needed.
+These metrics are computed over historical runs — no re-runs needed.
 
 ### Artifacts & rescoring
 

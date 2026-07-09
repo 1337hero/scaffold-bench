@@ -14,7 +14,7 @@ import {
   totalWallTime,
   type ScenarioLike,
 } from "../lib/aggregates.ts";
-import { classifyRuntimeError, mergeModelMetrics } from "../lib/scoring.ts";
+import { classifyRuntimeError, deriveVerifyMetrics, mergeModelMetrics } from "../lib/scoring.ts";
 import type { ScenarioResult, RuntimeErrorKind } from "../lib/scoring.ts";
 import type { ScenarioEvaluation } from "../lib/schemas/evaluation.js";
 import type { RuntimeEvent, ToolExecutionMode } from "../lib/runtimes/types.ts";
@@ -116,6 +116,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       results.push(result);
       const errorKind = scenarioErrorKind(result);
       const artifactPath = result.archive ? await writeArtifact(runId, scenario.id, result) : null;
+      const verify = deriveVerifyMetrics(result.output.toolCalls, result.archive);
 
       opts.onEvent?.({
         type: "scenario_finished",
@@ -135,6 +136,10 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         rubricKind: result.evaluation.rubricKind,
         rubricBreakdown: result.evaluation.rubricBreakdown ?? null,
         artifactPath,
+        bashCalls: verify.bash_calls,
+        postChangeBashCalls: verify.post_change_bash_calls,
+        verifyPasses: verify.verify_passes,
+        mutated: verify.mutated,
         seq: nextSeq(),
         ts: Date.now(),
       });
@@ -288,6 +293,10 @@ function mirrorScenarioState(runId: string, evt: PersistedEvent): void {
       error_kind: evt.errorKind ?? null,
       model_metrics_json: evt.modelMetrics ? JSON.stringify(evt.modelMetrics) : null,
       artifact_path: evt.artifactPath ?? null,
+      bash_calls: evt.bashCalls ?? null,
+      post_change_bash_calls: evt.postChangeBashCalls ?? null,
+      verify_passes: evt.verifyPasses ?? null,
+      mutated: evt.mutated ?? null,
     });
   }
 }

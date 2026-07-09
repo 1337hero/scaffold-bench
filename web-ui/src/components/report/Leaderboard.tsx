@@ -7,6 +7,7 @@ import { SourceBadge } from "./ReportHeader";
 
 type SortKey =
   | "solve"
+  | "verify"
   | "ptsPerRun"
   | "genTps"
   | "promptTps"
@@ -21,8 +22,12 @@ type SortKey =
 
 type SortDir = "asc" | "desc";
 
-const COLUMNS: Record<SortKey, { label: string; align: string }> = {
+const VERIFY_TOOLTIP =
+  "% of runs where the model ran a passing test/typecheck after changing code. Behavioral — measured from the tool-call trace, independent of rubric points. Distinct from the graded verification dimension inside Discipline %.";
+
+const COLUMNS: Record<SortKey, { label: string; align: string; title?: string }> = {
   solve: { label: "Score", align: "text-right" },
+  verify: { label: "Verify %", align: "text-right", title: VERIFY_TOOLTIP },
   ptsPerRun: { label: "Pts/run", align: "text-right" },
   genTps: { label: "Gen TPS", align: "text-right" },
   promptTps: { label: "Prompt TPS", align: "text-right" },
@@ -43,6 +48,14 @@ function compareModels(key: SortKey, a: ReportModelAggregate, b: ReportModelAggr
   switch (key) {
     case "solve": {
       return a.solveRatePct - b.solveRatePct;
+    }
+    case "verify": {
+      const [aNull, aVal] = nullSort(a.verifyRatePct);
+      const [bNull, bVal] = nullSort(b.verifyRatePct);
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      return aVal - bVal;
     }
     case "ptsPerRun": {
       return a.pointsAvg - b.pointsAvg;
@@ -125,6 +138,7 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
         key={key}
         className={`${col.align} py-2 px-2 cursor-pointer select-none hover:text-text-main transition-colors`}
         onClick={() => handleSort(key)}
+        title={col.title}
       >
         {col.label}
         {arrow(key)}
@@ -143,6 +157,7 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
               <th className="text-left py-2 px-2">Model</th>
               <th className="text-left py-2 px-2">Src</th>
               {sortableTh("solve")}
+              {sortableTh("verify")}
               {sortableTh("ptsPerRun")}
               {sortableTh("genTps")}
               {sortableTh("promptTps")}
@@ -173,6 +188,11 @@ export function Leaderboard({ models }: { models: ReportModelAggregate[] }) {
                   <span className="ml-1 font-normal text-[10px] text-text-dim">
                     ±{((model.solveCiHighPct - model.solveCiLowPct) / 2).toFixed(1)}
                   </span>
+                </td>
+                <td className="py-2 px-2 text-right text-text-main" title={VERIFY_TOOLTIP}>
+                  {model.verifyEligibleRuns > 0 && model.verifyRatePct !== null
+                    ? `${model.verifyRatePct.toFixed(0)}%`
+                    : "—"}
                 </td>
                 <td className="py-2 px-2 text-right text-text-main">
                   {model.pointsAvg.toFixed(1)} / {model.maxAvg.toFixed(0)}

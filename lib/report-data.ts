@@ -41,6 +41,12 @@ export type ReportModelAggregate = {
   solveCiLowPct: number;
   solveCiHighPct: number;
   disciplinePct: number;
+  /** % of mutating scored runs with a passing post-change verification. null when no eligible data. */
+  verifyRatePct: number | null;
+  /** Scored scenario-runs with non-null `mutated` (backfill coverage). */
+  verifyEligibleRuns: number;
+  bashCallsPerRun: number | null;
+  verifyPassesPerRun: number | null;
   pointsAvg: number;
   maxAvg: number;
   totalWallSeconds: number;
@@ -120,6 +126,11 @@ type ScenarioRow = {
   wall_time_ms: number | null;
   first_token_ms: number | null;
   tool_call_count: number | null;
+  bash_calls: number | null;
+  post_change_bash_calls: number | null;
+  verify_passes: number | null;
+  mutated: number | null;
+  status: string | null;
   model_metrics_json: string | null;
   error_kind: string | null;
   rubric_kind: string;
@@ -265,6 +276,14 @@ export function positionalMeans(
 
 type CategoryAggregate = { points: number; maxPoints: number };
 
+type VerifyAcc = {
+  eligible: number;
+  mutating: number;
+  verified: number;
+  bashCallsSum: number;
+  verifyPassesSum: number;
+};
+
 type ModelAccumulator = {
   runIds: Set<string>;
   totalPoints: number;
@@ -296,6 +315,7 @@ type ModelAccumulator = {
   solveRows: SolveDimRow[];
   contextRows: ContextRow[];
   seriesRuns: RequestSeries[];
+  verify: VerifyAcc;
 };
 
 export function buildReportData(): ReportData {
@@ -314,7 +334,7 @@ export function buildReportData(): ReportData {
 
   const scenarios = db
     .query<ScenarioRow, []>(
-      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.model_metrics_json, sr.error_kind, sr.rubric_kind, sr.correctness, sr.scope, sr.pattern, sr.verification, sr.cleanup, r.harness
+      `SELECT sr.run_id, sr.scenario_id, sr.category, sr.points, sr.max_points, sr.wall_time_ms, sr.first_token_ms, sr.tool_call_count, sr.bash_calls, sr.post_change_bash_calls, sr.verify_passes, sr.mutated, sr.status, sr.model_metrics_json, sr.error_kind, sr.rubric_kind, sr.correctness, sr.scope, sr.pattern, sr.verification, sr.cleanup, r.harness
        FROM scenario_runs sr
        JOIN runs r ON r.id = sr.run_id
        WHERE r.status = 'done'`
@@ -366,6 +386,25 @@ export function buildReportData(): ReportData {
         verification: scenario.verification,
         cleanup: scenario.cleanup,
       });
+    }
+
+    // Verify %: scored rows only (pass/partial/fail), exclude infra/aborted,
+    // require backfilled mutated. Rubric-agnostic.
+    if (
+      scenario.mutated !== null &&
+      (scenario.status === "pass" ||
+        scenario.status === "partial" ||
+        scenario.status === "fail") &&
+      scenario.error_kind !== "infra" &&
+      scenario.error_kind !== "aborted"
+    ) {
+      acc.verify.eligible += 1;
+      acc.verify.bashCallsSum += scenario.bash_calls ?? 0;
+      acc.verify.verifyPassesSum += scenario.verify_passes ?? 0;
+      if (scenario.mutated === 1) {
+        acc.verify.mutating += 1;
+        if ((scenario.verify_passes ?? 0) >= 1) acc.verify.verified += 1;
+      }
     }
 
     if (typeof scenario.first_token_ms === "number") {
@@ -512,6 +551,7 @@ function createAccumulator(): ModelAccumulator {
     solveRows: [],
     contextRows: [],
     seriesRuns: [],
+    verify: { eligible: 0, mutating: 0, verified: 0, bashCallsSum: 0, verifyPassesSum: 0 },
   };
 }
 
@@ -588,6 +628,13 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     solveCiLowPct: solve.solveCiLowPct,
     solveCiHighPct: solve.solveCiHighPct,
     disciplinePct: solve.disciplinePct,
+    verifyRatePct:
+      acc.verify.mutating > 0 ? (100 * acc.verify.verified) / acc.verify.mutating : null,
+    verifyEligibleRuns: acc.verify.eligible,
+    bashCallsPerRun:
+      acc.verify.eligible > 0 ? acc.verify.bashCallsSum / acc.verify.eligible : null,
+    verifyPassesPerRun:
+      acc.verify.eligible > 0 ? acc.verify.verifyPassesSum / acc.verify.eligible : null,
     pointsAvg: acc.totalPoints / runCount,
     maxAvg: acc.maxPoints / runCount,
     totalWallSeconds: acc.totalWallMs / 1000 / runCount,

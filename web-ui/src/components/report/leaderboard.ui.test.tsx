@@ -16,6 +16,10 @@ function model(id: string, overrides: Partial<ReportModelAggregate> = {}): Repor
     solveCiLowPct: 0,
     solveCiHighPct: 0,
     disciplinePct: 0,
+    verifyRatePct: null,
+    verifyEligibleRuns: 0,
+    bashCallsPerRun: null,
+    verifyPassesPerRun: null,
     pointsAvg: 0,
     maxAvg: 0,
     totalWallSeconds: 0,
@@ -52,13 +56,28 @@ describe("Leaderboard", () => {
     expect(rows[1].textContent).toContain("low-solve-high-blend");
   });
 
-  test("renders a single Score column and no Discipline, blended Score, or Exempt columns", () => {
+  test("renders a single Score column, Verify %, and no Discipline, blended Score, or Exempt columns", () => {
     render(<Leaderboard models={models} />);
     const headers = screen.getAllByRole("columnheader").map((th) => th.textContent ?? "");
     expect(headers.filter((h) => h.includes("Score"))).toHaveLength(1);
+    expect(headers.some((h) => h.includes("Verify %"))).toBe(true);
     expect(headers.some((h) => h.includes("Solve %"))).toBe(false);
     expect(headers.some((h) => h.includes("Discipline"))).toBe(false);
     expect(headers.some((h) => h.includes("Exempt"))).toBe(false);
+  });
+
+  test("Verify % renders dash when no eligible runs, value when present", () => {
+    render(
+      <Leaderboard
+        models={[
+          model("no-data", { verifyEligibleRuns: 0, verifyRatePct: null }),
+          model("with-data", { verifyEligibleRuns: 10, verifyRatePct: 42.7 }),
+        ]}
+      />
+    );
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows[0].textContent).toContain("—");
+    expect(rows[1].textContent).toContain("43%");
   });
 
   test("Score cell shows the rate with a ± CI margin", () => {

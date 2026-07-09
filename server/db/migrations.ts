@@ -100,6 +100,10 @@ export function runMigrations(): void {
       name: "008_oneshot_per_prompt",
       sql: readFileSync(join(import.meta.dir, "migrations", "008_oneshot_per_prompt.sql"), "utf8"),
     },
+    {
+      name: "009_verify_metrics",
+      sql: readFileSync(join(import.meta.dir, "migrations", "009_verify_metrics.sql"), "utf8"),
+    },
   ];
 
   for (const migration of migrations) {

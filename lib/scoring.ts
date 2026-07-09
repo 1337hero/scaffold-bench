@@ -202,6 +202,88 @@ export function anyBashPassed(calls: ToolCall[]): boolean {
   return calls.some((c) => c.name === "bash" && bashPassed(c));
 }
 
+/**
+ * Matches test runners and static checks used as post-change self-verification.
+ * Single definition site — unit-tested. Case-insensitive.
+ *
+ * Positive: bun test, npm test, node --test, vitest, jest, pytest, cargo test/check,
+ * go test/vet/build, php -l, shellcheck, tsc, and generic \b(test|spec)s?\b.
+ * Negative: ls, cat, grep, echo, and other non-verification shell.
+ */
+export const VERIFY_COMMAND_PATTERN =
+  /\b(?:bun\s+test|npm\s+(?:run\s+)?test|npx\s+(?:vitest|jest|tsc)\b|node\s+--test|vitest\b|jest\b|pytest\b|cargo\s+(?:test|check)\b|go\s+(?:test|vet|build)\b|php\s+-l\b|shellcheck\b|tsc\b|(?:test|spec)s?\b)/i;
+
+export type VerifyMetrics = {
+  bash_calls: number;
+  post_change_bash_calls: number;
+  verify_passes: number;
+  mutated: 0 | 1;
+};
+
+function bashCommandText(call: ToolCall): string {
+  try {
+    const parsed: unknown = JSON.parse(call.args);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "command" in parsed &&
+      typeof (parsed as { command: unknown }).command === "string"
+    ) {
+      return (parsed as { command: string }).command;
+    }
+  } catch {
+    /* not JSON */
+  }
+  return call.args;
+}
+
+function isSuccessfulMutation(call: ToolCall): boolean {
+  return (call.name === "edit" || call.name === "write") && !toolFailed(call);
+}
+
+function isPassingVerification(call: ToolCall): boolean {
+  if (call.name !== "bash") return false;
+  if (!VERIFY_COMMAND_PATTERN.test(bashCommandText(call))) return false;
+  return bashExitCode(call) === 0;
+}
+
+/**
+ * Pure derivation of behavioral self-testing metrics from a scenario-run's
+ * tool-call trace and workspace archive. Safe for scoring-time capture,
+ * rescore, and backfill.
+ */
+export function deriveVerifyMetrics(
+  toolCalls: ToolCall[],
+  archive?: Pick<WorkspaceArchive, "changed" | "deleted"> | null
+): VerifyMetrics {
+  const hasArchiveMutation =
+    (archive?.changed?.length ?? 0) > 0 || (archive?.deleted?.length ?? 0) > 0;
+  const firstSuccessfulEdit = toolCalls.findIndex(isSuccessfulMutation);
+  const hasEditMutation = firstSuccessfulEdit !== -1;
+  const mutated: 0 | 1 = hasArchiveMutation || hasEditMutation ? 1 : 0;
+
+  // Mutation point: first successful edit/write index; if mutated without those
+  // (e.g. sed via bash), all bash calls count as post-change (index 0).
+  const mutationPoint =
+    firstSuccessfulEdit !== -1 ? firstSuccessfulEdit : mutated === 1 ? 0 : -1;
+
+  let bash_calls = 0;
+  let post_change_bash_calls = 0;
+  let verify_passes = 0;
+
+  for (let i = 0; i < toolCalls.length; i++) {
+    const call = toolCalls[i];
+    if (call.name !== "bash") continue;
+    bash_calls++;
+    if (mutationPoint !== -1 && i >= mutationPoint) {
+      post_change_bash_calls++;
+      if (isPassingVerification(call)) verify_passes++;
+    }
+  }
+
+  return { bash_calls, post_change_bash_calls, verify_passes, mutated };
+}
+
 export function firstChangeFailed(calls: ToolCall[]): boolean {
   const first = calls.find((c) => c.name === "edit" || c.name === "write");
   return first !== undefined && toolFailed(first);
