@@ -75,7 +75,20 @@ export type ReportModelAggregate = {
   contextPerTurnByHarness?: Record<string, number>;
   // Phase B: positional mean prompt tokens by turn index across a model's runs.
   contextByTurn?: Array<{ turn: number; meanPromptTokens: number; runs: number }>;
+  // Retrospective solve rate under context-window caps. A run counts as solved
+  // at cap C only if it solved AND its peak request (prompt+completion tokens)
+  // fit within C — computed from runs as they actually executed, not re-run
+  // capped, so it's a lower bound on capped performance.
+  solveRateByContextCap?: ContextCapCurve;
 };
+
+export type ContextCapCurve = {
+  attempts: number;
+  points: Array<{ cap: number; solved: number; pct: number }>;
+};
+
+/** Context-window caps swept by the retrospective solve-rate curve. */
+export const CONTEXT_CAPS = [8192, 16384, 32768, 65536, 131072] as const;
 
 export type ReportData = {
   models: ReportModelAggregate[];
@@ -274,6 +287,41 @@ export function positionalMeans(
   return out;
 }
 
+// ── Context-cap helpers (pure, for unit testing) ─────────────────────────────
+
+/**
+ * The binding constraint for a run under a context cap: the largest single
+ * request's prompt+completion tokens. Max, not final — a mid-run spike (big
+ * file read that later scrolls off) would fail a real cap even if the run
+ * ended smaller.
+ */
+export function peakContextTokens(
+  requests: Array<{ promptTokens: number; completionTokens: number }>
+): number {
+  let peak = 0;
+  for (const r of requests) peak = Math.max(peak, r.promptTokens + r.completionTokens);
+  return peak;
+}
+
+/**
+ * Solve rate at each cap. Unsolved runs and solved runs whose peak exceeded
+ * the cap both count against — the denominator is all attempts, so quitting
+ * early or solving only cheap scenarios can't inflate the curve.
+ */
+export function computeSolveRateByContextCap(
+  rows: Array<{ solved: boolean; peak: number }>,
+  caps: readonly number[] = CONTEXT_CAPS
+): ContextCapCurve | undefined {
+  if (rows.length === 0) return undefined;
+  return {
+    attempts: rows.length,
+    points: caps.map((cap) => {
+      const solved = rows.filter((r) => r.solved && r.peak <= cap).length;
+      return { cap, solved, pct: (100 * solved) / rows.length };
+    }),
+  };
+}
+
 type CategoryAggregate = { points: number; maxPoints: number };
 
 type VerifyAcc = {
@@ -315,6 +363,7 @@ type ModelAccumulator = {
   solveRows: SolveDimRow[];
   contextRows: ContextRow[];
   seriesRuns: RequestSeries[];
+  capRows: Array<{ solved: boolean; peak: number }>;
   verify: VerifyAcc;
 };
 
@@ -392,9 +441,7 @@ export function buildReportData(): ReportData {
     // require backfilled mutated. Rubric-agnostic.
     if (
       scenario.mutated !== null &&
-      (scenario.status === "pass" ||
-        scenario.status === "partial" ||
-        scenario.status === "fail") &&
+      (scenario.status === "pass" || scenario.status === "partial" || scenario.status === "fail") &&
       scenario.error_kind !== "infra" &&
       scenario.error_kind !== "aborted"
     ) {
@@ -448,6 +495,20 @@ export function buildReportData(): ReportData {
       }
       if (metrics.requests && metrics.requests.length > 0) {
         acc.seriesRuns.push(metrics.requests.map((r) => ({ promptTokens: r.promptTokens })));
+        // Context-cap rows mirror solveRows eligibility (10pt rubric, scored,
+        // not infra/aborted) — timeouts stay in as unsolved attempts, same as
+        // the solve-rate denominator.
+        if (
+          scenario.rubric_kind === "10pt" &&
+          scenario.correctness !== null &&
+          scenario.error_kind !== "infra" &&
+          scenario.error_kind !== "aborted"
+        ) {
+          acc.capRows.push({
+            solved: scenario.correctness === 3,
+            peak: peakContextTokens(metrics.requests),
+          });
+        }
       }
     }
 
@@ -551,6 +612,7 @@ function createAccumulator(): ModelAccumulator {
     solveRows: [],
     contextRows: [],
     seriesRuns: [],
+    capRows: [],
     verify: { eligible: 0, mutating: 0, verified: 0, bashCallsSum: 0, verifyPassesSum: 0 },
   };
 }
@@ -616,6 +678,7 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
   const avgContextPerTurn = meanContextPerTurn(ratios);
   const byHarness = contextPerTurnByHarness(acc.contextRows);
   const contextByTurnArr = positionalMeans(acc.seriesRuns);
+  const capCurve = computeSolveRateByContextCap(acc.capRows);
 
   return {
     model,
@@ -631,8 +694,7 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     verifyRatePct:
       acc.verify.mutating > 0 ? (100 * acc.verify.verified) / acc.verify.mutating : null,
     verifyEligibleRuns: acc.verify.eligible,
-    bashCallsPerRun:
-      acc.verify.eligible > 0 ? acc.verify.bashCallsSum / acc.verify.eligible : null,
+    bashCallsPerRun: acc.verify.eligible > 0 ? acc.verify.bashCallsSum / acc.verify.eligible : null,
     verifyPassesPerRun:
       acc.verify.eligible > 0 ? acc.verify.verifyPassesSum / acc.verify.eligible : null,
     pointsAvg: acc.totalPoints / runCount,
@@ -664,6 +726,7 @@ function finalizeModel(model: string, acc: ModelAccumulator): ReportModelAggrega
     avgContextPerTurn,
     ...(byHarness ? { contextPerTurnByHarness: byHarness } : {}),
     ...(contextByTurnArr.length > 0 ? { contextByTurn: contextByTurnArr } : {}),
+    ...(capCurve ? { solveRateByContextCap: capCurve } : {}),
   };
 }
 
