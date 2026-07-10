@@ -9,6 +9,9 @@ bench-report.html
 web-ui/dist/
 artifacts/
 
+# Rust build output (playground scenario fixtures)
+target/
+
 # Environment / secrets
 env/
 .env*
@@ -23,8 +26,9 @@ docs/
 .DS_Store
 .vscode/
 
-# One-time runner scripts
+# Personal / one-time runner scripts (machine-specific model lists)
 run-all-models-bench.sh
+scripts/run-all-models.ts
 
 #misc
 .codex
@@ -32,11 +36,8 @@ run-all-models-bench.sh
 
 # Local database
 scaffold-bench.db
+scaffold-bench.v1.db
 scaffold-bench.db-journal
 scaffold-bench.db-wal
 scaffold-bench.db-shm
-
-# Database
-scaffold-bench.db
-scaffold-bench.v1.db
 test-results/
