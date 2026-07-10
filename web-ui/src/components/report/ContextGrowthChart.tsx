@@ -54,6 +54,22 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
   const xTicks = Array.from({ length: maxTurn }, (_, i) => i + 1);
   const yTicks = niceTicks(maxTokens);
 
+  // Direct endpoint labels — colors collide (14 models, 12-color palette), so a
+  // swatch legend is ambiguous. Label each line at its last point instead.
+  const endpoints = layoutEndpointLabels(
+    plotted.map((m) => {
+      const last = m.contextByTurn![m.contextByTurn!.length - 1];
+      return {
+        model: m.model,
+        color: colorFor(m.model),
+        x: xOf(last.turn),
+        y: yOf(last.meanPromptTokens),
+      };
+    }),
+    PAD.t,
+    H - PAD.b
+  );
+
   return (
     <section className="mt-8">
       <SectionTitle>Context growth per turn</SectionTitle>
@@ -183,25 +199,77 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
               </g>
             );
           })}
+
+          {/* direct endpoint labels (drawn last, on top of all lines) */}
+          {endpoints.map((e) => {
+            const right = e.side === "right";
+            const tx = right ? e.x + 7 : e.x - 7;
+            return (
+              <g key={`lbl-${e.model}`}>
+                {Math.abs(e.labelY - e.y) > 1 && (
+                  <line
+                    x1={e.x}
+                    y1={e.y}
+                    x2={tx}
+                    y2={e.labelY}
+                    stroke={e.color}
+                    strokeWidth={0.75}
+                    opacity={0.5}
+                  />
+                )}
+                <text
+                  x={tx}
+                  y={e.labelY + 3}
+                  textAnchor={right ? "start" : "end"}
+                  fontSize={10}
+                  fontWeight={700}
+                  fill={e.color}
+                >
+                  {e.model}
+                </text>
+              </g>
+            );
+          })}
         </svg>
       </div>
-      {plotted.length > 12 ? (
-        <div className="text-[11px] text-text-dim mt-1">{plotted.length} models plotted</div>
-      ) : (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px]">
-          {plotted.map((m) => (
-            <span key={m.model} className="flex items-center gap-1.5">
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-full"
-                style={{ background: colorFor(m.model) }}
-              />
-              <span className="text-text-main truncate max-w-[180px]">{m.model}</span>
-            </span>
-          ))}
-        </div>
-      )}
     </section>
   );
+}
+
+type EndpointLabel = {
+  model: string;
+  color: string;
+  x: number;
+  y: number;
+  side: "left" | "right";
+  labelY: number;
+};
+
+// Place labels at each line's endpoint, nudging them apart vertically so the
+// ~13 lines that all end near turn 20 don't stack into an unreadable pile.
+// Endpoints near the right edge get labeled leftward so text stays on-canvas.
+function layoutEndpointLabels(
+  items: Array<{ model: string; color: string; x: number; y: number }>,
+  minY: number,
+  maxY: number
+): EndpointLabel[] {
+  const MIN_GAP = 12;
+  const rightThreshold = W - 140;
+  const withSide: EndpointLabel[] = items.map((it) => ({
+    ...it,
+    side: it.x > rightThreshold ? "left" : "right",
+    labelY: it.y,
+  }));
+  for (const side of ["left", "right"] as const) {
+    const group = withSide.filter((i) => i.side === side).sort((a, b) => a.labelY - b.labelY);
+    for (let i = 1; i < group.length; i++) {
+      if (group[i].labelY - group[i - 1].labelY < MIN_GAP)
+        group[i].labelY = group[i - 1].labelY + MIN_GAP;
+    }
+    const overflow = group.length ? group[group.length - 1].labelY - maxY : 0;
+    if (overflow > 0) for (const g of group) g.labelY = Math.max(minY, g.labelY - overflow);
+  }
+  return withSide;
 }
 
 function niceTicks(max: number): number[] {
