@@ -4,7 +4,9 @@ import { colorFor, layoutEndpointLabels } from "./chart-utils";
 
 const W = 820;
 const H = 360;
-const PAD = { l: 64, r: 16, t: 16, b: 40 };
+// Wide right pad: every line ends at the same x (the last cap), so endpoint
+// labels need a reserved margin or they'd stack across the plot.
+const PAD = { l: 64, r: 160, t: 16, b: 40 };
 
 const Y_TICKS = [0, 25, 50, 75, 100];
 
