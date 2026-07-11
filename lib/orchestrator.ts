@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { chmod, cp, mkdtemp, readdir, rm } from "node:fs/promises";
 import { lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -201,6 +201,24 @@ export async function runScenario(opts: RunOptions): Promise<ScenarioResult> {
       ...(archive ? { archive } : {}),
     };
   } finally {
-    await rm(workDir, { recursive: true, force: true });
+    // Cleanup must never affect the scenario result: the model under test can
+    // leave read-only dirs behind (real run: EACCES here turned a pass into a 0).
+    try {
+      await rm(workDir, { recursive: true, force: true });
+    } catch {
+      await makeDirsWritable(workDir);
+      await rm(workDir, { recursive: true, force: true }).catch((err) => {
+        console.warn(`Failed to clean up workspace ${workDir}, leaking it:`, err);
+      });
+    }
+  }
+}
+
+// rm only needs write+exec on directories (unlink ignores file perms with force).
+async function makeDirsWritable(dir: string): Promise<void> {
+  await chmod(dir, 0o700).catch(() => {});
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (entry.isDirectory()) await makeDirsWritable(join(dir, entry.name));
   }
 }
