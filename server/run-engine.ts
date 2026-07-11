@@ -29,7 +29,7 @@ import {
   withTransaction,
 } from "./db/queries.ts";
 import { globalBus } from "./event-bus.ts";
-import { globalRegistry } from "./run-registry.ts";
+import { globalRegistry, type RunSource } from "./run-registry.ts";
 import { detectGpu } from "../lib/hardware/gpu.ts";
 import {
   parseQuantTag,
@@ -190,7 +190,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
   const timestamp = Date.now();
   const resultsDir = join(import.meta.dir, "..", "results");
   await mkdir(resultsDir, { recursive: true });
-  const resultsPath = join(resultsDir, `${timestamp}-local.json`);
+  const resultsPath = join(resultsDir, `${timestamp}-${runId.slice(0, 8)}-local.json`);
   const runFile = {
     timestamp: new Date().toISOString(),
     runtime: "local",
@@ -314,6 +314,7 @@ function mirrorScenarioState(runId: string, evt: PersistedEvent): void {
 
 export interface StartRunRequest {
   scenarioIds: string[];
+  source?: RunSource;
   modelId?: string;
   endpoint?: string;
   apiKey?: string;
@@ -427,7 +428,7 @@ async function executeRun(
 
 export async function startRun(request: StartRunRequest): Promise<{ runId: string }> {
   const runId = crypto.randomUUID();
-  const controller = globalRegistry.create(runId);
+  const controller = globalRegistry.create(runId, request.source ?? "local");
 
   const scenarioIds = request.scenarioIds;
   const gpu = detectGpu();

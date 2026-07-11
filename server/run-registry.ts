@@ -5,19 +5,25 @@ export class RunInProgressError extends Error {
   }
 }
 
+export type RunSource = "local" | "remote";
+
 export class RunRegistry {
   private controllers = new Map<string, AbortController>();
-  private _activeRunId: string | null = null;
+  private sources = new Map<string, RunSource>();
   private seqCounters = new Map<string, number>();
 
-  create(runId: string): AbortController {
-    if (this._activeRunId !== null) {
-      throw new RunInProgressError(this._activeRunId);
+  // Local runs are mutually exclusive (one GPU, llama-swap); remote runs may overlap.
+  create(runId: string, source: RunSource = "local"): AbortController {
+    if (source === "local") {
+      const localActive = this.activeLocalRunId();
+      if (localActive !== null) {
+        throw new RunInProgressError(localActive);
+      }
     }
     const controller = new AbortController();
     this.controllers.set(runId, controller);
+    this.sources.set(runId, source);
     this.seqCounters.set(runId, 0);
-    this._activeRunId = runId;
     return controller;
   }
 
@@ -27,12 +33,19 @@ export class RunRegistry {
 
   delete(runId: string): void {
     this.controllers.delete(runId);
+    this.sources.delete(runId);
     this.seqCounters.delete(runId);
-    if (this._activeRunId === runId) this._activeRunId = null;
   }
 
   activeRunId(): string | null {
-    return this._activeRunId;
+    return this.activeLocalRunId() ?? this.controllers.keys().next().value ?? null;
+  }
+
+  private activeLocalRunId(): string | null {
+    for (const [id, source] of this.sources) {
+      if (source === "local") return id;
+    }
+    return null;
   }
 
   nextSeq(runId: string): number {

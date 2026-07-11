@@ -27,7 +27,7 @@ COMMIT;"
 
 ### 3. Remove the matching JSON report(s)
 
-Reports are `results/<epoch-ms>-local.json` and contain the model name (not the run id).
+Reports are `results/<epoch-ms>-<runid-prefix>-local.json` (older files: `<epoch-ms>-local.json`) and contain the model name (not the run id).
 Confirm a file is exclusively the target model before trashing:
 
 ```sh

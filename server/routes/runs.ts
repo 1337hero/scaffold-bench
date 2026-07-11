@@ -42,6 +42,7 @@ runsRouter.post("/", async (c) => {
   try {
     const { runId } = await startRun({
       scenarioIds: [...body.scenarioIds],
+      source: resolved.source,
       modelId: resolved.id,
       endpoint: resolved.endpoint,
       apiKey,
