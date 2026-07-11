@@ -16,6 +16,7 @@ import {
 } from "../lib/aggregates.ts";
 import { classifyRuntimeError, deriveVerifyMetrics, mergeModelMetrics } from "../lib/scoring.ts";
 import type { ScenarioResult, RuntimeErrorKind } from "../lib/scoring.ts";
+import type { Ms } from "../lib/schemas/brands.js";
 import type { ScenarioEvaluation } from "../lib/schemas/evaluation.js";
 import type { RuntimeEvent, ToolExecutionMode } from "../lib/runtimes/types.ts";
 import { runtimeEventToPersisted } from "./contracts/events.ts";
@@ -145,6 +146,22 @@ export async function runBench(opts: RunBenchOptions): Promise<{
       });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      // Thrown scenarios must still count toward run totals and the report,
+      // otherwise maxPoints silently shrinks and inflates the headline %.
+      const result: ScenarioResult = {
+        scenarioId: scenario.id,
+        category: scenario.category,
+        runtime: localRuntime.name,
+        evaluation: {
+          status: "fail",
+          points: 0,
+          maxPoints: scenario.maxPoints ?? 10,
+          checks: [],
+          summary: errMsg,
+        },
+        output: { stdout: "", toolCalls: [], wallTimeMs: 0 as Ms, error: errMsg },
+      };
+      results.push(result);
       opts.onEvent?.({
         type: "scenario_finished",
         runId,
@@ -153,13 +170,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
         points: 0,
         wallTimeMs: 0,
         toolCallCount: 0,
-        evaluation: {
-          status: "fail",
-          points: 0,
-          maxPoints: scenario.maxPoints ?? 10,
-          checks: [],
-          summary: errMsg,
-        },
+        evaluation: result.evaluation,
         seq: nextSeq(),
         ts: Date.now(),
       });

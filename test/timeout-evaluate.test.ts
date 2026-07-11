@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { writeFile } from "node:fs/promises";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { runScenario } from "../lib/orchestrator.ts";
 import { Evaluation } from "../lib/scoring.ts";
@@ -67,5 +68,30 @@ describe("timeout handling", () => {
     });
     expect(result.evaluation.status).toBe("fail");
     expect(result.evaluation.summary).toContain("Runtime error");
+  });
+});
+
+describe("workspace cleanup", () => {
+  it("does not corrupt the result when the model leaves a read-only dir", async () => {
+    let workDir = "";
+    const messy: Runtime = {
+      name: "stub",
+      async run(ctx) {
+        workDir = ctx.workDir;
+        const locked = join(ctx.workDir, "playground", "locked");
+        await mkdir(locked);
+        await writeFile(join(locked, "trap.txt"), "cannot delete me");
+        await chmod(locked, 0o500);
+        await writeFile(join(ctx.workDir, "playground", "FIXED.txt"), "done");
+        return { stdout: "", toolCalls: [], wallTimeMs: 1 as Ms };
+      },
+    };
+    const result = await runScenario({
+      runtime: messy,
+      scenario: stubScenario(),
+      timeoutMs: 1_000,
+    });
+    expect(result.evaluation.status).toBe("pass");
+    expect(existsSync(workDir)).toBe(false);
   });
 });
