@@ -27,7 +27,8 @@ export async function preflightModel(cfg: {
       body: JSON.stringify({
         model: cfg.model,
         messages: [{ role: "user", content: "." }],
-        max_tokens: 1,
+        // OpenAI (via OpenRouter) rejects max_tokens < 16
+        max_tokens: 16,
         stream: false,
       }),
       signal: AbortSignal.timeout(cfg.timeoutMs ?? DEFAULT_PREFLIGHT_TIMEOUT_MS),
