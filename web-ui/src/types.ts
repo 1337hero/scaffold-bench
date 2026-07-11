@@ -344,6 +344,10 @@ export type ReportModelAggregate = {
   avgContextPerTurn: number | null;
   contextPerTurnByHarness?: Record<string, number>;
   contextByTurn?: Array<{ turn: number; meanPromptTokens: number; runs: number }>;
+  solveRateByContextCap?: {
+    attempts: number;
+    points: Array<{ cap: number; solved: number; pct: number }>;
+  };
 };
 
 export type ReportData = {

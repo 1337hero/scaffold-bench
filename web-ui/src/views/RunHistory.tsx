@@ -5,6 +5,7 @@ import { formatTokenCount } from "@/lib/format";
 import {
   AwardsGrid,
   CategoryHeatmap,
+  ContextCapChart,
   ContextGrowthChart,
   Leaderboard,
   MetricBars,
@@ -188,6 +189,9 @@ export function RunHistory({ onBack, backHref }: RunHistoryProps) {
               </div>
               <div className="flex-1 min-w-[480px]">
                 <TokenScoreScatter models={scoreModels} cloud={report.pareto} />
+              </div>
+              <div className="flex-1 min-w-[480px]">
+                <ContextCapChart models={scoreModels} />
               </div>
             </div>
           </>

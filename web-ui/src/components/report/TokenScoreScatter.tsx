@@ -2,32 +2,11 @@ import { useMemo, useState } from "react";
 import type { ParetoPoint, ReportModelAggregate } from "@/types";
 import { formatTokenCount } from "@/lib/format";
 import { SectionTitle } from "./SectionTitle";
+import { colorFor } from "./chart-utils";
 
 const W = 820;
 const H = 460;
 const PAD = { l: 64, r: 16, t: 16, b: 40 };
-
-// Distinct palette (theme accent hexes) — index by hash of model name.
-const PALETTE = [
-  "#40a02b",
-  "#1e66f5",
-  "#8839ef",
-  "#d20f39",
-  "#e8590c",
-  "#0a9396",
-  "#9b59b6",
-  "#b5651d",
-  "#1e9e8e",
-  "#c01a48",
-  "#3a5a40",
-  "#5b3a8c",
-];
-
-function colorFor(model: string): string {
-  let h = 0;
-  for (let i = 0; i < model.length; i++) h = (h * 31 + model.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-}
 
 const CLOUD_CAP = 2000;
 

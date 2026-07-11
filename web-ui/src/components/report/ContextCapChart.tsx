@@ -1,48 +1,50 @@
 import type { ReportModelAggregate } from "@/types";
-import { formatTokenCount } from "@/lib/format";
 import { SectionTitle } from "./SectionTitle";
 import { colorFor, layoutEndpointLabels } from "./chart-utils";
 
 const W = 820;
 const H = 360;
-const PAD = { l: 64, r: 16, t: 16, b: 40 };
+// Wide right pad: every line ends at the same x (the last cap), so endpoint
+// labels need a reserved margin or they'd stack across the plot.
+const PAD = { l: 64, r: 160, t: 16, b: 40 };
 
-export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] }) {
-  const plotted = models.filter((m) => m.contextByTurn && m.contextByTurn.length > 0);
+const Y_TICKS = [0, 25, 50, 75, 100];
+
+function capLabel(cap: number): string {
+  return `${Math.round(cap / 1024)}k`;
+}
+
+export function ContextCapChart({ models }: { models: ReportModelAggregate[] }) {
+  const plotted = models.filter(
+    (m) => m.solveRateByContextCap && m.solveRateByContextCap.points.length > 0
+  );
 
   if (plotted.length === 0) {
     return (
       <section className="mt-8">
-        <SectionTitle>Context growth per turn</SectionTitle>
-        <div className="text-text-dim text-[12px]">No per-turn data yet (captured on new runs)</div>
+        <SectionTitle>Solve rate vs context budget</SectionTitle>
+        <div className="text-text-dim text-[12px]">
+          No per-request data yet (captured on new runs)
+        </div>
       </section>
     );
   }
 
-  const maxTurn = Math.max(...plotted.map((m) => m.contextByTurn!.length));
-  const maxTokens = Math.max(
-    ...plotted.flatMap((m) => m.contextByTurn!.map((p) => p.meanPromptTokens)),
-    1
-  );
-
+  // Caps double each step, so index spacing == log2 spacing.
+  const caps = plotted[0].solveRateByContextCap!.points.map((p) => p.cap);
   const plotW = W - PAD.l - PAD.r;
   const plotH = H - PAD.t - PAD.b;
-  const xOf = (turn: number): number => PAD.l + ((turn - 1) / Math.max(maxTurn - 1, 1)) * plotW;
-  const yOf = (tokens: number): number => PAD.t + (1 - tokens / maxTokens) * plotH;
+  const xOf = (i: number): number => PAD.l + (i / Math.max(caps.length - 1, 1)) * plotW;
+  const yOf = (pct: number): number => PAD.t + (1 - pct / 100) * plotH;
 
-  const xTicks = Array.from({ length: maxTurn }, (_, i) => i + 1);
-  const yTicks = niceTicks(maxTokens);
-
-  // Direct endpoint labels — colors collide (14 models, 12-color palette), so a
-  // swatch legend is ambiguous. Label each line at its last point instead.
   const endpoints = layoutEndpointLabels(
     plotted.map((m) => {
-      const last = m.contextByTurn![m.contextByTurn!.length - 1];
+      const pts = m.solveRateByContextCap!.points;
       return {
         model: m.model,
         color: colorFor(m.model),
-        x: xOf(last.turn),
-        y: yOf(last.meanPromptTokens),
+        x: xOf(pts.length - 1),
+        y: yOf(pts[pts.length - 1].pct),
       };
     }),
     PAD.t,
@@ -52,24 +54,25 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
 
   return (
     <section className="mt-8">
-      <SectionTitle>Context growth per turn</SectionTitle>
+      <SectionTitle>Solve rate vs context budget</SectionTitle>
       <div className="text-[11px] text-text-dim mb-2">
-        Mean prompt tokens fed at each turn index — flat = tight working set, rising = re-feeds
-        everything.
+        Retrospective: a run counts at cap C only if it solved and its peak request fit within C —
+        as-executed, not re-run capped. The gap between a model's curve and its plateau is score
+        bought with context.
       </div>
       <div className="overflow-x-auto custom-scrollbar">
         <svg
           role="img"
-          aria-label="Context growth per turn, per model"
+          aria-label="Solve rate under context-window caps, per model"
           viewBox={`0 0 ${W} ${H}`}
           className="w-full max-w-[820px]"
           style={{ minHeight: 300 }}
         >
-          {/* x gridlines + ticks */}
-          {xTicks.map((t) => {
-            const x = xOf(t);
+          {/* x gridlines + cap labels */}
+          {caps.map((cap, i) => {
+            const x = xOf(i);
             return (
-              <g key={`x${t}`}>
+              <g key={`x${cap}`}>
                 <line
                   x1={x}
                   x2={x}
@@ -85,13 +88,13 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
                   fontSize={10}
                   fill="var(--color-text-dim, var(--color-text-main))"
                 >
-                  {t}
+                  {capLabel(cap)}
                 </text>
               </g>
             );
           })}
           {/* y gridlines */}
-          {yTicks.map((t) => {
+          {Y_TICKS.map((t) => {
             const y = yOf(t);
             return (
               <g key={`y${t}`}>
@@ -110,7 +113,7 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
                   fontSize={10}
                   fill="var(--color-text-dim, var(--color-text-main))"
                 >
-                  {formatTokenCount(t)}
+                  {t}%
                 </text>
               </g>
             );
@@ -139,7 +142,7 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
             fontSize={11}
             fill="var(--color-text-dim, var(--color-text-main))"
           >
-            turn index (request order)
+            context cap (tokens, log scale)
           </text>
           <text
             x={-(H - PAD.b) / 2 - PAD.t / 2}
@@ -149,33 +152,24 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
             fill="var(--color-text-dim, var(--color-text-main))"
             transform="rotate(-90)"
           >
-            prompt tokens (mean)
+            solve rate
           </text>
 
-          {/* one path per model */}
+          {/* one line per model */}
           {plotted.map((m) => {
             const c = colorFor(m.model);
-            const pts = m.contextByTurn!;
-            const d = pts
-              .map(
-                (p, i) =>
-                  `${i === 0 ? "M" : "L"} ${xOf(p.turn).toFixed(1)} ${yOf(p.meanPromptTokens).toFixed(1)}`
-              )
+            const { attempts, points } = m.solveRateByContextCap!;
+            const d = points
+              .map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(1)} ${yOf(p.pct).toFixed(1)}`)
               .join(" ");
             return (
               <g key={m.model}>
                 <path d={d} fill="none" stroke={c} strokeWidth={1.75} />
-                {pts.map((p) => {
-                  const x = xOf(p.turn);
-                  const y = yOf(p.meanPromptTokens);
-                  // Fade low-n points (few surviving runs reached this turn).
-                  const opacity = Math.max(0.25, Math.min(1, p.runs / 3));
-                  return (
-                    <circle key={p.turn} cx={x} cy={y} r={2.5} fill={c} opacity={opacity}>
-                      <title>{`${m.model} · turn ${p.turn} · ${formatTokenCount(p.meanPromptTokens)} tok · n=${p.runs}`}</title>
-                    </circle>
-                  );
-                })}
+                {points.map((p, i) => (
+                  <circle key={p.cap} cx={xOf(i)} cy={yOf(p.pct)} r={2.5} fill={c}>
+                    <title>{`${m.model} · ≤${capLabel(p.cap)} ctx · ${p.pct.toFixed(0)}% (${p.solved}/${attempts})`}</title>
+                  </circle>
+                ))}
               </g>
             );
           })}
@@ -214,20 +208,4 @@ export function ContextGrowthChart({ models }: { models: ReportModelAggregate[] 
       </div>
     </section>
   );
-}
-
-function niceTicks(max: number): number[] {
-  const step = niceStep(max / 4);
-  const ticks: number[] = [];
-  for (let v = 0; v <= max; v += step) ticks.push(v);
-  if (ticks.length === 0) ticks.push(0, Math.round(max));
-  return ticks;
-}
-
-function niceStep(raw: number): number {
-  if (raw <= 0) return 1;
-  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
-  const n = raw / pow;
-  const nice = n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10;
-  return nice * pow;
 }

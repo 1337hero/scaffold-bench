@@ -5,6 +5,7 @@ export { Leaderboard, RunStatusBadge } from "./Leaderboard";
 export { CategoryHeatmap } from "./CategoryHeatmap";
 export { MetricBars } from "./MetricBars";
 export { ContextGrowthChart } from "./ContextGrowthChart";
+export { ContextCapChart } from "./ContextCapChart";
 export { RecentRunsTable } from "./RecentRunsTable";
 export { TokenScoreScatter } from "./TokenScoreScatter";
 export { sortByScore, sortByMetric } from "@/lib/report-sort";
