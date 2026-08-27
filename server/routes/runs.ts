@@ -50,6 +50,8 @@ runsRouter.post("/", async (c) => {
       harness: body.harness,
       toolExecution: body.toolExecution,
       timeoutMs: body.timeoutMs,
+      thinking: body.thinking,
+      label: body.label,
     });
     return c.json({ runId }, 201);
   } catch (err) {

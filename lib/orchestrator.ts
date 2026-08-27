@@ -29,6 +29,7 @@ export interface RunOptions {
     apiKey?: string;
     systemPrompt?: string;
     harness?: string;
+    thinking?: boolean;
   };
 }
 

@@ -83,6 +83,7 @@ export type ScenarioExecutionContext = {
     apiKey?: string;
     systemPrompt?: string;
     harness?: string;
+    thinking?: boolean;
   };
 };
 

@@ -47,6 +47,7 @@ export interface RunBenchOptions {
   harness?: string;
   toolExecution?: ToolExecutionMode;
   timeoutMs?: number;
+  thinking?: boolean;
   nextSeq?: () => number;
   onEvent?: (event: PersistedEvent) => void;
   signal?: AbortSignal;
@@ -102,6 +103,7 @@ export async function runBench(opts: RunBenchOptions): Promise<{
           apiKey: opts.apiKey,
           systemPrompt: opts.systemPrompt,
           harness: opts.harness,
+          thinking: opts.thinking,
         },
         onRuntimeEvent: (event: RuntimeEvent) => {
           const persisted = runtimeEventToPersisted(event, {
@@ -322,6 +324,8 @@ export interface StartRunRequest {
   harness?: string;
   toolExecution?: ToolExecutionMode;
   timeoutMs?: number;
+  thinking?: boolean;
+  label?: string;
 }
 
 async function executeRun(
@@ -351,6 +355,7 @@ async function executeRun(
       harness: request.harness,
       toolExecution: request.toolExecution,
       timeoutMs: request.timeoutMs,
+      thinking: request.thinking,
       signal: controller.signal,
       nextSeq: () => globalRegistry.nextSeq(runId),
       onEvent: (evt) => {
@@ -453,7 +458,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     scenario_ids: JSON.stringify(scenarioIds),
     runtime: "local",
     runtime_kind: metadata?.runtimeKind ?? "llama.cpp",
-    model: request.modelId ?? "unknown",
+    model: request.label ?? request.modelId ?? "unknown",
     model_file: metadata?.modelFile ?? null,
     quant: quantSource,
     quant_tier: quantTier,
@@ -472,7 +477,7 @@ export async function startRun(request: StartRunRequest): Promise<{ runId: strin
     type: "run_started",
     runId,
     scenarioIds,
-    model: request.modelId ?? null,
+    model: request.label ?? request.modelId ?? null,
     endpoint: request.endpoint ?? null,
     temperature: SAMPLING.temperature,
     topP: SAMPLING.top_p,

@@ -45,6 +45,7 @@ export interface RuntimeContext {
   apiKey?: string;
   systemPrompt?: string;
   harness?: string;
+  thinking?: boolean;
 }
 
 export interface RuntimeSessionContext {
@@ -59,6 +60,7 @@ export interface RuntimeSessionContext {
   apiKey?: string;
   systemPrompt?: string;
   harness?: string;
+  thinking?: boolean;
 }
 
 export interface RuntimeSession {

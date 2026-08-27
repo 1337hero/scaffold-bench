@@ -240,6 +240,7 @@ async function createLocalSession(ctx: RuntimeSessionContext): Promise<RuntimeSe
               apiKey: effectiveApiKey,
               signal,
               harness,
+              thinking: ctx.thinking,
             },
             prepared.requestTools,
             (delta) => applyLocalEvent({ type: "assistant_delta", content: delta }, state, ctx)

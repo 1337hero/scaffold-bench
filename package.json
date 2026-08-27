@@ -24,6 +24,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
+    "ai": "^7.0.22",
     "effect": "^3.21.2",
     "hono": "^4.12.15",
     "liquidjs": "^10.27.0"

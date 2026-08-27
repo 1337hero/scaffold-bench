@@ -61,6 +61,7 @@ export type CallModelConfig = {
   apiKey: string | undefined;
   signal?: AbortSignal;
   harness?: Harness;
+  thinking?: boolean;
 };
 
 const MAX_TRANSIENT_RETRIES = 2;
@@ -109,7 +110,7 @@ export async function callModel(
             model: config.model,
             messages: conversation,
             ...SAMPLING,
-            chat_template_kwargs: { enable_thinking: false },
+            chat_template_kwargs: { enable_thinking: config.thinking === true },
             stream: true,
             stream_options: { include_usage: true },
             ...(tools?.length ? { tools } : {}),
